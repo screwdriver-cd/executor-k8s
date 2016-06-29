@@ -1,8 +1,17 @@
 'use strict';
-const assert = require('chai').assert;
 
-describe('index test', () => {
-    it('fails', () => {
-        assert.isTrue(false);
+describe('start', () => {
+    let Executor;
+
+    beforeEach(() => {
+        /* eslint-disable global-require */
+        Executor = require('../index');
+        /* eslint-enable global-require */
+    });
+
+    it('calls back', (done) => {
+        const executor = new Executor();
+
+        executor.start({}, done);
     });
 });
