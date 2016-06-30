@@ -36,6 +36,19 @@ spec:
         volumeMounts:
         - mountPath: /opt/screwdriver
           name: screwdriver
+        resources:
+          # Upper-bound limits for resources
+          limits:
+            # 4000 milli CPU => 4 CPUs
+            cpu: 4000m
+            # 4096 MB => 4 GB for RAM
+            memory: 4096Mi
+          # Initial resource allocation. Also acts as the lower-bound limit
+          requests:
+            # 2000 milli CPU => 2 CPUs
+            cpu: 2000m
+            # 4096 MB => 4 GB for RAM
+            memory: 4096Mi
         env:
         - name: GIT_TOKEN
           valueFrom:
