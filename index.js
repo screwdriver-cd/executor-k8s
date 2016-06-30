@@ -1,6 +1,7 @@
 'use strict';
 const Executor = require('screwdriver-executor-base');
 const fs = require('fs');
+const path = require('path');
 const request = require('request');
 const tinytim = require('tinytim');
 const yaml = require('js-yaml');
@@ -25,7 +26,7 @@ class K8sExecutor extends Executor {
      */
     start(config, callback) {
         const scmMatch = SCM_URL_REGEX.exec(config.scmUrl);
-        const jobTemplate = tinytim.renderFile('./config/job.yaml.tim', {
+        const jobTemplate = tinytim.renderFile(path.resolve(__dirname, '/config/job.yaml.tim'), {
             git_org: scmMatch[GIT_ORG],
             git_repo: scmMatch[GIT_REPO],
             git_branch: (scmMatch[GIT_BRANCH] || '#master').slice(1),
