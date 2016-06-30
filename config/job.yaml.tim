@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  generateName: sd-
+spec:
+  completions: 1
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: launcher
+        image: screwdrivercd/job-tools:v0.1.0
+        command:
+        - "/bin/sh"
+        - "-c"
+        - "mkdir -p /opt/job-tools && cp -a /opt/screwdriver/* /opt/job-tools && touch /opt/job-tools/loaded"
+        volumeMounts:
+        - mountPath: /opt/job-tools
+          name: screwdriver
+
+      - name: build
+        image: node:4
+        command:
+        - "/bin/sh"
+        - "-c"
+        - "echo -n Fetching build tools.; while ! [ -f /opt/screwdriver/loaded ]; do echo -n .; sleep 1; done; echo; /opt/screwdriver/launch {{git_org}} {{git_repo}} {{git_branch}} {{job_name}}"
+        volumeMounts:
+        - mountPath: /opt/screwdriver
+          name: screwdriver
+        env:
+        - name: GIT_TOKEN
+          valueFrom:
+              secretKeyRef:
+                  name: git-token
+                  key: git
+        - name: NPM_TOKEN
+          valueFrom:
+              secretKeyRef:
+                  name: npm-token
+                  key: npm
+      volumes:
+        - name: screwdriver
+          emptyDir: {}
