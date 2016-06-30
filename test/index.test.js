@@ -47,7 +47,7 @@ describe('start', () => {
         };
 
         requestMock.post.yieldsAsync(null, fakeResponse, fakeResponse.body);
-        fsMock.readFileSync.withArgs('/etc/kubernetes/apikey').returns('api_key');
+        fsMock.readFileSync.withArgs('/etc/kubernetes/apikey/token').returns('api_key');
         fsMock.readFileSync.withArgs('./config/job.yaml.tim').returns(TEST_TIM_YAML);
 
         mockery.registerMock('fs', fsMock);
