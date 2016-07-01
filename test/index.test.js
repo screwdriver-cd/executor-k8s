@@ -31,7 +31,7 @@ describe('index', () => {
         }
     };
     const jobsUrl = 'https://kubernetes/apis/batch/v1/namespaces/default/jobs';
-    const podsUrl = 'https://kubernetes/apis/v1/namespaces/default/pods';
+    const podsUrl = 'https://kubernetes/api/v1/namespaces/default/pods';
 
     before(() => {
         mockery.enable({
