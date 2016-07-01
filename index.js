@@ -97,7 +97,7 @@ class K8sExecutor extends Executor {
                     Authorization: `Bearer ${API_KEY}`
                 },
                 strictSSL: false
-            }).pipe(response);
+            }).on('response', response);
         });
     }
 }

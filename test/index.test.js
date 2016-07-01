@@ -2,6 +2,7 @@
 const assert = require('chai').assert;
 const sinon = require('sinon');
 const mockery = require('mockery');
+const EventEmitter = require('events').EventEmitter;
 
 sinon.assert.expose(assert, { prefix: '' });
 
@@ -46,9 +47,7 @@ describe('index', () => {
             get: sinon.stub()
         };
 
-        pipeMock = {
-            pipe: sinon.stub()
-        };
+        pipeMock = new EventEmitter();
 
         fsMock = {
             readFileSync: sinon.stub()
@@ -198,7 +197,6 @@ describe('index', () => {
                 buildId: testBuildId
             }, (err) => {
                 assert.isOk(err);
-                assert.notCalled(pipeMock.pipe);
                 done();
             });
         });
@@ -216,7 +214,6 @@ describe('index', () => {
                 buildId: testBuildId
             }, (err) => {
                 assert.isOk(err);
-                assert.notCalled(pipeMock.pipe);
                 done();
             });
         });
@@ -251,14 +248,15 @@ describe('index', () => {
             const returnFunc = (err) => {
                 assert.isNull(err);
                 assert.calledWith(requestMock.get, getConfig);
-                assert.calledWith(pipeMock.pipe, returnFunc);
                 done();
             };
 
             requestMock.get.withArgs(getConfig)
                 .yieldsAsync(null, returnResponse, returnResponse.body);
             requestMock.get.withArgs(logConfig).returns(pipeMock);
-            pipeMock.pipe.yieldsAsync(null);
+            setTimeout(() => {
+                pipeMock.emit('response', null);
+            }, 1000);
             executor.stream({
                 buildId: testBuildId
             }, returnFunc);
