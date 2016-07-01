@@ -12,7 +12,7 @@ const GIT_ORG = 2;
 const GIT_REPO = 3;
 const GIT_BRANCH = 4;
 const jobsUrl = 'https://kubernetes/apis/batch/v1/namespaces/default/jobs';
-const podsUrl = 'https://kubernetes/apis/v1/namespaces/default/pods';
+const podsUrl = 'https://kubernetes/api/v1/namespaces/default/pods';
 
 class K8sExecutor extends Executor {
     /**
@@ -85,7 +85,7 @@ class K8sExecutor extends Executor {
             const podName = hoek.reach(body, 'items.0.metadata.name');
 
             if (!podName) {
-                return response(new Error('Error getting pod name'));
+                return response(new Error(`Error getting pod name: ${JSON.stringify(body)}`));
             }
             const logUrl = `${podsUrl}/${podName}/log?container=build&follow=true&pretty=true`;
 
