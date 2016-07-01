@@ -71,6 +71,7 @@ class K8sExecutor extends Executor {
     stream(config, response) {
         const pod = `${podsUrl}?labelSelector=sdbuild=${config.buildId}`;
         const options = {
+            url: pod,
             headers: {
                 Authorization: `Bearer ${API_KEY}`
             },
@@ -78,7 +79,7 @@ class K8sExecutor extends Executor {
             strictSSL: false
         };
 
-        request.get(pod, options, (err, resp, body) => {
+        request.get(options, (err, resp, body) => {
             if (err) {
                 return response(new Error(`Error getting pod with sdbuild=${config.buildId}`));
             }
@@ -89,7 +90,13 @@ class K8sExecutor extends Executor {
             }
             const logUrl = `${podsUrl}/${podName}/log?container=build&follow=true&pretty=true`;
 
-            return request.get(logUrl).pipe(response);
+            return request.get({
+                url: logUrl,
+                headers: {
+                    Authorization: `Bearer ${API_KEY}`
+                },
+                strictSSL: false
+            }).pipe(response);
         });
     }
 }

@@ -211,7 +211,7 @@ describe('index', () => {
                 }
             };
 
-            requestMock.get.withArgs(pod).yieldsAsync(null, returnResponse, returnResponse.body);
+            requestMock.get.yieldsAsync(null, returnResponse, returnResponse.body);
             executor.stream({
                 buildId: testBuildId
             }, (err) => {
@@ -223,7 +223,15 @@ describe('index', () => {
 
         it('stream logs when podname is found', (done) => {
             const getConfig = {
+                url: pod,
                 json: true,
+                headers: {
+                    Authorization: 'Bearer api_key'
+                },
+                strictSSL: false
+            };
+            const logConfig = {
+                url: logUrl,
                 headers: {
                     Authorization: 'Bearer api_key'
                 },
@@ -242,13 +250,14 @@ describe('index', () => {
 
             const returnFunc = (err) => {
                 assert.isNull(err);
-                assert.calledWith(requestMock.get, pod, getConfig);
+                assert.calledWith(requestMock.get, getConfig);
                 assert.calledWith(pipeMock.pipe, returnFunc);
                 done();
             };
 
-            requestMock.get.withArgs(pod).yieldsAsync(null, returnResponse, returnResponse.body);
-            requestMock.get.withArgs(logUrl).returns(pipeMock);
+            requestMock.get.withArgs(getConfig)
+                .yieldsAsync(null, returnResponse, returnResponse.body);
+            requestMock.get.withArgs(logConfig).returns(pipeMock);
             pipeMock.pipe.yieldsAsync(null);
             executor.stream({
                 buildId: testBuildId
