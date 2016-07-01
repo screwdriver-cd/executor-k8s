@@ -6,14 +6,13 @@ const request = require('request');
 const tinytim = require('tinytim');
 const yaml = require('js-yaml');
 const hoek = require('hoek');
-const API_KEY = process.env.K8S_TOKEN || fs.readFileSync('/etc/kubernetes/apikey/token', 'utf-8');
+const API_KEY = fs.readFileSync('/etc/kubernetes/apikey/token', 'utf-8');
 const SCM_URL_REGEX = /^git@([^:]+):([^\/]+)\/(.+?)\.git(#.+)?$/;
 const GIT_ORG = 2;
 const GIT_REPO = 3;
 const GIT_BRANCH = 4;
-const k8sCluster = process.env.K8S_HOST || 'kubernetes';
-const jobsUrl = `https://${k8sCluster}/apis/batch/v1/namespaces/default/jobs`;
-const podsUrl = `https://${k8sCluster}/api/v1/namespaces/default/pods`;
+const jobsUrl = 'https://kubernetes/apis/batch/v1/namespaces/default/jobs';
+const podsUrl = 'https://kubernetes/api/v1/namespaces/default/pods';
 
 class K8sExecutor extends Executor {
     /**
@@ -97,7 +96,7 @@ class K8sExecutor extends Executor {
                     Authorization: `Bearer ${API_KEY}`
                 },
                 strictSSL: false
-            }).pipe(response);
+            }).on('response', response);
         });
     }
 }
