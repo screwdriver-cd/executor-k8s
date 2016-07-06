@@ -2,7 +2,6 @@
 const assert = require('chai').assert;
 const sinon = require('sinon');
 const mockery = require('mockery');
-const EventEmitter = require('events').EventEmitter;
 
 sinon.assert.expose(assert, { prefix: '' });
 
@@ -15,12 +14,18 @@ command:
 - "/opt/screwdriver/launch {{git_org}} {{git_repo}} {{git_branch}} {{job_name}}"
 `;
 
+/**
+ * Stub for Readable wrapper
+ * @method ReadableMock
+ */
+function ReadableMock() {}
+
 describe('index', () => {
     let Executor;
     let requestMock;
     let fsMock;
-    let pipeMock;
     let executor;
+    let readableMock;
     const testScmUrl = 'git@github.com:screwdriver-cd/hashr.git';
     const testBuildId = 'build_ad11234tag41fda';
     const testJobId = 'job_ad11234tag41fda';
@@ -47,16 +52,23 @@ describe('index', () => {
             get: sinon.stub()
         };
 
-        pipeMock = new EventEmitter();
-
         fsMock = {
             readFileSync: sinon.stub()
         };
+
+        readableMock = {
+            wrap: sinon.stub()
+        };
+
+        ReadableMock.prototype.wrap = readableMock.wrap;
 
         fsMock.readFileSync.withArgs('/etc/kubernetes/apikey/token').returns('api_key');
         fsMock.readFileSync.withArgs(sinon.match(/config\/job.yaml.tim/))
         .returns(TEST_TIM_YAML);
 
+        mockery.registerMock('stream', {
+            Readable: ReadableMock
+        });
         mockery.registerMock('fs', fsMock);
         mockery.registerMock('request', requestMock);
 
@@ -244,22 +256,28 @@ describe('index', () => {
                     }]
                 }
             };
-
-            const returnFunc = (err) => {
-                assert.isNull(err);
-                assert.calledWith(requestMock.get, getConfig);
-                done();
+            const logGetMock = {
+                mock: 'thing'
+            };
+            const readWrapMock = {
+                mock: 'thing2'
             };
 
             requestMock.get.withArgs(getConfig)
                 .yieldsAsync(null, returnResponse, returnResponse.body);
-            requestMock.get.withArgs(logConfig).returns(pipeMock);
-            setTimeout(() => {
-                pipeMock.emit('response', null);
-            }, 1000);
+            requestMock.get.withArgs(logConfig).returns(logGetMock);
+            readableMock.wrap.returns(readWrapMock);
+
             executor.stream({
                 buildId: testBuildId
-            }, returnFunc);
+            }, (stream) => {
+                assert.calledTwice(requestMock.get);
+                assert.calledWith(requestMock.get, getConfig);
+                assert.calledWith(requestMock.get, logConfig);
+                assert.calledWith(readableMock.wrap, logGetMock);
+                assert.deepEqual(stream, readWrapMock);
+                done();
+            });
         });
     });
 });
