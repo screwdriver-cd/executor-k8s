@@ -2,6 +2,7 @@
 const Executor = require('screwdriver-executor-base');
 const fs = require('fs');
 const path = require('path');
+const Readable = require('stream').Readable;
 const request = require('request');
 const tinytim = require('tinytim');
 const yaml = require('js-yaml');
@@ -91,13 +92,13 @@ class K8sExecutor extends Executor {
             }
             const logUrl = `${podsUrl}/${podName}/log?container=build&follow=true&pretty=true`;
 
-            return request.get({
+            return response(new Readable().wrap(request.get({
                 url: logUrl,
                 headers: {
                     Authorization: `Bearer ${API_KEY}`
                 },
                 strictSSL: false
-            }).on('response', response);
+            })));
         });
     }
 }
