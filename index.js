@@ -1,5 +1,6 @@
 'use strict';
 const Executor = require('screwdriver-executor-base');
+const boom = require('boom');
 const fs = require('fs');
 const path = require('path');
 const Readable = require('stream').Readable;
@@ -83,12 +84,12 @@ class K8sExecutor extends Executor {
 
         request.get(options, (err, resp, body) => {
             if (err) {
-                return response(new Error(`Error getting pod with sdbuild=${config.buildId}`));
+                return response(boom.wrap(err));
             }
             const podName = hoek.reach(body, 'items.0.metadata.name');
 
             if (!podName) {
-                return response(new Error(`Error getting pod name: ${JSON.stringify(body)}`));
+                return response(boom.notFound(`Unable to find build matching ${config.buildId}`));
             }
             const logUrl = `${podsUrl}/${podName}/log?container=build&follow=true&pretty=true`;
 

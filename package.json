@@ -40,6 +40,7 @@
     "sinon": "^1.17.4"
   },
   "dependencies": {
+    "boom": "^3.2.2",
     "hoek": "^4.0.1",
     "js-yaml": "^3.6.1",
     "request": "^2.72.0",
