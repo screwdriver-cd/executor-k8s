@@ -19,6 +19,11 @@ command:
  * @method ReadableMock
  */
 function ReadableMock() {}
+/**
+ * Stub for circuit-fuses wrapper
+ * @method BreakerMock
+ */
+function BreakerMock() {}
 
 describe('index', () => {
     let Executor;
@@ -26,6 +31,7 @@ describe('index', () => {
     let fsMock;
     let executor;
     let readableMock;
+    let breakRunMock;
     const testScmUrl = 'git@github.com:screwdriver-cd/hashr.git';
     const testBuildId = 'build_ad11234tag41fda';
     const testJobId = 'job_ad11234tag41fda';
@@ -60,6 +66,9 @@ describe('index', () => {
             wrap: sinon.stub()
         };
 
+        breakRunMock = sinon.stub();
+
+        BreakerMock.prototype.runCommand = breakRunMock;
         ReadableMock.prototype.wrap = readableMock.wrap;
 
         fsMock.readFileSync.withArgs('/etc/kubernetes/apikey/token').returns('api_key');
@@ -71,6 +80,7 @@ describe('index', () => {
         });
         mockery.registerMock('fs', fsMock);
         mockery.registerMock('request', requestMock);
+        mockery.registerMock('circuit-fuses', BreakerMock);
 
         /* eslint-disable global-require */
         Executor = require('../index');
@@ -95,12 +105,14 @@ describe('index', () => {
 
     describe('start', () => {
         beforeEach(() => {
-            requestMock.post.yieldsAsync(null, fakeResponse, fakeResponse.body);
+            breakRunMock.yieldsAsync(null, fakeResponse, fakeResponse.body);
         });
 
         describe('successful requests', () => {
             it('with scmUrl containing branch', (done) => {
                 const postConfig = {
+                    uri: jobsUrl,
+                    method: 'POST',
                     json: {
                         metadata: {
                             name: testBuildId,
@@ -122,13 +134,16 @@ describe('index', () => {
                     pipelineId: testPipelineId
                 }, (err) => {
                     assert.isNull(err);
-                    assert.calledWith(requestMock.post, jobsUrl, postConfig);
+                    assert.calledOnce(breakRunMock);
+                    assert.calledWith(breakRunMock, postConfig);
                     done();
                 });
             });
 
             it('with scmUrl without branch', (done) => {
                 const postConfig = {
+                    uri: jobsUrl,
+                    method: 'POST',
                     json: {
                         metadata: {
                             name: testBuildId,
@@ -150,7 +165,8 @@ describe('index', () => {
                     pipelineId: testPipelineId
                 }, (err) => {
                     assert.isNull(err);
-                    assert.calledWith(requestMock.post, jobsUrl, postConfig);
+                    assert.calledOnce(breakRunMock);
+                    assert.calledWith(breakRunMock, postConfig);
                     done();
                 });
             });
@@ -159,7 +175,7 @@ describe('index', () => {
         it('returns error when request responds with error', (done) => {
             const error = new Error('lol');
 
-            requestMock.post.yieldsAsync(error);
+            breakRunMock.yieldsAsync(error);
 
             executor.start({
                 scmUrl: testScmUrl,
@@ -182,7 +198,7 @@ describe('index', () => {
             };
             const returnMessage = `Failed to create job: ${JSON.stringify(returnResponse.body)}`;
 
-            requestMock.post.yieldsAsync(null, returnResponse, returnResponse.body);
+            breakRunMock.yieldsAsync(null, returnResponse);
 
             executor.start({
                 scmUrl: testScmUrl,
@@ -204,7 +220,7 @@ describe('index', () => {
         it('reply with error when it fails to get pod', (done) => {
             const error = new Error('lol');
 
-            requestMock.get.yieldsAsync(error);
+            breakRunMock.yieldsAsync(error);
             executor.stream({
                 buildId: testBuildId
             }, (err) => {
@@ -221,7 +237,7 @@ describe('index', () => {
                 }
             };
 
-            requestMock.get.yieldsAsync(null, returnResponse, returnResponse.body);
+            breakRunMock.yieldsAsync(null, returnResponse);
             executor.stream({
                 buildId: testBuildId
             }, (err) => {
@@ -263,16 +279,17 @@ describe('index', () => {
                 mock: 'thing2'
             };
 
-            requestMock.get.withArgs(getConfig)
-                .yieldsAsync(null, returnResponse, returnResponse.body);
+            breakRunMock.withArgs(getConfig)
+                .yieldsAsync(null, returnResponse);
             requestMock.get.withArgs(logConfig).returns(logGetMock);
             readableMock.wrap.returns(readWrapMock);
 
             executor.stream({
                 buildId: testBuildId
             }, (stream) => {
-                assert.calledTwice(requestMock.get);
-                assert.calledWith(requestMock.get, getConfig);
+                assert.calledOnce(breakRunMock);
+                assert.calledOnce(requestMock.get);
+                assert.calledWith(breakRunMock, getConfig);
                 assert.calledWith(requestMock.get, logConfig);
                 assert.calledWith(readableMock.wrap, logGetMock);
                 assert.deepEqual(stream, readWrapMock);
