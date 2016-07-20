@@ -3,6 +3,7 @@ const Executor = require('screwdriver-executor-base');
 const fs = require('fs');
 const path = require('path');
 const Readable = require('stream').Readable;
+const Fusebox = require('circuit-fuses');
 const request = require('request');
 const tinytim = require('tinytim');
 const yaml = require('js-yaml');
@@ -17,6 +18,16 @@ const jobsUrl = `https://${k8sCluster}/apis/batch/v1/namespaces/default/jobs`;
 const podsUrl = `https://${k8sCluster}/api/v1/namespaces/default/pods`;
 
 class K8sExecutor extends Executor {
+
+    /**
+     * Constructor
+     * @method constructor
+     */
+    constructor() {
+        super();
+        this.breaker = new Fusebox(request);
+    }
+
     /**
      * Starts a k8s build
      * @method start
@@ -41,6 +52,8 @@ class K8sExecutor extends Executor {
         });
 
         const options = {
+            uri: jobsUrl,
+            method: 'POST',
             json: yaml.safeLoad(jobTemplate),
             headers: {
                 Authorization: `Bearer ${API_KEY}`
@@ -48,13 +61,13 @@ class K8sExecutor extends Executor {
             strictSSL: false
         };
 
-        request.post(jobsUrl, options, (err, resp, body) => {
+        this.breaker.runCommand(options, (err, resp) => {
             if (err) {
                 return callback(err);
             }
 
             if (resp.statusCode !== 201) {
-                const msg = `Failed to create job: ${JSON.stringify(body)}`;
+                const msg = `Failed to create job: ${JSON.stringify(resp.body)}`;
 
                 return callback(new Error(msg));
             }
@@ -81,10 +94,12 @@ class K8sExecutor extends Executor {
             strictSSL: false
         };
 
-        request.get(options, (err, resp, body) => {
+        this.breaker.runCommand(options, (err, resp) => {
             if (err) {
                 return response(new Error(`Error getting pod with sdbuild=${config.buildId}`));
             }
+
+            const body = resp.body;
             const podName = hoek.reach(body, 'items.0.metadata.name');
 
             if (!podName) {
