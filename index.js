@@ -1,6 +1,5 @@
 'use strict';
 const Executor = require('screwdriver-executor-base');
-const fs = require('fs');
 const path = require('path');
 const Readable = require('stream').Readable;
 const Fusebox = require('circuit-fuses');
@@ -8,23 +7,27 @@ const request = require('request');
 const tinytim = require('tinytim');
 const yaml = require('js-yaml');
 const hoek = require('hoek');
-const API_KEY = process.env.K8S_TOKEN || fs.readFileSync('/etc/kubernetes/apikey/token', 'utf-8');
 const SCM_URL_REGEX = /^git@([^:]+):([^\/]+)\/(.+?)\.git(#.+)?$/;
 const GIT_ORG = 2;
 const GIT_REPO = 3;
 const GIT_BRANCH = 4;
-const k8sCluster = process.env.K8S_HOST || 'kubernetes';
-const jobsUrl = `https://${k8sCluster}/apis/batch/v1/namespaces/default/jobs`;
-const podsUrl = `https://${k8sCluster}/api/v1/namespaces/default/pods`;
 
 class K8sExecutor extends Executor {
 
     /**
      * Constructor
      * @method constructor
+     * @param  {Object} options           Configuration options
+     * @param  {Object} options.token     Api Token to make requests with
+     * @param  {Object} options.host      Kubernetes hostname to make requests to
      */
-    constructor() {
+    constructor(options) {
         super();
+
+        this.token = options.token;
+        this.host = options.host;
+        this.jobsUrl = `https://${this.host}/apis/batch/v1/namespaces/default/jobs`;
+        this.podsUrl = `https://${this.host}/api/v1/namespaces/default/pods`;
         this.breaker = new Fusebox(request);
     }
 
@@ -39,7 +42,7 @@ class K8sExecutor extends Executor {
      * @param  {String}   config.scmUrl     Scm URL to use in the build
      * @param  {Function} callback          Callback function
      */
-    start(config, callback) {
+    _start(config, callback) {
         const scmMatch = SCM_URL_REGEX.exec(config.scmUrl);
         const jobTemplate = tinytim.renderFile(path.resolve(__dirname, './config/job.yaml.tim'), {
             git_org: scmMatch[GIT_ORG],
@@ -52,11 +55,11 @@ class K8sExecutor extends Executor {
         });
 
         const options = {
-            uri: jobsUrl,
+            uri: this.jobsUrl,
             method: 'POST',
             json: yaml.safeLoad(jobTemplate),
             headers: {
-                Authorization: `Bearer ${API_KEY}`
+                Authorization: `Bearer ${this.token}`
             },
             strictSSL: false
         };
@@ -81,14 +84,14 @@ class K8sExecutor extends Executor {
     * @method stream
     * @param  {Object}   config            A configuration object
     * @param  {String}   config.buildId    ID for the build
-    * @param  {Response} response          Response object to stream logs
+    * @param  {Response} callback          Callback for when a stream is created
     */
-    stream(config, response) {
-        const pod = `${podsUrl}?labelSelector=sdbuild=${config.buildId}`;
+    _stream(config, callback) {
+        const pod = `${this.podsUrl}?labelSelector=sdbuild=${config.buildId}`;
         const options = {
             url: pod,
             headers: {
-                Authorization: `Bearer ${API_KEY}`
+                Authorization: `Bearer ${this.token}`
             },
             json: true,
             strictSSL: false
@@ -96,21 +99,21 @@ class K8sExecutor extends Executor {
 
         this.breaker.runCommand(options, (err, resp) => {
             if (err) {
-                return response(new Error(`Error getting pod with sdbuild=${config.buildId}`));
+                return callback(new Error(`Error getting pod with sdbuild=${config.buildId}`));
             }
 
             const body = resp.body;
             const podName = hoek.reach(body, 'items.0.metadata.name');
 
             if (!podName) {
-                return response(new Error(`Error getting pod name: ${JSON.stringify(body)}`));
+                return callback(new Error(`Error getting pod name: ${JSON.stringify(body)}`));
             }
-            const logUrl = `${podsUrl}/${podName}/log?container=build&follow=true&pretty=true`;
+            const logUrl = `${this.podsUrl}/${podName}/log?container=build&follow=true&pretty=true`;
 
-            return response(new Readable().wrap(request.get({
+            return callback(null, new Readable().wrap(request.get({
                 url: logUrl,
                 headers: {
-                    Authorization: `Bearer ${API_KEY}`
+                    Authorization: `Bearer ${this.token}`
                 },
                 strictSSL: false
             })));
