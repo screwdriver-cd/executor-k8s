@@ -86,7 +86,10 @@ describe('index', () => {
         Executor = require('../index');
         /* eslint-enable global-require */
 
-        executor = new Executor();
+        executor = new Executor({
+            token: 'api_key',
+            host: 'kubernetes'
+        });
     });
 
     afterEach(() => {
@@ -131,7 +134,8 @@ describe('index', () => {
                     scmUrl: 'git@github.com:screwdriver-cd/hashr.git#addSD',
                     buildId: testBuildId,
                     jobId: testJobId,
-                    pipelineId: testPipelineId
+                    pipelineId: testPipelineId,
+                    container: 'container'
                 }, (err) => {
                     assert.isNull(err);
                     assert.calledOnce(breakRunMock);
@@ -162,7 +166,8 @@ describe('index', () => {
                     scmUrl: testScmUrl,
                     buildId: testBuildId,
                     jobId: testJobId,
-                    pipelineId: testPipelineId
+                    pipelineId: testPipelineId,
+                    container: 'container'
                 }, (err) => {
                     assert.isNull(err);
                     assert.calledOnce(breakRunMock);
@@ -181,7 +186,8 @@ describe('index', () => {
                 scmUrl: testScmUrl,
                 buildId: testBuildId,
                 jobId: testJobId,
-                pipelineId: testPipelineId
+                pipelineId: testPipelineId,
+                container: 'container'
             }, (err) => {
                 assert.deepEqual(err, error);
                 done();
@@ -204,7 +210,8 @@ describe('index', () => {
                 scmUrl: testScmUrl,
                 buildId: testBuildId,
                 jobId: testJobId,
-                pipelineId: testPipelineId
+                pipelineId: testPipelineId,
+                container: 'container'
             }, (err, response) => {
                 assert.notOk(response);
                 assert.equal(err.message, returnMessage);
@@ -286,7 +293,8 @@ describe('index', () => {
 
             executor.stream({
                 buildId: testBuildId
-            }, (stream) => {
+            }, (err, stream) => {
+                assert.isNull(err);
                 assert.calledOnce(breakRunMock);
                 assert.calledOnce(requestMock.get);
                 assert.calledWith(breakRunMock, getConfig);
