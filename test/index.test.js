@@ -33,9 +33,10 @@ describe('index', () => {
     let readableMock;
     let breakRunMock;
     const testScmUrl = 'git@github.com:screwdriver-cd/hashr.git';
-    const testBuildId = 'build_ad11234tag41fda';
-    const testJobId = 'job_ad11234tag41fda';
-    const testPipelineId = 'pipeline_ad11234tag41fda';
+    const testBuildId = '80754af91bfb6d1073585b046fe0a474ce868509';
+    const testJobId = '2eda8ad1632af052b0c74d6fcab6058b3a79cf25';
+    const testPipelineId = 'aaa83eac6890a9a6e2273ea51d6f2f2915b1a019';
+    const testJobName = 'main';
     const fakeResponse = {
         statusCode: 201,
         body: {
@@ -134,6 +135,7 @@ describe('index', () => {
                     scmUrl: 'git@github.com:screwdriver-cd/hashr.git#addSD',
                     buildId: testBuildId,
                     jobId: testJobId,
+                    jobName: testJobName,
                     pipelineId: testPipelineId,
                     container: 'container'
                 }, (err) => {
@@ -166,6 +168,7 @@ describe('index', () => {
                     scmUrl: testScmUrl,
                     buildId: testBuildId,
                     jobId: testJobId,
+                    jobName: testJobName,
                     pipelineId: testPipelineId,
                     container: 'container'
                 }, (err) => {
@@ -186,6 +189,7 @@ describe('index', () => {
                 scmUrl: testScmUrl,
                 buildId: testBuildId,
                 jobId: testJobId,
+                jobName: testJobName,
                 pipelineId: testPipelineId,
                 container: 'container'
             }, (err) => {
@@ -210,6 +214,7 @@ describe('index', () => {
                 scmUrl: testScmUrl,
                 buildId: testBuildId,
                 jobId: testJobId,
+                jobName: testJobName,
                 pipelineId: testPipelineId,
                 container: 'container'
             }, (err, response) => {

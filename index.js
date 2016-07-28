@@ -37,6 +37,7 @@ class K8sExecutor extends Executor {
      * @param  {Object}   config            A configuration object
      * @param  {String}   config.buildId    ID for the build
      * @param  {String}   config.jobId      ID for the job
+     * @param  {String}   config.jobName    Name of the job
      * @param  {String}   config.pipelineId ID for the pipeline
      * @param  {String}   config.container  Container for the build to run in
      * @param  {String}   config.scmUrl     Scm URL to use in the build
@@ -48,7 +49,7 @@ class K8sExecutor extends Executor {
             git_org: scmMatch[GIT_ORG],
             git_repo: scmMatch[GIT_REPO],
             git_branch: (scmMatch[GIT_BRANCH] || '#master').slice(1),
-            job_name: 'main',
+            job_name: config.jobName,
             build_id: config.buildId,
             job_id: config.jobId,
             pipeline_id: config.pipelineId
