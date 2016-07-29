@@ -18,7 +18,7 @@ spec:
       restartPolicy: Never
       containers:
       - name: launcher
-        image: screwdrivercd/job-tools:v0.2.2
+        image: screwdrivercd/job-tools:v0.2.3
         command:
         - "/bin/sh"
         - "-c"
