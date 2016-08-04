@@ -81,6 +81,42 @@ class K8sExecutor extends Executor {
     }
 
     /**
+     * Stop a k8s build
+     * @method stop
+     * @param  {Object}   config            A configuration object
+     * @param  {String}   config.buildId    ID for the build
+     * @param  {Function} callback          Callback function
+     */
+    _stop(config, callback) {
+        const options = {
+            uri: this.jobsUrl,
+            method: 'DELETE',
+            qs: {
+                labelSelector: `sdbuild=${config.buildId}`
+            },
+            headers: {
+                Authorization: `Bearer ${this.token}`
+            },
+            strictSSL: false
+        };
+
+        // @TODO collect logs before removing all traces of it.
+        this.breaker.runCommand(options, (err, resp) => {
+            if (err) {
+                return callback(err);
+            }
+
+            if (resp.statusCode !== 200) {
+                const msg = `Failed to delete job: ${JSON.stringify(resp.body)}`;
+
+                return callback(new Error(msg));
+            }
+
+            return callback(null);
+        });
+    }
+
+    /**
     * Streams logs
     * @method stream
     * @param  {Object}   config            A configuration object
