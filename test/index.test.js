@@ -37,6 +37,12 @@ describe('index', () => {
     const testJobId = '2eda8ad1632af052b0c74d6fcab6058b3a79cf25';
     const testPipelineId = 'aaa83eac6890a9a6e2273ea51d6f2f2915b1a019';
     const testJobName = 'main';
+    const fakeResponse = {
+        statusCode: 201,
+        body: {
+            success: true
+        }
+    };
     const jobsUrl = 'https://kubernetes/apis/batch/v1/namespaces/default/jobs';
     const podsUrl = 'https://kubernetes/api/v1/namespaces/default/pods';
 
@@ -101,85 +107,9 @@ describe('index', () => {
         assert.isFunction(executor.start);
     });
 
-    describe('stop', () => {
-        const fakeStopResponse = {
-            statusCode: 200,
-            body: {
-                success: 'true'
-            }
-        };
-        const deleteConfig = {
-            uri: jobsUrl,
-            method: 'DELETE',
-            qs: {
-                labelSelector: `sdbuild=${testBuildId}`
-            },
-            headers: {
-                Authorization: 'Bearer api_key'
-            },
-            strictSSL: false
-        };
-
-        beforeEach(() => {
-            breakRunMock.yieldsAsync(null, fakeStopResponse, fakeStopResponse.body);
-        });
-
-        it('calls breaker with correct config', (done) => {
-            executor.stop({
-                buildId: testBuildId
-            }, (err) => {
-                assert.isNull(err);
-                assert.calledOnce(breakRunMock);
-                assert.calledWith(breakRunMock, deleteConfig);
-                done();
-            });
-        });
-
-        it('returns error when breaker does', (done) => {
-            const error = new Error('error');
-
-            breakRunMock.yieldsAsync(error);
-            executor.stop({
-                buildId: testBuildId
-            }, (err) => {
-                assert.deepEqual(err, error);
-                assert.calledOnce(breakRunMock);
-                done();
-            });
-        });
-
-        it('returns error when response is non 200', (done) => {
-            const fakeStopErrorResponse = {
-                statusCode: 500,
-                body: {
-                    error: 'foo'
-                }
-            };
-
-            const returnMessage = 'Failed to delete job: '
-                  + `${JSON.stringify(fakeStopErrorResponse.body)}`;
-
-            breakRunMock.yieldsAsync(null, fakeStopErrorResponse);
-
-            executor.stop({
-                buildId: testBuildId
-            }, (err) => {
-                assert.equal(err.message, returnMessage);
-                done();
-            });
-        });
-    });
-
     describe('start', () => {
-        const fakeStartResponse = {
-            statusCode: 201,
-            body: {
-                success: true
-            }
-        };
-
         beforeEach(() => {
-            breakRunMock.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
+            breakRunMock.yieldsAsync(null, fakeResponse, fakeResponse.body);
         });
 
         describe('successful requests', () => {
