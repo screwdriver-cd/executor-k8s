@@ -4,21 +4,17 @@ metadata:
   name: {{build_id}}
   labels:
     sdbuild: {{build_id}}
-    sdjob: {{job_id}}
-    sdpipeline: {{pipeline_id}}
 spec:
   completions: 1
   template:
     metadata:
       labels:
         sdbuild: {{build_id}}
-        sdjob: {{job_id}}
-        sdpipeline: {{pipeline_id}}
     spec:
       restartPolicy: Never
       containers:
       - name: launcher
-        image: screwdrivercd/job-tools:v0.2.3
+        image: screwdrivercd/job-tools:{{version}}
         command:
         - "/bin/sh"
         - "-c"
@@ -28,15 +24,17 @@ spec:
           name: screwdriver
 
       - name: build
-        image: node:4
+        image: {{container}}
         command:
         - "/bin/sh"
         - "-c"
-        - "echo -n Fetching build tools.; while ! [ -f /opt/screwdriver/loaded ]; do echo -n .; sleep 1; done; echo; /opt/screwdriver/launch {{git_org}} {{git_repo}} {{git_branch}} {{job_name}}"
+        - "echo -n Fetching build tools.; while ! [ -f /opt/screwdriver/loaded ]; do echo -n .; sleep 1; done; echo; /opt/screwdriver/launch --api-uri {{api_uri}} {{build_id}}"
         volumeMounts:
         - mountPath: /opt/screwdriver
           name: screwdriver
         env:
+        - name: SD_TOKEN
+          value: "{{token}}"
         - name: GIT_TOKEN
           valueFrom:
             secretKeyRef:
