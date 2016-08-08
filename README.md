@@ -30,20 +30,17 @@ The parameters required are:
 | :-------------   | :---- | :-------------|
 | config        | Object | Configuration Object |
 | config.buildId | String | The unique ID for a build |
-| config.jobId | String | The unique ID for a job |
-| config.pipelineId | String | The unique ID for a pipeline |
 | config.container | String | Container for the build to run in |
-| config.scmUrl | String | The scmUrl to checkout |
-| callback | Function | Callback `fn(err)` for when job has been created |
+| config.apiUri | String | Screwdriver's API |
+| config.token | String | JWT to act on behalf of the build |
+| callback | Function | Callback for when task has been created |
 
 The `_start` function will start a job in kubernetes with labels for easy lookup. These labels are:
 * sdbuild: config.buildId
-* sdjob: config.jobId
-* sdpipeline: config.pipelineId
 
 The job runs two containers:
 * Runs the [screwdriver job-tools] container, sharing the files in `/opt/screwdriver`
-* Runs the specified container (As of 7/21, only runs `node:4`), which runs `/opt/screwdriver/launch` with the required parameters
+* Runs the specified container, which runs `/opt/screwdriver/launch` with the required parameters
 
 The callback is called with:
 * An error `callback(err)` when an error occurs starting the job

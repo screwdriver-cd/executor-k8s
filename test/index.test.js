@@ -8,10 +8,10 @@ sinon.assert.expose(assert, { prefix: '' });
 const TEST_TIM_YAML = `
 metadata:
   name: {{build_id}}
-  job: {{job_id}}
-  pipeline: {{pipeline_id}}
+  container: {{container}}
+  version: {{version}}
 command:
-- "/opt/screwdriver/launch {{git_org}} {{git_repo}} {{git_branch}} {{job_name}}"
+- "/opt/screwdriver/launch {{api_uri}} {{token}} {{build_id}}"
 `;
 
 /**
@@ -32,11 +32,11 @@ describe('index', () => {
     let executor;
     let readableMock;
     let breakRunMock;
-    const testScmUrl = 'git@github.com:screwdriver-cd/hashr.git';
     const testBuildId = '80754af91bfb6d1073585b046fe0a474ce868509';
-    const testJobId = '2eda8ad1632af052b0c74d6fcab6058b3a79cf25';
-    const testPipelineId = 'aaa83eac6890a9a6e2273ea51d6f2f2915b1a019';
-    const testJobName = 'main';
+    const testToken = 'abcdefg';
+    const testApiUri = 'http://localhost:8080';
+    const testContainer = 'node:4';
+    const testVersion = 'latest';
     const jobsUrl = 'https://kubernetes/apis/batch/v1/namespaces/default/jobs';
     const podsUrl = 'https://kubernetes/api/v1/namespaces/default/pods';
 
@@ -68,7 +68,7 @@ describe('index', () => {
 
         fsMock.readFileSync.withArgs('/etc/kubernetes/apikey/token').returns('api_key');
         fsMock.readFileSync.withArgs(sinon.match(/config\/job.yaml.tim/))
-        .returns(TEST_TIM_YAML);
+            .returns(TEST_TIM_YAML);
 
         mockery.registerMock('stream', {
             Readable: ReadableMock
@@ -94,6 +94,16 @@ describe('index', () => {
 
     after(() => {
         mockery.disable();
+    });
+
+    it('supports specifying a specific version', () => {
+        assert.equal(executor.version, 'latest');
+        executor = new Executor({
+            token: 'api_key',
+            host: 'kubernetes',
+            version: 'v1.2.3'
+        });
+        assert.equal(executor.version, 'v1.2.3');
     });
 
     it('extends base class', () => {
@@ -182,71 +192,36 @@ describe('index', () => {
             breakRunMock.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
         });
 
-        describe('successful requests', () => {
-            it('with scmUrl containing branch', (done) => {
-                const postConfig = {
-                    uri: jobsUrl,
-                    method: 'POST',
-                    json: {
-                        metadata: {
-                            name: testBuildId,
-                            job: testJobId,
-                            pipeline: testPipelineId
-                        },
-                        command: ['/opt/screwdriver/launch screwdriver-cd hashr addSD main']
+        it('successfully calls start', (done) => {
+            const postConfig = {
+                uri: jobsUrl,
+                method: 'POST',
+                json: {
+                    metadata: {
+                        name: testBuildId,
+                        container: testContainer,
+                        version: testVersion
                     },
-                    headers: {
-                        Authorization: 'Bearer api_key'
-                    },
-                    strictSSL: false
-                };
+                    command: [
+                        `/opt/screwdriver/launch ${testApiUri} ${testToken} ${testBuildId}`
+                    ]
+                },
+                headers: {
+                    Authorization: 'Bearer api_key'
+                },
+                strictSSL: false
+            };
 
-                executor.start({
-                    scmUrl: 'git@github.com:screwdriver-cd/hashr.git#addSD',
-                    buildId: testBuildId,
-                    jobId: testJobId,
-                    jobName: testJobName,
-                    pipelineId: testPipelineId,
-                    container: 'container'
-                }, (err) => {
-                    assert.isNull(err);
-                    assert.calledOnce(breakRunMock);
-                    assert.calledWith(breakRunMock, postConfig);
-                    done();
-                });
-            });
-
-            it('with scmUrl without branch', (done) => {
-                const postConfig = {
-                    uri: jobsUrl,
-                    method: 'POST',
-                    json: {
-                        metadata: {
-                            name: testBuildId,
-                            job: testJobId,
-                            pipeline: testPipelineId
-                        },
-                        command: ['/opt/screwdriver/launch screwdriver-cd hashr master main']
-                    },
-                    headers: {
-                        Authorization: 'Bearer api_key'
-                    },
-                    strictSSL: false
-                };
-
-                executor.start({
-                    scmUrl: testScmUrl,
-                    buildId: testBuildId,
-                    jobId: testJobId,
-                    jobName: testJobName,
-                    pipelineId: testPipelineId,
-                    container: 'container'
-                }, (err) => {
-                    assert.isNull(err);
-                    assert.calledOnce(breakRunMock);
-                    assert.calledWith(breakRunMock, postConfig);
-                    done();
-                });
+            executor.start({
+                buildId: testBuildId,
+                container: testContainer,
+                token: testToken,
+                apiUri: testApiUri
+            }, (err) => {
+                assert.isNull(err);
+                assert.calledOnce(breakRunMock);
+                assert.calledWith(breakRunMock, postConfig);
+                done();
             });
         });
 
@@ -256,12 +231,10 @@ describe('index', () => {
             breakRunMock.yieldsAsync(error);
 
             executor.start({
-                scmUrl: testScmUrl,
                 buildId: testBuildId,
-                jobId: testJobId,
-                jobName: testJobName,
-                pipelineId: testPipelineId,
-                container: 'container'
+                container: testContainer,
+                token: testToken,
+                apiUri: testApiUri
             }, (err) => {
                 assert.deepEqual(err, error);
                 done();
@@ -281,12 +254,10 @@ describe('index', () => {
             breakRunMock.yieldsAsync(null, returnResponse);
 
             executor.start({
-                scmUrl: testScmUrl,
                 buildId: testBuildId,
-                jobId: testJobId,
-                jobName: testJobName,
-                pipelineId: testPipelineId,
-                container: 'container'
+                container: testContainer,
+                token: testToken,
+                apiUri: testApiUri
             }, (err, response) => {
                 assert.notOk(response);
                 assert.equal(err.message, returnMessage);

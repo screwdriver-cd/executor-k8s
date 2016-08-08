@@ -1,11 +1,14 @@
 {
   "name": "screwdriver-executor-k8s",
-  "version": "3.0.0",
+  "version": "4.0.0",
   "description": "Kubernetes Executor plugin for Screwdriver",
   "main": "index.js",
   "scripts": {
     "pretest": "eslint .",
     "test": "jenkins-mocha --recursive"
+  },
+  "engines": {
+    "node": ">=4.0.0"
   },
   "repository": {
     "type": "git",
@@ -33,7 +36,7 @@
     "eslint": "^3.2.2",
     "eslint-config-screwdriver": "^2.0.0",
     "eslint-plugin-import": "^1.12.0",
-    "jenkins-mocha": "^2.6.0",
+    "jenkins-mocha": "^3.0.0",
     "mockery": "^1.7.0",
     "sinon": "^1.17.4"
   },
@@ -42,7 +45,7 @@
     "hoek": "^4.0.1",
     "js-yaml": "^3.6.1",
     "request": "^2.72.0",
-    "screwdriver-executor-base": "^2.0.0",
+    "screwdriver-executor-base": "^3.0.0",
     "tinytim": "^0.1.1"
   }
 }

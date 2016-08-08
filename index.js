@@ -7,10 +7,6 @@ const request = require('request');
 const tinytim = require('tinytim');
 const yaml = require('js-yaml');
 const hoek = require('hoek');
-const SCM_URL_REGEX = /^git@([^:]+):([^\/]+)\/(.+?)\.git(#.+)?$/;
-const GIT_ORG = 2;
-const GIT_REPO = 3;
-const GIT_BRANCH = 4;
 
 class K8sExecutor extends Executor {
 
@@ -18,14 +14,16 @@ class K8sExecutor extends Executor {
      * Constructor
      * @method constructor
      * @param  {Object} options           Configuration options
-     * @param  {Object} options.token     Api Token to make requests with
-     * @param  {Object} options.host      Kubernetes hostname to make requests to
+     * @param  {String} options.token     Api Token to make requests with
+     * @param  {String} options.host      Kubernetes hostname to make requests to
+     * @param  {String} [options.version] Job Tools container version to use (defaults to latest)
      */
     constructor(options) {
         super();
 
         this.token = options.token;
         this.host = options.host;
+        this.version = options.version || 'latest';
         this.jobsUrl = `https://${this.host}/apis/batch/v1/namespaces/default/jobs`;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/default/pods`;
         this.breaker = new Fusebox(request);
@@ -36,23 +34,18 @@ class K8sExecutor extends Executor {
      * @method start
      * @param  {Object}   config            A configuration object
      * @param  {String}   config.buildId    ID for the build
-     * @param  {String}   config.jobId      ID for the job
-     * @param  {String}   config.jobName    Name of the job
-     * @param  {String}   config.pipelineId ID for the pipeline
      * @param  {String}   config.container  Container for the build to run in
-     * @param  {String}   config.scmUrl     Scm URL to use in the build
+     * @param  {String}   config.apiUri     API Uri
+     * @param  {String}   config.token      JWT for the Build
      * @param  {Function} callback          Callback function
      */
     _start(config, callback) {
-        const scmMatch = SCM_URL_REGEX.exec(config.scmUrl);
         const jobTemplate = tinytim.renderFile(path.resolve(__dirname, './config/job.yaml.tim'), {
-            git_org: scmMatch[GIT_ORG],
-            git_repo: scmMatch[GIT_REPO],
-            git_branch: (scmMatch[GIT_BRANCH] || '#master').slice(1),
-            job_name: config.jobName,
             build_id: config.buildId,
-            job_id: config.jobId,
-            pipeline_id: config.pipelineId
+            container: config.container,
+            api_uri: config.apiUri,
+            token: config.token,
+            version: this.version
         });
 
         const options = {
