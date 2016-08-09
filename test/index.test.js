@@ -61,9 +61,18 @@ describe('index', () => {
             wrap: sinon.stub()
         };
 
-        breakRunMock = sinon.stub();
+        breakRunMock = {
+            runCommand: sinon.stub(),
+            getTotalRequests: sinon.stub().returns(1),
+            getTimeouts: sinon.stub().returns(2),
+            getSuccessfulRequests: sinon.stub().returns(3),
+            getFailedRequests: sinon.stub().returns(4),
+            getConcurrentRequests: sinon.stub().returns(5),
+            getAverageRequestTime: sinon.stub().returns(6),
+            isClosed: sinon.stub().returns(false)
+        };
 
-        BreakerMock.prototype.runCommand = breakRunMock;
+        BreakerMock.prototype = breakRunMock;
         ReadableMock.prototype.wrap = readableMock.wrap;
 
         fsMock.readFileSync.withArgs('/etc/kubernetes/apikey/token').returns('api_key');
@@ -111,6 +120,24 @@ describe('index', () => {
         assert.isFunction(executor.start);
     });
 
+    describe('stats', () => {
+        it('returns the correct stats', () => {
+            assert.deepEqual(executor.stats(), {
+                requests: {
+                    total: 1,
+                    timeouts: 2,
+                    success: 3,
+                    failure: 4,
+                    concurrent: 5,
+                    averageTime: 6
+                },
+                breaker: {
+                    isClosed: false
+                }
+            });
+        });
+    });
+
     describe('stop', () => {
         const fakeStopResponse = {
             statusCode: 200,
@@ -131,7 +158,7 @@ describe('index', () => {
         };
 
         beforeEach(() => {
-            breakRunMock.yieldsAsync(null, fakeStopResponse, fakeStopResponse.body);
+            breakRunMock.runCommand.yieldsAsync(null, fakeStopResponse, fakeStopResponse.body);
         });
 
         it('calls breaker with correct config', (done) => {
@@ -139,8 +166,8 @@ describe('index', () => {
                 buildId: testBuildId
             }, (err) => {
                 assert.isNull(err);
-                assert.calledOnce(breakRunMock);
-                assert.calledWith(breakRunMock, deleteConfig);
+                assert.calledOnce(breakRunMock.runCommand);
+                assert.calledWith(breakRunMock.runCommand, deleteConfig);
                 done();
             });
         });
@@ -148,12 +175,12 @@ describe('index', () => {
         it('returns error when breaker does', (done) => {
             const error = new Error('error');
 
-            breakRunMock.yieldsAsync(error);
+            breakRunMock.runCommand.yieldsAsync(error);
             executor.stop({
                 buildId: testBuildId
             }, (err) => {
                 assert.deepEqual(err, error);
-                assert.calledOnce(breakRunMock);
+                assert.calledOnce(breakRunMock.runCommand);
                 done();
             });
         });
@@ -169,7 +196,7 @@ describe('index', () => {
             const returnMessage = 'Failed to delete job: '
                   + `${JSON.stringify(fakeStopErrorResponse.body)}`;
 
-            breakRunMock.yieldsAsync(null, fakeStopErrorResponse);
+            breakRunMock.runCommand.yieldsAsync(null, fakeStopErrorResponse);
 
             executor.stop({
                 buildId: testBuildId
@@ -189,7 +216,7 @@ describe('index', () => {
         };
 
         beforeEach(() => {
-            breakRunMock.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
+            breakRunMock.runCommand.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
         });
 
         it('successfully calls start', (done) => {
@@ -219,8 +246,8 @@ describe('index', () => {
                 apiUri: testApiUri
             }, (err) => {
                 assert.isNull(err);
-                assert.calledOnce(breakRunMock);
-                assert.calledWith(breakRunMock, postConfig);
+                assert.calledOnce(breakRunMock.runCommand);
+                assert.calledWith(breakRunMock.runCommand, postConfig);
                 done();
             });
         });
@@ -228,7 +255,7 @@ describe('index', () => {
         it('returns error when request responds with error', (done) => {
             const error = new Error('lol');
 
-            breakRunMock.yieldsAsync(error);
+            breakRunMock.runCommand.yieldsAsync(error);
 
             executor.start({
                 buildId: testBuildId,
@@ -251,7 +278,7 @@ describe('index', () => {
             };
             const returnMessage = `Failed to create job: ${JSON.stringify(returnResponse.body)}`;
 
-            breakRunMock.yieldsAsync(null, returnResponse);
+            breakRunMock.runCommand.yieldsAsync(null, returnResponse);
 
             executor.start({
                 buildId: testBuildId,
@@ -273,7 +300,7 @@ describe('index', () => {
         it('reply with error when it fails to get pod', (done) => {
             const error = new Error('lol');
 
-            breakRunMock.yieldsAsync(error);
+            breakRunMock.runCommand.yieldsAsync(error);
             executor.stream({
                 buildId: testBuildId
             }, (err) => {
@@ -290,7 +317,7 @@ describe('index', () => {
                 }
             };
 
-            breakRunMock.yieldsAsync(null, returnResponse);
+            breakRunMock.runCommand.yieldsAsync(null, returnResponse);
             executor.stream({
                 buildId: testBuildId
             }, (err) => {
@@ -332,7 +359,7 @@ describe('index', () => {
                 mock: 'thing2'
             };
 
-            breakRunMock.withArgs(getConfig)
+            breakRunMock.runCommand.withArgs(getConfig)
                 .yieldsAsync(null, returnResponse);
             requestMock.get.withArgs(logConfig).returns(logGetMock);
             readableMock.wrap.returns(readWrapMock);
@@ -341,9 +368,9 @@ describe('index', () => {
                 buildId: testBuildId
             }, (err, stream) => {
                 assert.isNull(err);
-                assert.calledOnce(breakRunMock);
+                assert.calledOnce(breakRunMock.runCommand);
                 assert.calledOnce(requestMock.get);
-                assert.calledWith(breakRunMock, getConfig);
+                assert.calledWith(breakRunMock.runCommand, getConfig);
                 assert.calledWith(requestMock.get, logConfig);
                 assert.calledWith(readableMock.wrap, logGetMock);
                 assert.deepEqual(stream, readWrapMock);
