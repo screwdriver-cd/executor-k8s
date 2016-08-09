@@ -35,16 +35,6 @@ spec:
         env:
         - name: SD_TOKEN
           value: "{{token}}"
-        - name: GIT_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: git-token
-              key: git
-        - name: NPM_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: npm-token
-              key: npm
       volumes:
         - name: screwdriver
           emptyDir: {}
