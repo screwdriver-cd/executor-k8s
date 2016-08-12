@@ -18,11 +18,11 @@ The class provides a couple options that are configurable in the instantiation o
 | Parameter        | Type  |  Description |
 | :-------------   | :---- | :-------------|
 | config        | Object | Configuration Object |
-| config.token | String | The JWT token used for authenticating to the kubernetes cluster |
-| config.host | String | The hostname for the kubernetes cluster i.e. `kubernetes` if running inside kubernetes |
+| config.token | String | The JWT token used for authenticating to the Kubernetes cluster |
+| config.host | String | The hostname for the Kubernetes cluster i.e. `Kubernetes` if running inside Kubernetes |
 
 ### Start
-The `_start` method takes advantage of the input validation defined in the [executor-base-class].
+The `start` method takes advantage of the input validation defined in the [executor-base-class].
 
 The parameters required are:
 
@@ -35,7 +35,7 @@ The parameters required are:
 | config.token | String | JWT to act on behalf of the build |
 | callback | Function | Callback for when task has been created |
 
-The `_start` function will start a job in kubernetes with labels for easy lookup. These labels are:
+The `start` function will start a job in Kubernetes with labels for easy lookup. These labels are:
 * sdbuild: config.buildId
 
 The job runs two containers:
@@ -45,6 +45,24 @@ The job runs two containers:
 The callback is called with:
 * An error `callback(err)` when an error occurs starting the job
 * null `callback(null)` when a job is correctly started
+
+### Stop
+The `stop` method takes advantage of the input validation defined in the [executor-base-class].
+
+The parameters required are:
+
+| Parameter        | Type  |  Description |
+| :-------------   | :---- | :-------------|
+| config        | Object | Configuration Object |
+| config.buildId | String | The unique ID for a build |
+| callback | Function | Callback for when the job has been stopped |
+
+The `stop` function will stop a job in Kubernetes using a label:
+* sdbuild: config.buildId
+
+The callback is called with:
+* An error `callback(err)` when an error occurs stopping the job
+* null `callback(null)` when a job is correctly stopped
 
 ### Stream
 The parameters required are:
