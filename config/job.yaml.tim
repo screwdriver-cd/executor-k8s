@@ -10,25 +10,32 @@ spec:
     metadata:
       labels:
         sdbuild: {{build_id}}
+      annotations:
+        pod.alpha.kubernetes.io/init-containers: '[
+          {
+            "name": "jobtools",
+            "image": "screwdrivercd/job-tools:{{version}}",
+            "command": ["/bin/sh", "-c", "cp -a /opt/screwdriver/* /opt/job-tools"],
+            "volumeMounts": [
+              {
+                "name": "screwdriver",
+                "mountPath": "/opt/job-tools"
+              }
+            ]
+          }
+        ]'
     spec:
       restartPolicy: Never
       containers:
-      - name: launcher
-        image: screwdrivercd/job-tools:{{version}}
-        command:
-        - "/bin/sh"
-        - "-c"
-        - "mkdir -p /opt/job-tools && cp -a /opt/screwdriver/* /opt/job-tools && touch /opt/job-tools/loaded"
-        volumeMounts:
-        - mountPath: /opt/job-tools
-          name: screwdriver
-
       - name: build
         image: {{container}}
         command:
-        - "/bin/sh"
-        - "-c"
-        - "echo -n Fetching build tools.; while ! [ -f /opt/screwdriver/loaded ]; do echo -n .; sleep 1; done; echo; /opt/screwdriver/launch --api-uri {{api_uri}} {{build_id}}"
+        - "/opt/screwdriver/tini"
+        - "--"
+        - "/opt/screwdriver/launch"
+        - "--api-uri"
+        - "{{api_uri}}"
+        - "{{build_id}}"
         volumeMounts:
         - mountPath: /opt/screwdriver
           name: screwdriver
