@@ -14,12 +14,16 @@ spec:
         pod.alpha.kubernetes.io/init-containers: '[
           {
             "name": "jobtools",
-            "image": "screwdrivercd/job-tools:{{version}}",
-            "command": ["/bin/sh", "-c", "cp -a /opt/screwdriver/* /opt/job-tools"],
+            "image": "screwdrivercd/job-tools:{{tools_version}}",
+            "command": ["/bin/sh", "-c", "cp -a /opt/screwdriver/* /opt/job-tools && mkfifo /var/run/sd/emitter"],
             "volumeMounts": [
               {
                 "name": "screwdriver",
                 "mountPath": "/opt/job-tools"
+              },
+              {
+                "name": "bucket",
+                "mountPath": "/var/run/sd"
               }
             ]
           }
@@ -39,9 +43,34 @@ spec:
         volumeMounts:
         - mountPath: /opt/screwdriver
           name: screwdriver
+        - mountPath: /var/run/sd
+          name: bucket
         env:
         - name: SD_TOKEN
           value: "{{token}}"
+      - name: logservice
+        image: screwdrivercd/log-service:{{log_version}}
+        command:
+        - "/opt/screwdriver/tini"
+        - "--"
+        - "/opt/screwdriver/logservice"
+        - "{{build_id}}"
+        env:
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: log-secrets
+              key: accesskey
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: log-secrets
+              key: keyid
+        volumeMounts:
+        - mountPath: /var/run/sd
+          name: bucket
       volumes:
         - name: screwdriver
+          emptyDir: {}
+        - name: bucket
           emptyDir: {}

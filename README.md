@@ -20,6 +20,8 @@ The class provides a couple options that are configurable in the instantiation o
 | config        | Object | Configuration Object |
 | config.token | String | The JWT token used for authenticating to the Kubernetes cluster |
 | config.host | String | The hostname for the Kubernetes cluster i.e. `Kubernetes` if running inside Kubernetes |
+| config.toolsVersion | String | Job Tools container version to use (latest) |
+| config.logVersion | String | Log Service container version to use (latest) |
 
 ### Start
 The `start` method takes advantage of the input validation defined in the [executor-base-class].

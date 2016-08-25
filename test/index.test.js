@@ -9,7 +9,8 @@ const TEST_TIM_YAML = `
 metadata:
   name: {{build_id}}
   container: {{container}}
-  version: {{version}}
+  toolVersion: {{tools_version}}
+  logVersion: {{log_version}}
 command:
 - "/opt/screwdriver/launch {{api_uri}} {{token}} {{build_id}}"
 `;
@@ -36,7 +37,8 @@ describe('index', () => {
     const testToken = 'abcdefg';
     const testApiUri = 'http://localhost:8080';
     const testContainer = 'node:4';
-    const testVersion = 'latest';
+    const testJobVersion = 'latest';
+    const testLogVersion = 'latest';
     const jobsUrl = 'https://kubernetes/apis/batch/v1/namespaces/default/jobs';
     const podsUrl = 'https://kubernetes/api/v1/namespaces/default/pods';
 
@@ -106,13 +108,16 @@ describe('index', () => {
     });
 
     it('supports specifying a specific version', () => {
-        assert.equal(executor.version, 'latest');
+        assert.equal(executor.toolsVersion, 'latest');
+        assert.equal(executor.logVersion, 'latest');
         executor = new Executor({
             token: 'api_key',
             host: 'kubernetes',
-            version: 'v1.2.3'
+            toolsVersion: 'v1.2.3',
+            logVersion: 'v2.3.4'
         });
-        assert.equal(executor.version, 'v1.2.3');
+        assert.equal(executor.toolsVersion, 'v1.2.3');
+        assert.equal(executor.logVersion, 'v2.3.4');
     });
 
     it('extends base class', () => {
@@ -227,7 +232,8 @@ describe('index', () => {
                     metadata: {
                         name: testBuildId,
                         container: testContainer,
-                        version: testVersion
+                        toolVersion: testJobVersion,
+                        logVersion: testLogVersion
                     },
                     command: [
                         `/opt/screwdriver/launch ${testApiUri} ${testToken} ${testBuildId}`
