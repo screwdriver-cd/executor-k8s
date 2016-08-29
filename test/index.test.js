@@ -40,7 +40,6 @@ describe('index', () => {
     const testJobVersion = 'latest';
     const testLogVersion = 'latest';
     const jobsUrl = 'https://kubernetes/apis/batch/v1/namespaces/default/jobs';
-    const podsUrl = 'https://kubernetes/api/v1/namespaces/default/pods';
 
     before(() => {
         mockery.enable({
@@ -81,9 +80,6 @@ describe('index', () => {
         fsMock.readFileSync.withArgs(sinon.match(/config\/job.yaml.tim/))
             .returns(TEST_TIM_YAML);
 
-        mockery.registerMock('stream', {
-            Readable: ReadableMock
-        });
         mockery.registerMock('fs', fsMock);
         mockery.registerMock('request', requestMock);
         mockery.registerMock('circuit-fuses', BreakerMock);
@@ -294,92 +290,6 @@ describe('index', () => {
             }, (err, response) => {
                 assert.notOk(response);
                 assert.equal(err.message, returnMessage);
-                done();
-            });
-        });
-    });
-
-    describe('stream', () => {
-        const pod = `${podsUrl}?labelSelector=sdbuild=${testBuildId}`;
-        const logUrl = `${podsUrl}/mypod/log?container=build&follow=true&pretty=true`;
-
-        it('reply with error when it fails to get pod', (done) => {
-            const error = new Error('lol');
-
-            breakRunMock.runCommand.yieldsAsync(error);
-            executor.stream({
-                buildId: testBuildId
-            }, (err) => {
-                assert.isOk(err);
-                done();
-            });
-        });
-
-        it('reply with error when podname is not found', (done) => {
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    items: []
-                }
-            };
-
-            breakRunMock.runCommand.yieldsAsync(null, returnResponse);
-            executor.stream({
-                buildId: testBuildId
-            }, (err) => {
-                assert.isOk(err);
-                done();
-            });
-        });
-
-        it('stream logs when podname is found', (done) => {
-            const getConfig = {
-                url: pod,
-                json: true,
-                headers: {
-                    Authorization: 'Bearer api_key'
-                },
-                strictSSL: false
-            };
-            const logConfig = {
-                url: logUrl,
-                headers: {
-                    Authorization: 'Bearer api_key'
-                },
-                strictSSL: false
-            };
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    items: [{
-                        metadata: {
-                            name: 'mypod'
-                        }
-                    }]
-                }
-            };
-            const logGetMock = {
-                mock: 'thing'
-            };
-            const readWrapMock = {
-                mock: 'thing2'
-            };
-
-            breakRunMock.runCommand.withArgs(getConfig)
-                .yieldsAsync(null, returnResponse);
-            requestMock.get.withArgs(logConfig).returns(logGetMock);
-            readableMock.wrap.returns(readWrapMock);
-
-            executor.stream({
-                buildId: testBuildId
-            }, (err, stream) => {
-                assert.isNull(err);
-                assert.calledOnce(breakRunMock.runCommand);
-                assert.calledOnce(requestMock.get);
-                assert.calledWith(breakRunMock.runCommand, getConfig);
-                assert.calledWith(requestMock.get, logConfig);
-                assert.calledWith(readableMock.wrap, logGetMock);
-                assert.deepEqual(stream, readWrapMock);
                 done();
             });
         });

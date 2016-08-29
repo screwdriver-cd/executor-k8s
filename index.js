@@ -1,12 +1,10 @@
 'use strict';
 const Executor = require('screwdriver-executor-base');
 const path = require('path');
-const Readable = require('stream').Readable;
 const Fusebox = require('circuit-fuses');
 const request = require('request');
 const tinytim = require('tinytim');
 const yaml = require('js-yaml');
-const hoek = require('hoek');
 
 class K8sExecutor extends Executor {
 
@@ -109,47 +107,6 @@ class K8sExecutor extends Executor {
             }
 
             return callback(null);
-        });
-    }
-
-    /**
-    * Streams logs
-    * @method stream
-    * @param  {Object}   config            A configuration object
-    * @param  {String}   config.buildId    ID for the build
-    * @param  {Response} callback          Callback for when a stream is created
-    */
-    _stream(config, callback) {
-        const pod = `${this.podsUrl}?labelSelector=sdbuild=${config.buildId}`;
-        const options = {
-            url: pod,
-            headers: {
-                Authorization: `Bearer ${this.token}`
-            },
-            json: true,
-            strictSSL: false
-        };
-
-        this.breaker.runCommand(options, (err, resp) => {
-            if (err) {
-                return callback(new Error(`Error getting pod with sdbuild=${config.buildId}`));
-            }
-
-            const body = resp.body;
-            const podName = hoek.reach(body, 'items.0.metadata.name');
-
-            if (!podName) {
-                return callback(new Error(`Error getting pod name: ${JSON.stringify(body)}`));
-            }
-            const logUrl = `${this.podsUrl}/${podName}/log?container=build&follow=true&pretty=true`;
-
-            return callback(null, new Readable().wrap(request.get({
-                url: logUrl,
-                headers: {
-                    Authorization: `Bearer ${this.token}`
-                },
-                strictSSL: false
-            })));
         });
     }
 
