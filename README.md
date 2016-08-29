@@ -3,7 +3,7 @@
 
 > Kubernetes Executor plugin for Screwdriver
 
-This executor plugin extends the [executor-base-class], and provides methods to start jobs and stream logs
+This executor plugin extends the [executor-base-class], and provides methods to start and stop jobs
 from Kubernetes
 
 ## Usage
@@ -65,21 +65,6 @@ The `stop` function will stop a job in Kubernetes using a label:
 The callback is called with:
 * An error `callback(err)` when an error occurs stopping the job
 * null `callback(null)` when a job is correctly stopped
-
-### Stream
-The parameters required are:
-
-| Parameter        | Type  |  Description |
-| :-------------   | :---- | :-------------|
-| config        | Object | Configuration Object |
-| config.buildId | String | The unique ID for a build to stream logs for|
-| callback | Function | Callback `fn(err, stream)` for when stream has been created |
-
-The `_stream` function will call back with a Readable stream if a job exists with the `buildId` tag
-
-The callback is called with:
-* An error `callback(err)` when an error occurs fetching the logs
-* The stream `callback(null, readableStream)` when a stream is opened up for reading logs
 
 ## Testing
 
