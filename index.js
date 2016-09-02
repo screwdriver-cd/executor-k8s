@@ -11,19 +11,21 @@ class K8sExecutor extends Executor {
     /**
      * Constructor
      * @method constructor
-     * @param  {Object} options                Configuration options
-     * @param  {String} options.token          Api Token to make requests with
-     * @param  {String} options.host           Kubernetes hostname to make requests to
-     * @param  {String} [options.toolsVersion] Job Tools container version to use (latest)
-     * @param  {String} [options.logVersion]   Log Service container version to use (latest)
+     * @param  {Object} options                  Configuration options
+     * @param  {String} options.token            Api Token to make requests with
+     * @param  {String} options.host             Kubernetes hostname to make requests to
+     * @param  {String} [options.launchVersion]  Launcher container version to use (latest)
+     * @param  {String} [options.logVersion]     Log Service container version to use (latest)
+     * @param  {String} [options.serviceAccount] Service Account to use (default)
      */
     constructor(options) {
         super();
 
         this.token = options.token;
         this.host = options.host;
-        this.toolsVersion = options.toolsVersion || 'latest';
+        this.launchVersion = options.launchVersion || 'latest';
         this.logVersion = options.logVersion || 'latest';
+        this.serviceAccount = options.serviceAccount || 'default';
         this.jobsUrl = `https://${this.host}/apis/batch/v1/namespaces/default/jobs`;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/default/pods`;
         this.breaker = new Fusebox(request);
@@ -45,8 +47,9 @@ class K8sExecutor extends Executor {
             container: config.container,
             api_uri: config.apiUri,
             token: config.token,
-            tools_version: this.toolsVersion,
-            log_version: this.logVersion
+            launcher_version: this.launchVersion,
+            log_version: this.logVersion,
+            service_account: this.serviceAccount
         });
 
         const options = {

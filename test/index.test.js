@@ -9,8 +9,9 @@ const TEST_TIM_YAML = `
 metadata:
   name: {{build_id}}
   container: {{container}}
-  toolVersion: {{tools_version}}
+  launchVersion: {{launcher_version}}
   logVersion: {{log_version}}
+  serviceAccount: {{service_account}}
 command:
 - "/opt/screwdriver/launch {{api_uri}} {{token}} {{build_id}}"
 `;
@@ -37,8 +38,9 @@ describe('index', () => {
     const testToken = 'abcdefg';
     const testApiUri = 'http://localhost:8080';
     const testContainer = 'node:4';
-    const testJobVersion = 'latest';
+    const testLaunchVersion = 'latest';
     const testLogVersion = 'latest';
+    const testServiceAccount = 'default';
     const jobsUrl = 'https://kubernetes/apis/batch/v1/namespaces/default/jobs';
 
     before(() => {
@@ -104,16 +106,19 @@ describe('index', () => {
     });
 
     it('supports specifying a specific version', () => {
-        assert.equal(executor.toolsVersion, 'latest');
+        assert.equal(executor.launchVersion, 'latest');
         assert.equal(executor.logVersion, 'latest');
+        assert.equal(executor.serviceAccount, 'default');
         executor = new Executor({
             token: 'api_key',
             host: 'kubernetes',
-            toolsVersion: 'v1.2.3',
-            logVersion: 'v2.3.4'
+            launchVersion: 'v1.2.3',
+            logVersion: 'v2.3.4',
+            serviceAccount: 'foobar'
         });
-        assert.equal(executor.toolsVersion, 'v1.2.3');
+        assert.equal(executor.launchVersion, 'v1.2.3');
         assert.equal(executor.logVersion, 'v2.3.4');
+        assert.equal(executor.serviceAccount, 'foobar');
     });
 
     it('extends base class', () => {
@@ -228,8 +233,9 @@ describe('index', () => {
                     metadata: {
                         name: testBuildId,
                         container: testContainer,
-                        toolVersion: testJobVersion,
-                        logVersion: testLogVersion
+                        launchVersion: testLaunchVersion,
+                        logVersion: testLogVersion,
+                        serviceAccount: testServiceAccount
                     },
                     command: [
                         `/opt/screwdriver/launch ${testApiUri} ${testToken} ${testBuildId}`

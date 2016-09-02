@@ -13,13 +13,13 @@ spec:
       annotations:
         pod.alpha.kubernetes.io/init-containers: '[
           {
-            "name": "jobtools",
-            "image": "screwdrivercd/job-tools:{{tools_version}}",
-            "command": ["/bin/sh", "-c", "cp -a /opt/screwdriver/* /opt/job-tools && mkfifo /var/run/sd/emitter"],
+            "name": "launcher",
+            "image": "screwdrivercd/launcher:{{launcher_version}}",
+            "command": ["/bin/sh", "-c", "cp -a /opt/screwdriver/* /opt/launcher && mkfifo /var/run/sd/emitter"],
             "volumeMounts": [
               {
                 "name": "screwdriver",
-                "mountPath": "/opt/job-tools"
+                "mountPath": "/opt/launcher"
               },
               {
                 "name": "bucket",
@@ -29,6 +29,7 @@ spec:
           }
         ]'
     spec:
+      serviceAccount: {{service_account}}
       restartPolicy: Never
       containers:
       - name: build
