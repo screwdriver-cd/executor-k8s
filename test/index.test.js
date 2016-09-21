@@ -167,31 +167,31 @@ describe('index', () => {
             breakRunMock.runCommand.yieldsAsync(null, fakeStopResponse, fakeStopResponse.body);
         });
 
-        it('calls breaker with correct config', (done) => {
+        it('calls breaker with correct config', () => (
             executor.stop({
                 buildId: testBuildId
-            }, (err) => {
-                assert.isNull(err);
+            }).then(() => {
                 assert.calledOnce(breakRunMock.runCommand);
                 assert.calledWith(breakRunMock.runCommand, deleteConfig);
-                done();
-            });
-        });
+            })
+        ));
 
-        it('returns error when breaker does', (done) => {
+        it('returns error when breaker does', () => {
             const error = new Error('error');
 
             breakRunMock.runCommand.yieldsAsync(error);
-            executor.stop({
+
+            return executor.stop({
                 buildId: testBuildId
+            }).then(() => {
+                throw new Error('did not fail');
             }, (err) => {
                 assert.deepEqual(err, error);
                 assert.calledOnce(breakRunMock.runCommand);
-                done();
             });
         });
 
-        it('returns error when response is non 200', (done) => {
+        it('returns error when response is non 200', () => {
             const fakeStopErrorResponse = {
                 statusCode: 500,
                 body: {
@@ -204,11 +204,12 @@ describe('index', () => {
 
             breakRunMock.runCommand.yieldsAsync(null, fakeStopErrorResponse);
 
-            executor.stop({
+            return executor.stop({
                 buildId: testBuildId
+            }).then(() => {
+                throw new Error('did not fail');
             }, (err) => {
                 assert.equal(err.message, returnMessage);
-                done();
             });
         });
     });
@@ -225,7 +226,7 @@ describe('index', () => {
             breakRunMock.runCommand.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
         });
 
-        it('successfully calls start', (done) => {
+        it('successfully calls start', () => {
             const postConfig = {
                 uri: jobsUrl,
                 method: 'POST',
@@ -247,36 +248,35 @@ describe('index', () => {
                 strictSSL: false
             };
 
-            executor.start({
+            return executor.start({
                 buildId: testBuildId,
                 container: testContainer,
                 token: testToken,
                 apiUri: testApiUri
-            }, (err) => {
-                assert.isNull(err);
+            }).then(() => {
                 assert.calledOnce(breakRunMock.runCommand);
                 assert.calledWith(breakRunMock.runCommand, postConfig);
-                done();
             });
         });
 
-        it('returns error when request responds with error', (done) => {
+        it('returns error when request responds with error', () => {
             const error = new Error('lol');
 
             breakRunMock.runCommand.yieldsAsync(error);
 
-            executor.start({
+            return executor.start({
                 buildId: testBuildId,
                 container: testContainer,
                 token: testToken,
                 apiUri: testApiUri
+            }).then(() => {
+                throw new Error('did not fail');
             }, (err) => {
                 assert.deepEqual(err, error);
-                done();
             });
         });
 
-        it('returns body when request responds with error in response', (done) => {
+        it('returns body when request responds with error in response', () => {
             const returnResponse = {
                 statusCode: 500,
                 body: {
@@ -288,15 +288,15 @@ describe('index', () => {
 
             breakRunMock.runCommand.yieldsAsync(null, returnResponse);
 
-            executor.start({
+            return executor.start({
                 buildId: testBuildId,
                 container: testContainer,
                 token: testToken,
                 apiUri: testApiUri
-            }, (err, response) => {
-                assert.notOk(response);
+            }).then(() => {
+                throw new Error('did not fail');
+            }, (err) => {
                 assert.equal(err.message, returnMessage);
-                done();
             });
         });
     });

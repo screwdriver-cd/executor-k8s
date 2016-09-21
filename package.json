@@ -1,6 +1,6 @@
 {
   "name": "screwdriver-executor-k8s",
-  "version": "7.0.0",
+  "version": "8.0.0",
   "description": "Kubernetes Executor plugin for Screwdriver",
   "main": "index.js",
   "scripts": {
@@ -44,7 +44,7 @@
     "circuit-fuses": "^2.0.0",
     "js-yaml": "^3.6.1",
     "request": "^2.72.0",
-    "screwdriver-executor-base": "^4.0.0",
+    "screwdriver-executor-base": "^5.0.0",
     "tinytim": "^0.1.1"
   }
 }
