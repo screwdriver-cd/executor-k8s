@@ -39,9 +39,9 @@ class K8sExecutor extends Executor {
      * @param  {String}   config.container  Container for the build to run in
      * @param  {String}   config.apiUri     API Uri
      * @param  {String}   config.token      JWT for the Build
-     * @param  {Function} callback          Callback function
+     * @return {Promise}
      */
-    _start(config, callback) {
+    _start(config) {
         const jobTemplate = tinytim.renderFile(path.resolve(__dirname, './config/job.yaml.tim'), {
             build_id: config.buildId,
             container: config.container,
@@ -62,18 +62,20 @@ class K8sExecutor extends Executor {
             strictSSL: false
         };
 
-        this.breaker.runCommand(options, (err, resp) => {
-            if (err) {
-                return callback(err);
-            }
+        return new Promise((resolve, reject) => {
+            this.breaker.runCommand(options, (err, resp) => {
+                if (err) {
+                    return reject(err);
+                }
 
-            if (resp.statusCode !== 201) {
-                const msg = `Failed to create job: ${JSON.stringify(resp.body)}`;
+                if (resp.statusCode !== 201) {
+                    const msg = `Failed to create job: ${JSON.stringify(resp.body)}`;
 
-                return callback(new Error(msg));
-            }
+                    return reject(new Error(msg));
+                }
 
-            return callback(null);
+                return resolve(null);
+            });
         });
     }
 
@@ -82,9 +84,9 @@ class K8sExecutor extends Executor {
      * @method stop
      * @param  {Object}   config            A configuration object
      * @param  {String}   config.buildId    ID for the build
-     * @param  {Function} callback          Callback function
+     * @return {Promise}
      */
-    _stop(config, callback) {
+    _stop(config) {
         const options = {
             uri: this.jobsUrl,
             method: 'DELETE',
@@ -97,19 +99,20 @@ class K8sExecutor extends Executor {
             strictSSL: false
         };
 
-        // @TODO collect logs before removing all traces of it.
-        this.breaker.runCommand(options, (err, resp) => {
-            if (err) {
-                return callback(err);
-            }
+        return new Promise((resolve, reject) => {
+            this.breaker.runCommand(options, (err, resp) => {
+                if (err) {
+                    return reject(err);
+                }
 
-            if (resp.statusCode !== 200) {
-                const msg = `Failed to delete job: ${JSON.stringify(resp.body)}`;
+                if (resp.statusCode !== 200) {
+                    const msg = `Failed to delete job: ${JSON.stringify(resp.body)}`;
 
-                return callback(new Error(msg));
-            }
+                    return reject(new Error(msg));
+                }
 
-            return callback(null);
+                return resolve(null);
+            });
         });
     }
 

@@ -35,7 +35,6 @@ The parameters required are:
 | config.container | String | Container for the build to run in |
 | config.apiUri | String | Screwdriver's API |
 | config.token | String | JWT to act on behalf of the build |
-| callback | Function | Callback for when task has been created |
 
 The `start` function will start a job in Kubernetes with labels for easy lookup. These labels are:
 * sdbuild: config.buildId
@@ -44,9 +43,9 @@ The job runs two containers:
 * Runs the [screwdriver job-tools] container, sharing the files in `/opt/screwdriver`
 * Runs the specified container, which runs `/opt/screwdriver/launch` with the required parameters
 
-The callback is called with:
-* An error `callback(err)` when an error occurs starting the job
-* null `callback(null)` when a job is correctly started
+A promise is returned that will:
+* reject when an error occurs starting the job
+* resolve when a job is correctly started
 
 ### Stop
 The `stop` method takes advantage of the input validation defined in the [executor-base-class].
@@ -57,14 +56,13 @@ The parameters required are:
 | :-------------   | :---- | :-------------|
 | config        | Object | Configuration Object |
 | config.buildId | String | The unique ID for a build |
-| callback | Function | Callback for when the job has been stopped |
 
 The `stop` function will stop a job in Kubernetes using a label:
 * sdbuild: config.buildId
 
-The callback is called with:
-* An error `callback(err)` when an error occurs stopping the job
-* null `callback(null)` when a job is correctly stopped
+A promise is returned that will:
+* reject when an error occurs stopping the job
+* resolve when a job is correctly stopped
 
 ## Testing
 
