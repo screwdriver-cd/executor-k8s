@@ -4,12 +4,16 @@ metadata:
   name: {{build_id}}
   labels:
     sdbuild: {{build_id}}
+    app: screwdriver
+    tier: builds
 spec:
   completions: 1
   template:
     metadata:
       labels:
         sdbuild: {{build_id}}
+        app: screwdriver
+        tier: builds
       annotations:
         pod.alpha.kubernetes.io/init-containers: '[
           {
@@ -34,6 +38,9 @@ spec:
       containers:
       - name: build
         image: {{container}}
+        resources:
+          limits:
+            memory: 2Gi
         command:
         - "/opt/screwdriver/tini"
         - "--"
@@ -51,6 +58,9 @@ spec:
           value: "{{token}}"
       - name: logservice
         image: screwdrivercd/log-service:{{log_version}}
+        resources:
+          limits:
+            memory: 200Mi
         command:
         - "/opt/screwdriver/tini"
         - "--"
