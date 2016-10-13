@@ -1,30 +1,32 @@
 'use strict';
+
 const Executor = require('screwdriver-executor-base');
 const path = require('path');
 const Fusebox = require('circuit-fuses');
 const request = require('request');
 const tinytim = require('tinytim');
 const yaml = require('js-yaml');
+const fs = require('fs');
 
 class K8sExecutor extends Executor {
-
     /**
      * Constructor
      * @method constructor
-     * @param  {Object} options                  Configuration options
-     * @param  {String} options.token            Api Token to make requests with
-     * @param  {String} options.host             Kubernetes hostname to make requests to
-     * @param  {String} [options.launchVersion]  Launcher container version to use (latest)
-     * @param  {String} [options.logVersion]     Log Service container version to use (latest)
-     * @param  {String} [options.serviceAccount] Service Account to use (default)
+     * @param  {Object} options                          Configuration options
+     * @param  {String} [options.token=null]             Api Token to make requests with (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
+     * @param  {String} [options.host=kubernetes]        Kubernetes hostname to make requests to
+     * @param  {String} [options.launchVersion=stable]   Launcher container version to use
+     * @param  {String} [options.logVersion=stable]      Log Service container version to use
+     * @param  {String} [options.serviceAccount=default] Service Account to use
      */
-    constructor(options) {
+    constructor(options = {}) {
         super();
 
-        this.token = options.token;
-        this.host = options.host;
-        this.launchVersion = options.launchVersion || 'latest';
-        this.logVersion = options.logVersion || 'latest';
+        this.token = options.token ||
+            fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString();
+        this.host = options.host || 'kubernetes';
+        this.launchVersion = options.launchVersion || 'stable';
+        this.logVersion = options.logVersion || 'stable';
         this.serviceAccount = options.serviceAccount || 'default';
         this.jobsUrl = `https://${this.host}/apis/batch/v1/namespaces/default/jobs`;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/default/pods`;

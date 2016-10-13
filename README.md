@@ -3,8 +3,7 @@
 
 > Kubernetes Executor plugin for Screwdriver
 
-This executor plugin extends the [executor-base-class], and provides methods to start and stop jobs
-from Kubernetes
+This is an executor for the Screwdriver CD solution that interacts with Kubernetes.
 
 ## Usage
 
@@ -12,57 +11,21 @@ from Kubernetes
 npm install screwdriver-executor-k8s
 ```
 
-### Configure
+### Initialization
 The class provides a couple options that are configurable in the instantiation of this Executor
 
 | Parameter        | Type  |  Description |
 | :-------------   | :---- | :-------------|
 | config        | Object | Configuration Object |
-| config.token | String | The JWT token used for authenticating to the Kubernetes cluster |
-| config.host | String | The hostname for the Kubernetes cluster i.e. `Kubernetes` if running inside Kubernetes |
-| config.toolsVersion | String | Job Tools container version to use (latest) |
-| config.logVersion | String | Log Service container version to use (latest) |
+| config.token | String | The JWT token used for authenticating to the Kubernetes cluster (content of `/var/run/secrets/kubernetes.io/serviceaccount/token`) |
+| config.host | String | The hostname for the Kubernetes cluster (kubernetes) |
+| config.toolsVersion | String | Job Tools container version to use (stable) |
+| config.logVersion | String | Log Service container version to use (stable) |
 
-### Start
-The `start` method takes advantage of the input validation defined in the [executor-base-class].
 
-The parameters required are:
+### Methods
 
-| Parameter        | Type  |  Description |
-| :-------------   | :---- | :-------------|
-| config        | Object | Configuration Object |
-| config.buildId | String | The unique ID for a build |
-| config.container | String | Container for the build to run in |
-| config.apiUri | String | Screwdriver's API |
-| config.token | String | JWT to act on behalf of the build |
-
-The `start` function will start a job in Kubernetes with labels for easy lookup. These labels are:
-* sdbuild: config.buildId
-
-The job runs two containers:
-* Runs the [screwdriver job-tools] container, sharing the files in `/opt/screwdriver`
-* Runs the specified container, which runs `/opt/screwdriver/launch` with the required parameters
-
-A promise is returned that will:
-* reject when an error occurs starting the job
-* resolve when a job is correctly started
-
-### Stop
-The `stop` method takes advantage of the input validation defined in the [executor-base-class].
-
-The parameters required are:
-
-| Parameter        | Type  |  Description |
-| :-------------   | :---- | :-------------|
-| config        | Object | Configuration Object |
-| config.buildId | String | The unique ID for a build |
-
-The `stop` function will stop a job in Kubernetes using a label:
-* sdbuild: config.buildId
-
-A promise is returned that will:
-* reject when an error occurs stopping the job
-* resolve when a job is correctly stopped
+For more information on `start`, `stop`, and `stats` please see the [executor-base-class].
 
 ## Testing
 
