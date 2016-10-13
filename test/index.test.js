@@ -1,4 +1,5 @@
 'use strict';
+
 const assert = require('chai').assert;
 const sinon = require('sinon');
 const mockery = require('mockery');
@@ -38,8 +39,8 @@ describe('index', () => {
     const testToken = 'abcdefg';
     const testApiUri = 'http://localhost:8080';
     const testContainer = 'node:4';
-    const testLaunchVersion = 'latest';
-    const testLogVersion = 'latest';
+    const testLaunchVersion = 'stable';
+    const testLogVersion = 'stable';
     const testServiceAccount = 'default';
     const jobsUrl = 'https://kubernetes/apis/batch/v1/namespaces/default/jobs';
 
@@ -78,7 +79,8 @@ describe('index', () => {
         BreakerMock.prototype = breakRunMock;
         ReadableMock.prototype.wrap = readableMock.wrap;
 
-        fsMock.readFileSync.withArgs('/etc/kubernetes/apikey/token').returns('api_key');
+        fsMock.readFileSync.withArgs('/var/run/secrets/kubernetes.io/serviceaccount/token')
+            .returns('api_key');
         fsMock.readFileSync.withArgs(sinon.match(/config\/job.yaml.tim/))
             .returns(TEST_TIM_YAML);
 
@@ -90,10 +92,7 @@ describe('index', () => {
         Executor = require('../index');
         /* eslint-enable global-require */
 
-        executor = new Executor({
-            token: 'api_key',
-            host: 'kubernetes'
-        });
+        executor = new Executor();
     });
 
     afterEach(() => {
@@ -106,16 +105,20 @@ describe('index', () => {
     });
 
     it('supports specifying a specific version', () => {
-        assert.equal(executor.launchVersion, 'latest');
-        assert.equal(executor.logVersion, 'latest');
+        assert.equal(executor.launchVersion, 'stable');
+        assert.equal(executor.logVersion, 'stable');
         assert.equal(executor.serviceAccount, 'default');
+        assert.equal(executor.token, 'api_key');
+        assert.equal(executor.host, 'kubernetes');
         executor = new Executor({
-            token: 'api_key',
-            host: 'kubernetes',
+            token: 'api_key2',
+            host: 'kubernetes2',
             launchVersion: 'v1.2.3',
             logVersion: 'v2.3.4',
             serviceAccount: 'foobar'
         });
+        assert.equal(executor.token, 'api_key2');
+        assert.equal(executor.host, 'kubernetes2');
         assert.equal(executor.launchVersion, 'v1.2.3');
         assert.equal(executor.logVersion, 'v2.3.4');
         assert.equal(executor.serviceAccount, 'foobar');

@@ -45,6 +45,8 @@ spec:
         - "/opt/screwdriver/tini"
         - "--"
         - "/opt/screwdriver/launch"
+        - "--emitter"
+        - "/var/run/sd/emitter"
         - "--api-uri"
         - "{{api_uri}}"
         - "{{build_id}}"
@@ -65,18 +67,15 @@ spec:
         - "/opt/screwdriver/tini"
         - "--"
         - "/opt/screwdriver/logservice"
+        - "--emitter"
+        - "/var/run/sd/emitter"
+        - "--api-uri"
+        - "{{api_uri}}"
+        - "--build"
         - "{{build_id}}"
         env:
-        - name: AWS_SECRET_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-              name: log-secrets
-              key: accesskey
-        - name: AWS_ACCESS_KEY_ID
-          valueFrom:
-            secretKeyRef:
-              name: log-secrets
-              key: keyid
+        - name: SD_TOKEN
+          value: "{{token}}"
         volumeMounts:
         - mountPath: /var/run/sd
           name: bucket
