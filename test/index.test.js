@@ -17,24 +17,11 @@ command:
 - "/opt/screwdriver/launch {{api_uri}} {{token}} {{build_id}}"
 `;
 
-/**
- * Stub for Readable wrapper
- * @method ReadableMock
- */
-function ReadableMock() {}
-/**
- * Stub for circuit-fuses wrapper
- * @method BreakerMock
- */
-function BreakerMock() {}
-
 describe('index', () => {
     let Executor;
     let requestMock;
     let fsMock;
     let executor;
-    let readableMock;
-    let breakRunMock;
     const testBuildId = '80754af91bfb6d1073585b046fe0a474ce868509';
     const testToken = 'abcdefg';
     const testApiUri = 'http://localhost:8080';
@@ -52,32 +39,11 @@ describe('index', () => {
     });
 
     beforeEach(() => {
-        requestMock = {
-            post: sinon.stub(),
-            get: sinon.stub()
-        };
+        requestMock = sinon.stub();
 
         fsMock = {
             readFileSync: sinon.stub()
         };
-
-        readableMock = {
-            wrap: sinon.stub()
-        };
-
-        breakRunMock = {
-            runCommand: sinon.stub(),
-            getTotalRequests: sinon.stub().returns(1),
-            getTimeouts: sinon.stub().returns(2),
-            getSuccessfulRequests: sinon.stub().returns(3),
-            getFailedRequests: sinon.stub().returns(4),
-            getConcurrentRequests: sinon.stub().returns(5),
-            getAverageRequestTime: sinon.stub().returns(6),
-            isClosed: sinon.stub().returns(false)
-        };
-
-        BreakerMock.prototype = breakRunMock;
-        ReadableMock.prototype.wrap = readableMock.wrap;
 
         fsMock.readFileSync.withArgs('/var/run/secrets/kubernetes.io/serviceaccount/token')
             .returns('api_key');
@@ -86,13 +52,14 @@ describe('index', () => {
 
         mockery.registerMock('fs', fsMock);
         mockery.registerMock('request', requestMock);
-        mockery.registerMock('circuit-fuses', BreakerMock);
 
         /* eslint-disable global-require */
         Executor = require('../index');
         /* eslint-enable global-require */
 
-        executor = new Executor();
+        executor = new Executor({
+            fusebox: { retry: { minTimeout: 1 } }
+        });
     });
 
     afterEach(() => {
@@ -133,15 +100,15 @@ describe('index', () => {
         it('returns the correct stats', () => {
             assert.deepEqual(executor.stats(), {
                 requests: {
-                    total: 1,
-                    timeouts: 2,
-                    success: 3,
-                    failure: 4,
-                    concurrent: 5,
-                    averageTime: 6
+                    total: 0,
+                    timeouts: 0,
+                    success: 0,
+                    failure: 0,
+                    concurrent: 0,
+                    averageTime: 0
                 },
                 breaker: {
-                    isClosed: false
+                    isClosed: true
                 }
             });
         });
@@ -167,22 +134,22 @@ describe('index', () => {
         };
 
         beforeEach(() => {
-            breakRunMock.runCommand.yieldsAsync(null, fakeStopResponse, fakeStopResponse.body);
+            requestMock.yieldsAsync(null, fakeStopResponse, fakeStopResponse.body);
         });
 
         it('calls breaker with correct config', () => (
             executor.stop({
                 buildId: testBuildId
             }).then(() => {
-                assert.calledOnce(breakRunMock.runCommand);
-                assert.calledWith(breakRunMock.runCommand, deleteConfig);
+                assert.calledWith(requestMock, deleteConfig);
+                assert.calledOnce(requestMock);
             })
         ));
 
         it('returns error when breaker does', () => {
             const error = new Error('error');
 
-            breakRunMock.runCommand.yieldsAsync(error);
+            requestMock.yieldsAsync(error);
 
             return executor.stop({
                 buildId: testBuildId
@@ -190,7 +157,7 @@ describe('index', () => {
                 throw new Error('did not fail');
             }, (err) => {
                 assert.deepEqual(err, error);
-                assert.calledOnce(breakRunMock.runCommand);
+                assert.equal(requestMock.callCount, 5);
             });
         });
 
@@ -205,7 +172,7 @@ describe('index', () => {
             const returnMessage = 'Failed to delete job: '
                   + `${JSON.stringify(fakeStopErrorResponse.body)}`;
 
-            breakRunMock.runCommand.yieldsAsync(null, fakeStopErrorResponse);
+            requestMock.yieldsAsync(null, fakeStopErrorResponse, fakeStopErrorResponse.body);
 
             return executor.stop({
                 buildId: testBuildId
@@ -226,7 +193,7 @@ describe('index', () => {
         };
 
         beforeEach(() => {
-            breakRunMock.runCommand.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
+            requestMock.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
         });
 
         it('successfully calls start', () => {
@@ -257,15 +224,15 @@ describe('index', () => {
                 token: testToken,
                 apiUri: testApiUri
             }).then(() => {
-                assert.calledOnce(breakRunMock.runCommand);
-                assert.calledWith(breakRunMock.runCommand, postConfig);
+                assert.calledOnce(requestMock);
+                assert.calledWith(requestMock, postConfig);
             });
         });
 
         it('returns error when request responds with error', () => {
             const error = new Error('lol');
 
-            breakRunMock.runCommand.yieldsAsync(error);
+            requestMock.yieldsAsync(error);
 
             return executor.start({
                 buildId: testBuildId,
@@ -289,7 +256,7 @@ describe('index', () => {
             };
             const returnMessage = `Failed to create job: ${JSON.stringify(returnResponse.body)}`;
 
-            breakRunMock.runCommand.yieldsAsync(null, returnResponse);
+            requestMock.yieldsAsync(null, returnResponse, returnResponse.body);
 
             return executor.start({
                 buildId: testBuildId,
