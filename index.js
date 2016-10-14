@@ -12,23 +12,27 @@ class K8sExecutor extends Executor {
     /**
      * Constructor
      * @method constructor
-     * @param  {Object} options                          Configuration options
-     * @param  {String} [options.token]                  Api Token to make requests with (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
-     * @param  {String} [options.host=kubernetes]        Kubernetes hostname to make requests to
-     * @param  {String} [options.launchVersion=stable]   Launcher container version to use
-     * @param  {String} [options.logVersion=stable]      Log Service container version to use
-     * @param  {String} [options.serviceAccount=default] Service Account to use
-     * @param  {String} [options.fusebox]                Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
+     * @param  {Object} options                                     Configuration options
+     * @param  {Object} options.ecosystem                           Screwdriver Ecosystem
+     * @param  {Object} options.ecosystem.api                       Routable URI to Screwdriver API
+     * @param  {Object} options.ecosystem.store                     Routable URI to Screwdriver Store
+     * @param  {Object} options.kubernetes                          Kubernetes configuration
+     * @param  {String} [options.kubernetes.token]                  API Token (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
+     * @param  {String} [options.kubernetes.host=kubernetes]        Kubernetes hostname
+     * @param  {String} [options.kubernetes.serviceAccount=default] Service Account for builds
+     * @param  {String} [options.launchVersion=stable]              Launcher container version to use
+     * @param  {String} [options.fusebox]                           Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
      */
     constructor(options = {}) {
         super();
 
-        this.token = options.token ||
+        this.kubernetes = options.kubernetes || {};
+        this.ecosystem = options.ecosystem;
+        this.token = this.kubernetes.token ||
             fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString();
-        this.host = options.host || 'kubernetes';
+        this.host = this.kubernetes.host || 'kubernetes';
         this.launchVersion = options.launchVersion || 'stable';
-        this.logVersion = options.logVersion || 'stable';
-        this.serviceAccount = options.serviceAccount || 'default';
+        this.serviceAccount = this.kubernetes.serviceAccount || 'default';
         this.jobsUrl = `https://${this.host}/apis/batch/v1/namespaces/default/jobs`;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/default/pods`;
         this.breaker = new Fusebox(request, options.fusebox);
@@ -40,7 +44,6 @@ class K8sExecutor extends Executor {
      * @param  {Object}   config            A configuration object
      * @param  {String}   config.buildId    ID for the build
      * @param  {String}   config.container  Container for the build to run in
-     * @param  {String}   config.apiUri     API Uri
      * @param  {String}   config.token      JWT for the Build
      * @return {Promise}
      */
@@ -48,10 +51,10 @@ class K8sExecutor extends Executor {
         const jobTemplate = tinytim.renderFile(path.resolve(__dirname, './config/job.yaml.tim'), {
             build_id: config.buildId,
             container: config.container,
-            api_uri: config.apiUri,
+            api_uri: this.ecosystem.api,
+            store_uri: this.ecosystem.store,
             token: config.token,
             launcher_version: this.launchVersion,
-            log_version: this.logVersion,
             service_account: this.serviceAccount
         });
 

@@ -19,15 +19,11 @@ spec:
           {
             "name": "launcher",
             "image": "screwdrivercd/launcher:{{launcher_version}}",
-            "command": ["/bin/sh", "-c", "cp -a /opt/screwdriver/* /opt/launcher && mkfifo /var/run/sd/emitter"],
+            "command": ["/bin/sh", "-c", "cp -a /opt/screwdriver/* /opt/launcher],
             "volumeMounts": [
               {
                 "name": "screwdriver",
                 "mountPath": "/opt/launcher"
-              },
-              {
-                "name": "bucket",
-                "mountPath": "/var/run/sd"
               }
             ]
           }
@@ -44,43 +40,20 @@ spec:
         command:
         - "/opt/screwdriver/tini"
         - "--"
-        - "/opt/screwdriver/launch"
-        - "--emitter"
-        - "/var/run/sd/emitter"
-        - "--api-uri"
-        - "{{api_uri}}"
-        - "{{build_id}}"
+        - '/bin/sh',
+        - '-c',
+        # Run the launcher and logservice in the background
+        # Wait for both background jobs to complete
+        - |
+          /opt/screwdriver/launch --api-uri {{api_uri}} --emitter /opt/screwdriver/emitter {{build_id}} &
+          /opt/screwdriver/logservice --emitter /opt/screwdriver/emitter --api-uri {{store_uri}} --build {{build_id}} &
+          wait $(jobs -p)
         volumeMounts:
         - mountPath: /opt/screwdriver
           name: screwdriver
-        - mountPath: /var/run/sd
-          name: bucket
         env:
         - name: SD_TOKEN
           value: "{{token}}"
-      - name: logservice
-        image: screwdrivercd/log-service:{{log_version}}
-        resources:
-          limits:
-            memory: 200Mi
-        command:
-        - "/opt/screwdriver/tini"
-        - "--"
-        - "/opt/screwdriver/logservice"
-        - "--emitter"
-        - "/var/run/sd/emitter"
-        - "--api-uri"
-        - "{{api_uri}}"
-        - "--build"
-        - "{{build_id}}"
-        env:
-        - name: SD_TOKEN
-          value: "{{token}}"
-        volumeMounts:
-        - mountPath: /var/run/sd
-          name: bucket
       volumes:
         - name: screwdriver
-          emptyDir: {}
-        - name: bucket
           emptyDir: {}

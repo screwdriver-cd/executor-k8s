@@ -11,10 +11,9 @@ metadata:
   name: {{build_id}}
   container: {{container}}
   launchVersion: {{launcher_version}}
-  logVersion: {{log_version}}
   serviceAccount: {{service_account}}
 command:
-- "/opt/screwdriver/launch {{api_uri}} {{token}} {{build_id}}"
+- "/opt/screwdriver/launch {{api_uri}} {{store_uri}} {{token}} {{build_id}}"
 `;
 
 describe('index', () => {
@@ -24,10 +23,10 @@ describe('index', () => {
     let executor;
     const testBuildId = '80754af91bfb6d1073585b046fe0a474ce868509';
     const testToken = 'abcdefg';
-    const testApiUri = 'http://localhost:8080';
+    const testApiUri = 'http://api:8080';
+    const testStoreUri = 'http://store:8080';
     const testContainer = 'node:4';
     const testLaunchVersion = 'stable';
-    const testLogVersion = 'stable';
     const testServiceAccount = 'default';
     const jobsUrl = 'https://kubernetes/apis/batch/v1/namespaces/default/jobs';
 
@@ -58,6 +57,10 @@ describe('index', () => {
         /* eslint-enable global-require */
 
         executor = new Executor({
+            ecosystem: {
+                api: testApiUri,
+                store: testStoreUri
+            },
             fusebox: { retry: { minTimeout: 1 } }
         });
     });
@@ -73,21 +76,20 @@ describe('index', () => {
 
     it('supports specifying a specific version', () => {
         assert.equal(executor.launchVersion, 'stable');
-        assert.equal(executor.logVersion, 'stable');
         assert.equal(executor.serviceAccount, 'default');
         assert.equal(executor.token, 'api_key');
         assert.equal(executor.host, 'kubernetes');
         executor = new Executor({
-            token: 'api_key2',
-            host: 'kubernetes2',
-            launchVersion: 'v1.2.3',
-            logVersion: 'v2.3.4',
-            serviceAccount: 'foobar'
+            kubernetes: {
+                token: 'api_key2',
+                host: 'kubernetes2',
+                serviceAccount: 'foobar'
+            },
+            launchVersion: 'v1.2.3'
         });
         assert.equal(executor.token, 'api_key2');
         assert.equal(executor.host, 'kubernetes2');
         assert.equal(executor.launchVersion, 'v1.2.3');
-        assert.equal(executor.logVersion, 'v2.3.4');
         assert.equal(executor.serviceAccount, 'foobar');
     });
 
@@ -205,11 +207,11 @@ describe('index', () => {
                         name: testBuildId,
                         container: testContainer,
                         launchVersion: testLaunchVersion,
-                        logVersion: testLogVersion,
                         serviceAccount: testServiceAccount
                     },
                     command: [
-                        `/opt/screwdriver/launch ${testApiUri} ${testToken} ${testBuildId}`
+                        '/opt/screwdriver/launch http://api:8080 http://store:8080 abcdefg '
+                        + '80754af91bfb6d1073585b046fe0a474ce868509'
                     ]
                 },
                 headers: {
