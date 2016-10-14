@@ -17,10 +17,12 @@ The class provides a couple options that are configurable in the instantiation o
 | Parameter        | Type  |  Description |
 | :-------------   | :---- | :-------------|
 | config        | Object | Configuration Object |
-| config.token | String | The JWT token used for authenticating to the Kubernetes cluster (content of `/var/run/secrets/kubernetes.io/serviceaccount/token`) |
-| config.host | String | The hostname for the Kubernetes cluster (kubernetes) |
-| config.toolsVersion | String | Job Tools container version to use (stable) |
-| config.logVersion | String | Log Service container version to use (stable) |
+| config.kubernetes | Object | Kubernetes configuration Object |
+| config.kubernetes.token | String | The JWT token used for authenticating to the Kubernetes cluster (content of `/var/run/secrets/kubernetes.io/serviceaccount/token`) |
+| config.kubernetes.host | String | The hostname for the Kubernetes cluster (kubernetes) |
+| config.kubernetes.serviceAccount | String | The service account to use in Kubernetes (default) |
+| config.ecosystem | Object | Screwdriver Ecosystem (ui, api, store, etc.) |
+| config.launchVersion | String | Launcher container version to use (stable) |
 
 
 ### Methods
