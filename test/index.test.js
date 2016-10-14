@@ -67,13 +67,19 @@ describe('index', () => {
 
         breakRunMock = {
             runCommand: sinon.stub(),
-            getTotalRequests: sinon.stub().returns(1),
-            getTimeouts: sinon.stub().returns(2),
-            getSuccessfulRequests: sinon.stub().returns(3),
-            getFailedRequests: sinon.stub().returns(4),
-            getConcurrentRequests: sinon.stub().returns(5),
-            getAverageRequestTime: sinon.stub().returns(6),
-            isClosed: sinon.stub().returns(false)
+            stats: sinon.stub().returns({
+                requests: {
+                    total: 1,
+                    timeouts: 2,
+                    success: 3,
+                    failure: 4,
+                    concurrent: 5,
+                    averageTime: 6
+                },
+                breaker: {
+                    isClosed: false
+                }
+            })
         };
 
         BreakerMock.prototype = breakRunMock;

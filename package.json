@@ -41,7 +41,7 @@
     "sinon": "^1.17.4"
   },
   "dependencies": {
-    "circuit-fuses": "^2.0.0",
+    "circuit-fuses": "^2.1.0",
     "js-yaml": "^3.6.1",
     "request": "^2.72.0",
     "screwdriver-executor-base": "^5.0.0",
