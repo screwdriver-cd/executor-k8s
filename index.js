@@ -13,11 +13,12 @@ class K8sExecutor extends Executor {
      * Constructor
      * @method constructor
      * @param  {Object} options                          Configuration options
-     * @param  {String} [options.token=null]             Api Token to make requests with (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
+     * @param  {String} [options.token]                  Api Token to make requests with (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
      * @param  {String} [options.host=kubernetes]        Kubernetes hostname to make requests to
      * @param  {String} [options.launchVersion=stable]   Launcher container version to use
      * @param  {String} [options.logVersion=stable]      Log Service container version to use
      * @param  {String} [options.serviceAccount=default] Service Account to use
+     * @param  {String} [options.fusebox]                Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
      */
     constructor(options = {}) {
         super();
@@ -30,7 +31,7 @@ class K8sExecutor extends Executor {
         this.serviceAccount = options.serviceAccount || 'default';
         this.jobsUrl = `https://${this.host}/apis/batch/v1/namespaces/default/jobs`;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/default/pods`;
-        this.breaker = new Fusebox(request);
+        this.breaker = new Fusebox(request, options.fusebox);
     }
 
     /**
@@ -64,21 +65,14 @@ class K8sExecutor extends Executor {
             strictSSL: false
         };
 
-        return new Promise((resolve, reject) => {
-            this.breaker.runCommand(options, (err, resp) => {
-                if (err) {
-                    return reject(err);
-                }
-
+        return this.breaker.runCommand(options)
+            .then((resp) => {
                 if (resp.statusCode !== 201) {
-                    const msg = `Failed to create job: ${JSON.stringify(resp.body)}`;
-
-                    return reject(new Error(msg));
+                    throw new Error(`Failed to create job: ${JSON.stringify(resp.body)}`);
                 }
 
-                return resolve(null);
+                return null;
             });
-        });
     }
 
     /**
@@ -101,21 +95,14 @@ class K8sExecutor extends Executor {
             strictSSL: false
         };
 
-        return new Promise((resolve, reject) => {
-            this.breaker.runCommand(options, (err, resp) => {
-                if (err) {
-                    return reject(err);
-                }
-
+        return this.breaker.runCommand(options)
+            .then((resp) => {
                 if (resp.statusCode !== 200) {
-                    const msg = `Failed to delete job: ${JSON.stringify(resp.body)}`;
-
-                    return reject(new Error(msg));
+                    throw new Error(`Failed to delete job: ${JSON.stringify(resp.body)}`);
                 }
 
-                return resolve(null);
+                return null;
             });
-        });
     }
 
     /**
@@ -124,19 +111,7 @@ class K8sExecutor extends Executor {
     * @param  {Response} Object          Object containing stats for the executor
     */
     stats() {
-        return {
-            requests: {
-                total: this.breaker.getTotalRequests(),
-                timeouts: this.breaker.getTimeouts(),
-                success: this.breaker.getSuccessfulRequests(),
-                failure: this.breaker.getFailedRequests(),
-                concurrent: this.breaker.getConcurrentRequests(),
-                averageTime: this.breaker.getAverageRequestTime()
-            },
-            breaker: {
-                isClosed: this.breaker.isClosed()
-            }
-        };
+        return this.breaker.stats();
     }
 }
 
