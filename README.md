@@ -19,6 +19,7 @@ The class provides a couple options that are configurable in the instantiation o
 | config        | Object | Configuration Object |
 | config.token | String | The JWT token used for authenticating to the Kubernetes cluster (content of `/var/run/secrets/kubernetes.io/serviceaccount/token`) |
 | config.host | String | The hostname for the Kubernetes cluster (kubernetes) |
+| config.breaker | Object | [Circuit Breaker configuration][circuitbreaker] |
 | config.toolsVersion | String | Job Tools container version to use (stable) |
 | config.logVersion | String | Log Service container version to use (stable) |
 
@@ -48,4 +49,4 @@ Code licensed under the BSD 3-Clause license. See LICENSE file for terms.
 [daviddm-image]: https://david-dm.org/screwdriver-cd/executor-k8s.svg?theme=shields.io
 [daviddm-url]: https://david-dm.org/screwdriver-cd/executor-k8s
 [executor-base-class]: https://github.com/screwdriver-cd/executor-base
-[screwdriver job-tools]: https://github.com/screwdriver-cd/job-tools
+[circuitbreaker]: https://www.npmjs.com/package/circuit-fuses#constructor
