@@ -19,7 +19,7 @@ spec:
           {
             "name": "launcher",
             "image": "screwdrivercd/launcher:{{launcher_version}}",
-            "command": ["/bin/sh", "-c", "cp -a /opt/screwdriver/* /opt/launcher],
+            "command": ["/bin/sh", "-c", "cp -a /opt/screwdriver/* /opt/launcher"],
             "volumeMounts": [
               {
                 "name": "screwdriver",
@@ -40,8 +40,8 @@ spec:
         command:
         - "/opt/screwdriver/tini"
         - "--"
-        - '/bin/sh',
-        - '-c',
+        - "/bin/sh"
+        - "-c"
         # Run the launcher and logservice in the background
         # Wait for both background jobs to complete
         - |
