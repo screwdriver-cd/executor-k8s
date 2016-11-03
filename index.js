@@ -12,16 +12,16 @@ class K8sExecutor extends Executor {
     /**
      * Constructor
      * @method constructor
-     * @param  {Object} options                                     Configuration options
-     * @param  {Object} options.ecosystem                           Screwdriver Ecosystem
-     * @param  {Object} options.ecosystem.api                       Routable URI to Screwdriver API
-     * @param  {Object} options.ecosystem.store                     Routable URI to Screwdriver Store
-     * @param  {Object} options.kubernetes                          Kubernetes configuration
-     * @param  {String} [options.kubernetes.token]                  API Token (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
-     * @param  {String} [options.kubernetes.host=kubernetes]        Kubernetes hostname
-     * @param  {String} [options.kubernetes.serviceAccount=default] Service Account for builds
-     * @param  {String} [options.launchVersion=stable]              Launcher container version to use
-     * @param  {String} [options.fusebox]                           Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
+     * @param  {Object} options                                      Configuration options
+     * @param  {Object} options.ecosystem                            Screwdriver Ecosystem
+     * @param  {Object} options.ecosystem.api                        Routable URI to Screwdriver API
+     * @param  {Object} options.ecosystem.store                      Routable URI to Screwdriver Store
+     * @param  {Object} options.kubernetes                           Kubernetes configuration
+     * @param  {String} [options.kubernetes.token]                   API Token (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
+     * @param  {String} [options.kubernetes.host=kubernetes.default] Kubernetes hostname
+     * @param  {String} [options.kubernetes.serviceAccount=default]  Service Account for builds
+     * @param  {String} [options.launchVersion=stable]               Launcher container version to use
+     * @param  {String} [options.fusebox]                            Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
      */
     constructor(options = {}) {
         super();
@@ -30,7 +30,7 @@ class K8sExecutor extends Executor {
         this.ecosystem = options.ecosystem;
         this.token = this.kubernetes.token ||
             fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString();
-        this.host = this.kubernetes.host || 'kubernetes';
+        this.host = this.kubernetes.host || 'kubernetes.default';
         this.launchVersion = options.launchVersion || 'stable';
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
         this.jobsUrl = `https://${this.host}/apis/batch/v1/namespaces/default/jobs`;
