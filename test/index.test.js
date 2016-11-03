@@ -83,7 +83,8 @@ describe('index', () => {
             kubernetes: {
                 token: 'api_key2',
                 host: 'kubernetes2',
-                serviceAccount: 'foobar'
+                serviceAccount: 'foobar',
+                jobsNamespace: 'baz'
             },
             launchVersion: 'v1.2.3'
         });
@@ -91,6 +92,7 @@ describe('index', () => {
         assert.equal(executor.host, 'kubernetes2');
         assert.equal(executor.launchVersion, 'v1.2.3');
         assert.equal(executor.serviceAccount, 'foobar');
+        assert.equal(executor.jobsNamespace, 'baz');
     });
 
     it('extends base class', () => {

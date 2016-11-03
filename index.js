@@ -20,6 +20,7 @@ class K8sExecutor extends Executor {
      * @param  {String} [options.kubernetes.token]                   API Token (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
      * @param  {String} [options.kubernetes.host=kubernetes.default] Kubernetes hostname
      * @param  {String} [options.kubernetes.serviceAccount=default]  Service Account for builds
+     * @param  {String} [options.kubernetes.jobsNamespace=default]   Jobs namespace
      * @param  {String} [options.launchVersion=stable]               Launcher container version to use
      * @param  {String} [options.fusebox]                            Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
      */
@@ -33,8 +34,8 @@ class K8sExecutor extends Executor {
         this.host = this.kubernetes.host || 'kubernetes.default';
         this.launchVersion = options.launchVersion || 'stable';
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
-        this.jobsUrl = `https://${this.host}/apis/batch/v1/namespaces/default/jobs`;
-        this.podsUrl = `https://${this.host}/api/v1/namespaces/default/pods`;
+        this.jobsNamespace = this.kubernetes.jobsNamespace || 'default';
+        this.jobsUrl = `https://${this.host}/apis/batch/v1/namespaces/${this.jobsNamespace}/jobs`;
         this.breaker = new Fusebox(request, options.fusebox);
     }
 
