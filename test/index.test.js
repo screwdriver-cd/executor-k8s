@@ -80,7 +80,7 @@ describe('index', () => {
         assert.equal(executor.token, 'api_key');
         assert.equal(executor.host, 'kubernetes.default');
         executor = new Executor({
-            kubernetes: {
+            executor: {
                 token: 'api_key2',
                 host: 'kubernetes2',
                 serviceAccount: 'foobar'
