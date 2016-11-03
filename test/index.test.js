@@ -28,7 +28,7 @@ describe('index', () => {
     const testContainer = 'node:4';
     const testLaunchVersion = 'stable';
     const testServiceAccount = 'default';
-    const jobsUrl = 'https://kubernetes/apis/batch/v1/namespaces/default/jobs';
+    const jobsUrl = 'https://kubernetes.default/apis/batch/v1/namespaces/default/jobs';
 
     before(() => {
         mockery.enable({
@@ -78,7 +78,7 @@ describe('index', () => {
         assert.equal(executor.launchVersion, 'stable');
         assert.equal(executor.serviceAccount, 'default');
         assert.equal(executor.token, 'api_key');
-        assert.equal(executor.host, 'kubernetes');
+        assert.equal(executor.host, 'kubernetes.default');
         executor = new Executor({
             kubernetes: {
                 token: 'api_key2',
