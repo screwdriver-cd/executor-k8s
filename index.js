@@ -16,17 +16,17 @@ class K8sExecutor extends Executor {
      * @param  {Object} options.ecosystem                            Screwdriver Ecosystem
      * @param  {Object} options.ecosystem.api                        Routable URI to Screwdriver API
      * @param  {Object} options.ecosystem.store                      Routable URI to Screwdriver Store
-     * @param  {Object} options.kubernetes                           Kubernetes configuration
-     * @param  {String} [options.kubernetes.token]                   API Token (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
-     * @param  {String} [options.kubernetes.host=kubernetes.default] Kubernetes hostname
-     * @param  {String} [options.kubernetes.serviceAccount=default]  Service Account for builds
+     * @param  {Object} options.executor                             Kubernetes configuration
+     * @param  {String} [options.executor.token]                     API Token (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
+     * @param  {String} [options.executor.host=kubernetes.default]   Kubernetes hostname
+     * @param  {String} [options.executor.serviceAccount=default]    Service Account for builds
      * @param  {String} [options.launchVersion=stable]               Launcher container version to use
      * @param  {String} [options.fusebox]                            Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
      */
     constructor(options = {}) {
         super();
 
-        this.kubernetes = options.kubernetes || {};
+        this.kubernetes = options.executor || {};
         this.ecosystem = options.ecosystem;
         this.token = this.kubernetes.token ||
             fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString();
