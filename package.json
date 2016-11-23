@@ -1,6 +1,6 @@
 {
   "name": "screwdriver-executor-k8s",
-  "version": "9.0.0",
+  "version": "10.0.0",
   "description": "Kubernetes Executor plugin for Screwdriver",
   "main": "index.js",
   "scripts": {
@@ -35,7 +35,6 @@
     "chai": "^3.5.0",
     "eslint": "^3.2.2",
     "eslint-config-screwdriver": "^2.0.0",
-    "eslint-plugin-import": "^1.12.0",
     "jenkins-mocha": "^3.0.0",
     "mockery": "^2.0.0",
     "sinon": "^1.17.4"

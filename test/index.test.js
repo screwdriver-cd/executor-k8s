@@ -13,7 +13,7 @@ metadata:
   launchVersion: {{launcher_version}}
   serviceAccount: {{service_account}}
 command:
-- "/opt/screwdriver/launch {{api_uri}} {{store_uri}} {{token}} {{build_id}}"
+- "/opt/sd/launch {{api_uri}} {{store_uri}} {{token}} {{build_id}}"
 `;
 
 describe('index', () => {
@@ -212,7 +212,7 @@ describe('index', () => {
                         serviceAccount: testServiceAccount
                     },
                     command: [
-                        '/opt/screwdriver/launch http://api:8080 http://store:8080 abcdefg '
+                        '/opt/sd/launch http://api:8080 http://store:8080 abcdefg '
                         + '80754af91bfb6d1073585b046fe0a474ce868509'
                     ]
                 },
