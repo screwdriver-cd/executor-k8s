@@ -19,7 +19,7 @@ spec:
           {
             "name": "launcher",
             "image": "screwdrivercd/launcher:{{launcher_version}}",
-            "command": ["/bin/sh", "-c", "cp -a /opt/screwdriver/* /opt/launcher"],
+            "command": ["/bin/sh", "-c", "cp -a /opt/sd/* /opt/launcher"],
             "volumeMounts": [
               {
                 "name": "screwdriver",
@@ -38,18 +38,18 @@ spec:
           limits:
             memory: 2Gi
         command:
-        - "/opt/screwdriver/tini"
+        - "/opt/sd/tini"
         - "--"
         - "/bin/sh"
         - "-c"
         # Run the launcher and logservice in the background
         # Wait for both background jobs to complete
         - |
-          /opt/screwdriver/launch --api-uri {{api_uri}} --emitter /opt/screwdriver/emitter {{build_id}} &
-          /opt/screwdriver/logservice --emitter /opt/screwdriver/emitter --api-uri {{store_uri}} --build {{build_id}} &
+          /opt/sd/launch --api-uri {{api_uri}} --emitter /opt/sd/emitter {{build_id}} &
+          /opt/sd/logservice --emitter /opt/sd/emitter --api-uri {{store_uri}} --build {{build_id}} &
           wait $(jobs -p)
         volumeMounts:
-        - mountPath: /opt/screwdriver
+        - mountPath: /opt/sd
           name: screwdriver
         env:
         - name: SD_TOKEN
