@@ -16,12 +16,15 @@ command:
 - "/opt/sd/launch {{api_uri}} {{store_uri}} {{token}} {{build_id}}"
 `;
 
-describe('index', () => {
+describe('index', function () {
+    // Time not important. Only life important.
+    this.timeout(5000);
+
     let Executor;
     let requestMock;
     let fsMock;
     let executor;
-    const testBuildId = '80754af91bfb6d1073585b046fe0a474ce868509';
+    const testBuildId = 15;
     const testToken = 'abcdefg';
     const testApiUri = 'http://api:8080';
     const testStoreUri = 'http://store:8080';
@@ -213,7 +216,7 @@ describe('index', () => {
                     },
                     command: [
                         '/opt/sd/launch http://api:8080 http://store:8080 abcdefg '
-                        + '80754af91bfb6d1073585b046fe0a474ce868509'
+                        + '15'
                     ]
                 },
                 headers: {
