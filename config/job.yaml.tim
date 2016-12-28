@@ -1,9 +1,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{build_id}}
+  name: "{{build_id}}"
   labels:
-    sdbuild: {{build_id}}
+    sdbuild: "{{build_id}}"
     app: screwdriver
     tier: builds
 spec:
@@ -11,7 +11,7 @@ spec:
   template:
     metadata:
       labels:
-        sdbuild: {{build_id}}
+        sdbuild: "{{build_id}}"
         app: screwdriver
         tier: builds
       annotations:
