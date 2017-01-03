@@ -8,7 +8,7 @@ sinon.assert.expose(assert, { prefix: '' });
 
 const TEST_TIM_YAML = `
 metadata:
-  name: {{build_id}}
+  name: {{build_id_with_prefix}}
   container: {{container}}
   launchVersion: {{launcher_version}}
   serviceAccount: {{service_account}}
@@ -64,7 +64,8 @@ describe('index', function () {
                 api: testApiUri,
                 store: testStoreUri
             },
-            fusebox: { retry: { minTimeout: 1 } }
+            fusebox: { retry: { minTimeout: 1 } },
+            prefix: 'beta_'
         });
     });
 
@@ -89,13 +90,25 @@ describe('index', function () {
                 serviceAccount: 'foobar',
                 jobsNamespace: 'baz'
             },
+            prefix: 'beta_',
             launchVersion: 'v1.2.3'
         });
+        assert.equal(executor.prefix, 'beta_');
         assert.equal(executor.token, 'api_key2');
         assert.equal(executor.host, 'kubernetes2');
         assert.equal(executor.launchVersion, 'v1.2.3');
         assert.equal(executor.serviceAccount, 'foobar');
         assert.equal(executor.jobsNamespace, 'baz');
+    });
+
+    it('allow empty options', () => {
+        executor = new Executor();
+        assert.equal(executor.launchVersion, 'stable');
+        assert.equal(executor.serviceAccount, 'default');
+        assert.equal(executor.token, 'api_key');
+        assert.equal(executor.host, 'kubernetes.default');
+        assert.equal(executor.launchVersion, 'stable');
+        assert.equal(executor.prefix, '');
     });
 
     it('extends base class', () => {
@@ -132,7 +145,7 @@ describe('index', function () {
             uri: podsUrl,
             method: 'DELETE',
             qs: {
-                labelSelector: `sdbuild=${testBuildId}`
+                labelSelector: `sdbuild=beta_${testBuildId}`
             },
             headers: {
                 Authorization: 'Bearer api_key'
@@ -209,7 +222,7 @@ describe('index', function () {
                 method: 'POST',
                 json: {
                     metadata: {
-                        name: testBuildId,
+                        name: 'beta_15',
                         container: testContainer,
                         launchVersion: testLaunchVersion,
                         serviceAccount: testServiceAccount
