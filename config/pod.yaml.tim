@@ -1,0 +1,51 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{build_id}}"
+  labels:
+    sdbuild: "{{build_id}}"
+    app: screwdriver
+    tier: builds
+  annotations:
+    pod.alpha.kubernetes.io/init-containers: '[
+      {
+        "name": "launcher",
+        "image": "screwdrivercd/launcher:{{launcher_version}}",
+        "command": ["/bin/sh", "-c", "cp -a /opt/sd/* /opt/launcher"],
+        "volumeMounts": [
+          {
+            "name": "screwdriver",
+            "mountPath": "/opt/launcher"
+          }
+        ]
+      }
+    ]'
+spec:
+  serviceAccount: {{service_account}}
+  restartPolicy: Never
+  containers:
+  - name: build
+    image: {{container}}
+    resources:
+      limits:
+        memory: 2Gi
+    command:
+    - "/opt/sd/tini"
+    - "--"
+    - "/bin/sh"
+    - "-c"
+    # Run the launcher and logservice in the background
+    # Wait for both background jobs to complete
+    - |
+      /opt/sd/launch --api-uri {{api_uri}} --emitter /opt/sd/emitter {{build_id}} &
+      /opt/sd/logservice --emitter /opt/sd/emitter --api-uri {{store_uri}} --build {{build_id}} &
+      wait $(jobs -p)
+    volumeMounts:
+    - mountPath: /opt/sd
+      name: screwdriver
+    env:
+    - name: SD_TOKEN
+      value: "{{token}}"
+  volumes:
+    - name: screwdriver
+      emptyDir: {}

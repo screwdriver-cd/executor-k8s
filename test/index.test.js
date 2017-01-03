@@ -31,7 +31,7 @@ describe('index', function () {
     const testContainer = 'node:4';
     const testLaunchVersion = 'stable';
     const testServiceAccount = 'default';
-    const jobsUrl = 'https://kubernetes.default/apis/batch/v1/namespaces/default/jobs';
+    const podsUrl = 'https://kubernetes.default/api/v1/namespaces/default/pods';
 
     before(() => {
         mockery.enable({
@@ -49,7 +49,7 @@ describe('index', function () {
 
         fsMock.readFileSync.withArgs('/var/run/secrets/kubernetes.io/serviceaccount/token')
             .returns('api_key');
-        fsMock.readFileSync.withArgs(sinon.match(/config\/job.yaml.tim/))
+        fsMock.readFileSync.withArgs(sinon.match(/config\/pod.yaml.tim/))
             .returns(TEST_TIM_YAML);
 
         mockery.registerMock('fs', fsMock);
@@ -129,7 +129,7 @@ describe('index', function () {
             }
         };
         const deleteConfig = {
-            uri: jobsUrl,
+            uri: podsUrl,
             method: 'DELETE',
             qs: {
                 labelSelector: `sdbuild=${testBuildId}`
@@ -176,7 +176,7 @@ describe('index', function () {
                 }
             };
 
-            const returnMessage = 'Failed to delete job: '
+            const returnMessage = 'Failed to delete pod: '
                   + `${JSON.stringify(fakeStopErrorResponse.body)}`;
 
             requestMock.yieldsAsync(null, fakeStopErrorResponse, fakeStopErrorResponse.body);
@@ -205,7 +205,7 @@ describe('index', function () {
 
         it('successfully calls start', () => {
             const postConfig = {
-                uri: jobsUrl,
+                uri: podsUrl,
                 method: 'POST',
                 json: {
                     metadata: {
@@ -261,7 +261,7 @@ describe('index', function () {
                     message: 'lol'
                 }
             };
-            const returnMessage = `Failed to create job: ${JSON.stringify(returnResponse.body)}`;
+            const returnMessage = `Failed to create pod: ${JSON.stringify(returnResponse.body)}`;
 
             requestMock.yieldsAsync(null, returnResponse, returnResponse.body);
 
