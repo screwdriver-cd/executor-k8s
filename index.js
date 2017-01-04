@@ -20,7 +20,7 @@ class K8sExecutor extends Executor {
      * @param  {String} [options.kubernetes.token]                   API Token (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
      * @param  {String} [options.kubernetes.host=kubernetes.default] Kubernetes hostname
      * @param  {String} [options.kubernetes.serviceAccount=default]  Service Account for builds
-     * @param  {String} [options.kubernetes.jobsNamespace=default]   Jobs namespace
+     * @param  {String} [options.kubernetes.jobsNamespace=default]   Pods namespace for Screwdriver Jobs
      * @param  {String} [options.launchVersion=stable]               Launcher container version to use
      * @param  {String} [options.fusebox]                            Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
      */
@@ -35,7 +35,7 @@ class K8sExecutor extends Executor {
         this.launchVersion = options.launchVersion || 'stable';
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
         this.jobsNamespace = this.kubernetes.jobsNamespace || 'default';
-        this.jobsUrl = `https://${this.host}/apis/batch/v1/namespaces/${this.jobsNamespace}/jobs`;
+        this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
         this.breaker = new Fusebox(request, options.fusebox);
     }
 
@@ -49,7 +49,7 @@ class K8sExecutor extends Executor {
      * @return {Promise}
      */
     _start(config) {
-        const jobTemplate = tinytim.renderFile(path.resolve(__dirname, './config/job.yaml.tim'), {
+        const podTemplate = tinytim.renderFile(path.resolve(__dirname, './config/pod.yaml.tim'), {
             build_id: config.buildId,
             container: config.container,
             api_uri: this.ecosystem.api,
@@ -60,9 +60,9 @@ class K8sExecutor extends Executor {
         });
 
         const options = {
-            uri: this.jobsUrl,
+            uri: this.podsUrl,
             method: 'POST',
-            json: yaml.safeLoad(jobTemplate),
+            json: yaml.safeLoad(podTemplate),
             headers: {
                 Authorization: `Bearer ${this.token}`
             },
@@ -72,7 +72,7 @@ class K8sExecutor extends Executor {
         return this.breaker.runCommand(options)
             .then((resp) => {
                 if (resp.statusCode !== 201) {
-                    throw new Error(`Failed to create job: ${JSON.stringify(resp.body)}`);
+                    throw new Error(`Failed to create pod: ${JSON.stringify(resp.body)}`);
                 }
 
                 return null;
@@ -88,7 +88,7 @@ class K8sExecutor extends Executor {
      */
     _stop(config) {
         const options = {
-            uri: this.jobsUrl,
+            uri: this.podsUrl,
             method: 'DELETE',
             qs: {
                 labelSelector: `sdbuild=${config.buildId}`
@@ -102,7 +102,7 @@ class K8sExecutor extends Executor {
         return this.breaker.runCommand(options)
             .then((resp) => {
                 if (resp.statusCode !== 200) {
-                    throw new Error(`Failed to delete job: ${JSON.stringify(resp.body)}`);
+                    throw new Error(`Failed to delete pod: ${JSON.stringify(resp.body)}`);
                 }
 
                 return null;
