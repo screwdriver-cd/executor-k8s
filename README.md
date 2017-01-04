@@ -23,6 +23,7 @@ The class provides a couple options that are configurable in the instantiation o
 | config.kubernetes.serviceAccount | String | The service account to use in Kubernetes (default) |
 | config.ecosystem | Object | Screwdriver Ecosystem (ui, api, store, etc.) |
 | config.launchVersion | String | Launcher container version to use (stable) |
+| config.prefix | String | Prefix to container names ("") |
 
 
 ### Methods

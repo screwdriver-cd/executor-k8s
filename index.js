@@ -22,6 +22,7 @@ class K8sExecutor extends Executor {
      * @param  {String} [options.kubernetes.serviceAccount=default]  Service Account for builds
      * @param  {String} [options.kubernetes.jobsNamespace=default]   Pods namespace for Screwdriver Jobs
      * @param  {String} [options.launchVersion=stable]               Launcher container version to use
+     * @param  {String} [options.prefix='']                          Prefix for job name
      * @param  {String} [options.fusebox]                            Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
      */
     constructor(options = {}) {
@@ -33,6 +34,7 @@ class K8sExecutor extends Executor {
             fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString();
         this.host = this.kubernetes.host || 'kubernetes.default';
         this.launchVersion = options.launchVersion || 'stable';
+        this.prefix = options.prefix || '';
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
         this.jobsNamespace = this.kubernetes.jobsNamespace || 'default';
         this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
@@ -43,13 +45,14 @@ class K8sExecutor extends Executor {
      * Starts a k8s build
      * @method start
      * @param  {Object}   config            A configuration object
-     * @param  {String}   config.buildId    ID for the build
+     * @param  {Integer}  config.buildId    ID for the build
      * @param  {String}   config.container  Container for the build to run in
      * @param  {String}   config.token      JWT for the Build
      * @return {Promise}
      */
     _start(config) {
         const podTemplate = tinytim.renderFile(path.resolve(__dirname, './config/pod.yaml.tim'), {
+            build_id_with_prefix: `${this.prefix}${config.buildId}`,
             build_id: config.buildId,
             container: config.container,
             api_uri: this.ecosystem.api,
@@ -83,7 +86,7 @@ class K8sExecutor extends Executor {
      * Stop a k8s build
      * @method stop
      * @param  {Object}   config            A configuration object
-     * @param  {String}   config.buildId    ID for the build
+     * @param  {Integer}  config.buildId    ID for the build
      * @return {Promise}
      */
     _stop(config) {
@@ -91,7 +94,7 @@ class K8sExecutor extends Executor {
             uri: this.podsUrl,
             method: 'DELETE',
             qs: {
-                labelSelector: `sdbuild=${config.buildId}`
+                labelSelector: `sdbuild=${this.prefix}${config.buildId}`
             },
             headers: {
                 Authorization: `Bearer ${this.token}`
