@@ -44,10 +44,10 @@ Code licensed under the BSD 3-Clause license. See LICENSE file for terms.
 [npm-url]: https://npmjs.org/package/screwdriver-executor-k8s
 [downloads-image]: https://img.shields.io/npm/dt/screwdriver-executor-k8s.svg
 [license-image]: https://img.shields.io/npm/l/screwdriver-executor-k8s.svg
-[issues-image]: https://img.shields.io/github/issues/screwdriver-cd/executor-k8s.svg
-[issues-url]: https://github.com/screwdriver-cd/executor-k8s/issues
-[status-image]: https://cd.screwdriver.cd/pipelines/f5e73dc9a9a5410cfe1c3790b8bfcec0095629d7/badge
-[status-url]: https://cd.screwdriver.cd/pipelines/f5e73dc9a9a5410cfe1c3790b8bfcec0095629d7
+[issues-image]: https://img.shields.io/github/issues/screwdriver-cd/screwdriver.svg
+[issues-url]: https://github.com/screwdriver-cd/screwdriver/issues
+[status-image]: https://cd.screwdriver.cd/pipelines/28/badge
+[status-url]: https://cd.screwdriver.cd/pipelines/28
 [daviddm-image]: https://david-dm.org/screwdriver-cd/executor-k8s.svg?theme=shields.io
 [daviddm-url]: https://david-dm.org/screwdriver-cd/executor-k8s
 [executor-base-class]: https://github.com/screwdriver-cd/executor-base
