@@ -1,4 +1,6 @@
 # Screwdriver Kubernetes Executor
+
+[![Greenkeeper badge](https://badges.greenkeeper.io/screwdriver-cd/executor-k8s.svg)](https://greenkeeper.io/)
 [![Version][npm-image]][npm-url] ![Downloads][downloads-image] [![Build Status][status-image]][status-url] [![Open Issues][issues-image]][issues-url] [![Dependency Status][daviddm-image]][daviddm-url] ![License][license-image]
 
 > Kubernetes Executor plugin for Screwdriver
