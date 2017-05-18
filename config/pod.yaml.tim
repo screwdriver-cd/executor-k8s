@@ -43,9 +43,13 @@ spec:
     volumeMounts:
     - mountPath: /opt/sd
       name: screwdriver
+    - mountPath: /sd
+      name: workspace
     env:
     - name: SD_TOKEN
       value: "{{token}}"
   volumes:
     - name: screwdriver
+      emptyDir: {}
+    - name: workspace
       emptyDir: {}
