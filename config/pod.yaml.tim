@@ -11,7 +11,7 @@ metadata:
       {
         "name": "launcher",
         "image": "screwdrivercd/launcher:{{launcher_version}}",
-        "command": ["/bin/sh", "-c", "cp -a /opt/sd/* /opt/launcher"],
+        "command": ["/bin/sh", "-c", "cp -a /opt/sd/* /opt/launcher && chmod 777 /opt/sd"],
         "volumeMounts": [
           {
             "name": "screwdriver",
