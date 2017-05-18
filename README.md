@@ -3,7 +3,7 @@
 
 > Kubernetes Executor plugin for Screwdriver
 
-This is an executor for the Screwdriver CD solution that interacts with Kubernetes.
+This is an executor for the Screwdriver continous delivery solution that interacts with Kubernetes.
 
 ## Usage
 
