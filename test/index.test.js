@@ -44,8 +44,11 @@ describe('index', function () {
         requestMock = sinon.stub();
 
         fsMock = {
+            existsSync: sinon.stub(),
             readFileSync: sinon.stub()
         };
+
+        fsMock.existsSync.returns(true);
 
         fsMock.readFileSync.withArgs('/var/run/secrets/kubernetes.io/serviceaccount/token')
             .returns('api_key');
@@ -102,10 +105,11 @@ describe('index', function () {
     });
 
     it('allow empty options', () => {
+        fsMock.existsSync.returns(false);
         executor = new Executor();
         assert.equal(executor.launchVersion, 'stable');
         assert.equal(executor.serviceAccount, 'default');
-        assert.equal(executor.token, 'api_key');
+        assert.equal(executor.token, '');
         assert.equal(executor.host, 'kubernetes.default');
         assert.equal(executor.launchVersion, 'stable');
         assert.equal(executor.prefix, '');

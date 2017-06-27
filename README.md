@@ -14,16 +14,17 @@ npm install screwdriver-executor-k8s
 ### Initialization
 The class provides a couple options that are configurable in the instantiation of this Executor
 
-| Parameter        | Type  |  Description |
-| :-------------   | :---- | :-------------|
-| config        | Object | Configuration Object |
-| config.kubernetes | Object | Kubernetes configuration Object |
-| config.kubernetes.token | String | The JWT token used for authenticating to the Kubernetes cluster (content of `/var/run/secrets/kubernetes.io/serviceaccount/token`) |
-| config.kubernetes.host | String | The hostname for the Kubernetes cluster (kubernetes) |
-| config.kubernetes.serviceAccount | String | The service account to use in Kubernetes (default) |
-| config.ecosystem | Object | Screwdriver Ecosystem (ui, api, store, etc.) |
-| config.launchVersion | String | Launcher container version to use (stable) |
-| config.prefix | String | Prefix to container names ("") |
+| Parameter        | Type  | Default    | Description |
+| :-------------   | :---- | :----------| :-----------|
+| config        | Object | | Configuration Object |
+| config.kubernetes | Object | {} | Kubernetes configuration Object |
+| config.kubernetes.token | String | '' | The JWT token used for authenticating to the Kubernetes cluster. (If not passed in, we will read from `/var/run/secrets/kubernetes.io/serviceaccount/token`.) |
+| config.kubernetes.host | String | 'kubernetes.defaults' | The hostname for the Kubernetes cluster (kubernetes) |
+| config.kubernetes.serviceAccount | String | 'default' | The service account to use in Kubernetes (default) |
+| config.ecosystem | Object | | Screwdriver Ecosystem (ui, api, store, etc.) |
+| config.launchVersion | String | 'stable' | Launcher container version to use (stable) |
+| config.prefix | String | '' | Prefix to container names ("") |
+| config.jobsNamespace | String | 'default' | Kubernetes namespace where builds are running on |
 
 
 ### Methods
