@@ -30,8 +30,13 @@ class K8sExecutor extends Executor {
 
         this.kubernetes = options.kubernetes || {};
         this.ecosystem = options.ecosystem;
-        this.token = this.kubernetes.token ||
-            fs.readFileSync('/var/run/secrets/kubernetes.io/serviceaccount/token').toString();
+        if (this.kubernetes.token) {
+            this.token = this.kubernetes.token;
+        } else {
+            const tokenPath = '/var/run/secrets/kubernetes.io/serviceaccount/token';
+
+            this.token = fs.existsSync(tokenPath) ? fs.readFileSync(tokenPath).toString() : '';
+        }
         this.host = this.kubernetes.host || 'kubernetes.default';
         this.launchVersion = options.launchVersion || 'stable';
         this.prefix = options.prefix || '';
