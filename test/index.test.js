@@ -12,6 +12,8 @@ metadata:
   container: {{container}}
   launchVersion: {{launcher_version}}
   serviceAccount: {{service_account}}
+  cpu: {{cpu}}
+  memory: {{memory}}
 command:
 - "/opt/sd/launch {{api_uri}} {{store_uri}} {{token}} {{build_id}}"
 `;
@@ -215,34 +217,71 @@ describe('index', function () {
                 success: true
             }
         };
+        const postConfig = {
+            uri: podsUrl,
+            method: 'POST',
+            json: {
+                metadata: {
+                    name: 'beta_15',
+                    container: testContainer,
+                    launchVersion: testLaunchVersion,
+                    serviceAccount: testServiceAccount,
+                    cpu: 2,
+                    memory: 2
+                },
+                command: [
+                    '/opt/sd/launch http://api:8080 http://store:8080 abcdefg '
+                    + '15'
+                ]
+            },
+            headers: {
+                Authorization: 'Bearer api_key'
+            },
+            strictSSL: false
+        };
 
         beforeEach(() => {
             requestMock.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
         });
 
         it('successfully calls start', () => {
-            const postConfig = {
-                uri: podsUrl,
-                method: 'POST',
-                json: {
-                    metadata: {
-                        name: 'beta_15',
-                        container: testContainer,
-                        launchVersion: testLaunchVersion,
-                        serviceAccount: testServiceAccount
-                    },
-                    command: [
-                        '/opt/sd/launch http://api:8080 http://store:8080 abcdefg '
-                        + '15'
-                    ]
-                },
-                headers: {
-                    Authorization: 'Bearer api_key'
-                },
-                strictSSL: false
-            };
+            executor.start({
+                buildId: testBuildId,
+                container: testContainer,
+                token: testToken,
+                apiUri: testApiUri
+            }).then(() => {
+                assert.calledOnce(requestMock);
+                assert.calledWith(requestMock, postConfig);
+            });
+        });
+
+        it('sets the memory appropriately when ram is set to HIGH', () => {
+            postConfig.json.metadata.cpu = 2;
+            postConfig.json.metadata.memory = 12;
 
             return executor.start({
+                annotations: {
+                    'beta.screwdriver.cd/ram': 'HIGH'
+                },
+                buildId: testBuildId,
+                container: testContainer,
+                token: testToken,
+                apiUri: testApiUri
+            }).then(() => {
+                assert.calledOnce(requestMock);
+                assert.calledWith(requestMock, postConfig);
+            });
+        });
+
+        it('sets the memory appropriately when cpu is set to HIGH', () => {
+            postConfig.json.metadata.cpu = 6;
+            postConfig.json.metadata.memory = 2;
+
+            return executor.start({
+                annotations: {
+                    'beta.screwdriver.cd/cpu': 'HIGH'
+                },
                 buildId: testBuildId,
                 container: testContainer,
                 token: testToken,

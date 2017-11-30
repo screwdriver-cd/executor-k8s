@@ -28,7 +28,8 @@ spec:
     image: {{container}}
     resources:
       limits:
-        memory: 2Gi
+        cpu: {{cpu}}
+        memory: {{memory}}Gi
     command:
     - "/opt/sd/tini"
     - "--"
