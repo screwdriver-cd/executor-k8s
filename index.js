@@ -62,7 +62,7 @@ class K8sExecutor extends Executor {
     _start(config) {
         const cpuConfig = hoek.reach(config, 'annotations', { default: {} })[CPU_RESOURCE];
         const ramConfig = hoek.reach(config, 'annotations', { default: {} })[RAM_RESOURCE];
-        const CPU = (cpuConfig === 'HIGH') ? 6 : 2;
+        const CPU = (cpuConfig === 'HIGH') ? 6000 : 2000; // 6000 millicpu or 2000 millicpu
         const MEMORY = (ramConfig === 'HIGH') ? 12 : 2;   // 12GB or 2GB
         const podTemplate = tinytim.renderFile(path.resolve(__dirname, './config/pod.yaml.tim'), {
             build_id_with_prefix: `${this.prefix}${config.buildId}`,

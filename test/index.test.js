@@ -226,7 +226,7 @@ describe('index', function () {
                     container: testContainer,
                     launchVersion: testLaunchVersion,
                     serviceAccount: testServiceAccount,
-                    cpu: 2,
+                    cpu: 2000,
                     memory: 2
                 },
                 command: [
@@ -257,7 +257,7 @@ describe('index', function () {
         });
 
         it('sets the memory appropriately when ram is set to HIGH', () => {
-            postConfig.json.metadata.cpu = 2;
+            postConfig.json.metadata.cpu = 2000;
             postConfig.json.metadata.memory = 12;
 
             return executor.start({
@@ -274,8 +274,8 @@ describe('index', function () {
             });
         });
 
-        it('sets the memory appropriately when cpu is set to HIGH', () => {
-            postConfig.json.metadata.cpu = 6;
+        it('sets the cpu appropriately when cpu is set to HIGH', () => {
+            postConfig.json.metadata.cpu = 6000;
             postConfig.json.metadata.memory = 2;
 
             return executor.start({
