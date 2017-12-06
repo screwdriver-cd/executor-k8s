@@ -6,20 +6,6 @@ metadata:
     sdbuild: "{{build_id_with_prefix}}"
     app: screwdriver
     tier: builds
-  annotations:
-    pod.alpha.kubernetes.io/init-containers: '[
-      {
-        "name": "launcher",
-        "image": "screwdrivercd/launcher:{{launcher_version}}",
-        "command": ["/bin/sh", "-c", "cp -a /opt/sd/* /opt/launcher"],
-        "volumeMounts": [
-          {
-            "name": "screwdriver",
-            "mountPath": "/opt/launcher"
-          }
-        ]
-      }
-    ]'
 spec:
   serviceAccount: {{service_account}}
   restartPolicy: Never
@@ -49,6 +35,13 @@ spec:
     env:
     - name: SD_TOKEN
       value: "{{token}}"
+  initContainers:
+  - name: launcher
+    image: screwdrivercd/launcher:{{launcher_version}}
+    command: ['/bin/sh', '-c', 'cp -a /opt/sd/* /opt/launcher']
+    volumeMounts:
+    - mountPath: /opt/launcher
+      name: screwdriver
   volumes:
     - name: screwdriver
       emptyDir: {}
