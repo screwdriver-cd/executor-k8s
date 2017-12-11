@@ -93,7 +93,17 @@ describe('index', function () {
                 token: 'api_key2',
                 host: 'kubernetes2',
                 serviceAccount: 'foobar',
-                jobsNamespace: 'baz'
+                jobsNamespace: 'baz',
+                resources: {
+                    cpu: {
+                        high: 8,
+                        low: 1
+                    },
+                    memory: {
+                        high: 5,
+                        low: 1
+                    }
+                }
             },
             prefix: 'beta_',
             launchVersion: 'v1.2.3'
@@ -104,6 +114,10 @@ describe('index', function () {
         assert.equal(executor.launchVersion, 'v1.2.3');
         assert.equal(executor.serviceAccount, 'foobar');
         assert.equal(executor.jobsNamespace, 'baz');
+        assert.equal(executor.highCpu, 8);
+        assert.equal(executor.lowCpu, 1);
+        assert.equal(executor.highMemory, 5);
+        assert.equal(executor.lowMemory, 1);
     });
 
     it('allow empty options', () => {
@@ -115,6 +129,10 @@ describe('index', function () {
         assert.equal(executor.host, 'kubernetes.default');
         assert.equal(executor.launchVersion, 'stable');
         assert.equal(executor.prefix, '');
+        assert.equal(executor.highCpu, 6);
+        assert.equal(executor.lowCpu, 2);
+        assert.equal(executor.highMemory, 12);
+        assert.equal(executor.lowMemory, 2);
     });
 
     it('extends base class', () => {
