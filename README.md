@@ -25,6 +25,10 @@ The class provides a couple options that are configurable in the instantiation o
 | config.launchVersion | String | 'stable' | Launcher container version to use (stable) |
 | config.prefix | String | '' | Prefix to container names ("") |
 | config.jobsNamespace | String | 'default' | Kubernetes namespace where builds are running on |
+| config.resources.memory.high | Number | 12 | Value for HIGH memory (in GB) |
+| config.resources.memmory.low | Number | 2 | Value for LOW memory (in GB) |
+| config.resources.cpu.high | Number | 6 | Value for HIGH CPU (in cores) |
+| config.resources.cpu.low | Number | 2 | Value for LOW CPU (in cores) |
 
 
 ### Methods
