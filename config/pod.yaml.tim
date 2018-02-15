@@ -32,18 +32,24 @@ spec:
       name: screwdriver
     - mountPath: /sd
       name: workspace
+    - mountPath: /hab
+      name: habitat
     env:
     - name: SD_TOKEN
       value: "{{token}}"
   initContainers:
   - name: launcher
     image: screwdrivercd/launcher:{{launcher_version}}
-    command: ['/bin/sh', '-c', 'cp -a /opt/sd/* /opt/launcher']
+    command: ['/bin/sh', '-c', 'cp -a /opt/sd/* /opt/launcher && cp -a /hab/* /opt/hab']
     volumeMounts:
     - mountPath: /opt/launcher
       name: screwdriver
+    - mountPath: /opt/hab
+      name: habitat
   volumes:
     - name: screwdriver
+      emptyDir: {}
+    - name: habitat
       emptyDir: {}
     - name: workspace
       emptyDir: {}
