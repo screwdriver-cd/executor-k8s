@@ -12,6 +12,7 @@ spec:
   containers:
   - name: build
     image: {{container}}
+    imagePullPolicy: Always
     resources:
       limits:
         cpu: {{cpu}}m
