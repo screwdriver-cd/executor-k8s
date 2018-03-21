@@ -9,7 +9,9 @@ const yaml = require('js-yaml');
 const fs = require('fs');
 const hoek = require('hoek');
 
+const ANNOTATE_BUILD_TIMEOUT = 'beta.screwdriver.cd/timeout';
 const CPU_RESOURCE = 'beta.screwdriver.cd/cpu';
+const DEFAULT_BUILD_TIMEOUT = 5400;     // 90 minutes in seconds
 const RAM_RESOURCE = 'beta.screwdriver.cd/ram';
 
 class K8sExecutor extends Executor {
@@ -21,6 +23,7 @@ class K8sExecutor extends Executor {
      * @param  {Object} options.ecosystem.api                         Routable URI to Screwdriver API
      * @param  {Object} options.ecosystem.store                       Routable URI to Screwdriver Store
      * @param  {Object} options.kubernetes                            Kubernetes configuration
+     * @param  {Number} [options.kubernetes.buildTimeout=5400]        Number of seconds to allow a build to run before considering it is timed out
      * @param  {String} [options.kubernetes.token]                    API Token (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
      * @param  {String} [options.kubernetes.host=kubernetes.default]  Kubernetes hostname
      * @param  {String} [options.kubernetes.serviceAccount=default]   Service Account for builds
@@ -45,6 +48,7 @@ class K8sExecutor extends Executor {
 
             this.token = fs.existsSync(tokenPath) ? fs.readFileSync(tokenPath).toString() : '';
         }
+        this.buildTimeout = hoek.reach(options, 'kubernetes.buildTimeout') || DEFAULT_BUILD_TIMEOUT;
         this.host = this.kubernetes.host || 'kubernetes.default';
         this.launchVersion = options.launchVersion || 'stable';
         this.prefix = options.prefix || '';
@@ -68,13 +72,15 @@ class K8sExecutor extends Executor {
      * @return {Promise}
      */
     _start(config) {
-        const cpuConfig = hoek.reach(config, 'annotations', { default: {} })[CPU_RESOURCE];
-        const ramConfig = hoek.reach(config, 'annotations', { default: {} })[RAM_RESOURCE];
+        const annotations = hoek.reach(config, 'annotations', { default: {} });
+        const buildTimeout = annotations[ANNOTATE_BUILD_TIMEOUT] || this.buildTimeout;
+        const cpuConfig = annotations[CPU_RESOURCE];
         const CPU = (cpuConfig === 'HIGH') ? this.highCpu * 1000 : this.lowCpu * 1000; // 6000 millicpu or 2000 millicpu
-        const MEMORY = (ramConfig === 'HIGH') ? this.highMemory : this.lowMemory;      // 12GB or 2GB
+        const MEMORY = (annotations[RAM_RESOURCE] === 'HIGH') ? this.highMemory : this.lowMemory;      // 12GB or 2GB
         const podTemplate = tinytim.renderFile(path.resolve(__dirname, './config/pod.yaml.tim'), {
             build_id_with_prefix: `${this.prefix}${config.buildId}`,
             build_id: config.buildId,
+            build_timeout: buildTimeout,
             container: config.container,
             api_uri: this.ecosystem.api,
             store_uri: this.ecosystem.store,
