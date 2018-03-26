@@ -11,7 +11,7 @@ const hoek = require('hoek');
 
 const ANNOTATE_BUILD_TIMEOUT = 'beta.screwdriver.cd/timeout';
 const CPU_RESOURCE = 'beta.screwdriver.cd/cpu';
-const DEFAULT_BUILD_TIMEOUT = 5400;     // 90 minutes in seconds
+const DEFAULT_BUILD_TIMEOUT = 90;     // 90 minutes
 const RAM_RESOURCE = 'beta.screwdriver.cd/ram';
 
 class K8sExecutor extends Executor {
@@ -23,7 +23,7 @@ class K8sExecutor extends Executor {
      * @param  {Object} options.ecosystem.api                         Routable URI to Screwdriver API
      * @param  {Object} options.ecosystem.store                       Routable URI to Screwdriver Store
      * @param  {Object} options.kubernetes                            Kubernetes configuration
-     * @param  {Number} [options.kubernetes.buildTimeout=5400]        Number of seconds to allow a build to run before considering it is timed out
+     * @param  {Number} [options.kubernetes.buildTimeout=90]          Number of minutes to allow a build to run before considering it is timed out
      * @param  {String} [options.kubernetes.token]                    API Token (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
      * @param  {String} [options.kubernetes.host=kubernetes.default]  Kubernetes hostname
      * @param  {String} [options.kubernetes.serviceAccount=default]   Service Account for builds
