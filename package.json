@@ -44,12 +44,14 @@
     "eslint-config-screwdriver": "^2.0.0",
     "jenkins-mocha": "^4.0.0",
     "mockery": "^2.0.0",
+    "rewire": "^3.0.2",
     "sinon": "^1.17.4"
   },
   "dependencies": {
     "circuit-fuses": "^2.1.0",
     "hoek": "^5.0.2",
-    "js-yaml": "^3.6.1",
+    "js-yaml": "^3.11.0",
+    "lodash": "^4.17.5",
     "request": "^2.72.0",
     "screwdriver-executor-base": "^5.2.0",
     "tinytim": "^0.1.1"

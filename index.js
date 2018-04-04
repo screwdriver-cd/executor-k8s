@@ -8,11 +8,50 @@ const tinytim = require('tinytim');
 const yaml = require('js-yaml');
 const fs = require('fs');
 const hoek = require('hoek');
+const _ = require('lodash');
 
 const ANNOTATE_BUILD_TIMEOUT = 'beta.screwdriver.cd/timeout';
 const CPU_RESOURCE = 'beta.screwdriver.cd/cpu';
 const DEFAULT_BUILD_TIMEOUT = 90;     // 90 minutes
 const RAM_RESOURCE = 'beta.screwdriver.cd/ram';
+
+const TOLERATIONS_PATH = 'spec.tolerations';
+const AFFINITY_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
+    'requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms';
+
+/**
+ * Parses nodeSelector config and update intended nodeSelector in tolerations
+ * and nodeAffinity.
+ * @param {Object} podConfig      k8s pod config
+ * @param {Object} nodeSelectors  key-value pairs of node selectors
+ */
+function setNodeSelector(podConfig, nodeSelectors) {
+    if (!nodeSelectors || typeof nodeSelectors !== 'object') {
+        return;
+    }
+
+    const tolerations = _.get(podConfig, TOLERATIONS_PATH, []);
+    const nodeAffinitySelectors = _.get(podConfig, AFFINITY_NODE_SELECTOR_PATH, []);
+
+    Object.keys(nodeSelectors).forEach((key) => {
+        tolerations.push({
+            key,
+            value: nodeSelectors[key],
+            effect: 'NoSchedule',
+            operator: 'Equal'
+        });
+        nodeAffinitySelectors.push({
+            matchExpressions: [{
+                key,
+                operator: 'In',
+                values: [nodeSelectors[key]]
+            }]
+        });
+    });
+
+    _.set(podConfig, TOLERATIONS_PATH, tolerations);
+    _.set(podConfig, AFFINITY_NODE_SELECTOR_PATH, nodeAffinitySelectors);
+}
 
 class K8sExecutor extends Executor {
     /**
@@ -60,6 +99,7 @@ class K8sExecutor extends Executor {
         this.lowCpu = hoek.reach(options, 'kubernetes.resources.cpu.low', { default: 2 });
         this.highMemory = hoek.reach(options, 'kubernetes.resources.memory.high', { default: 12 });
         this.lowMemory = hoek.reach(options, 'kubernetes.resources.memory.low', { default: 2 });
+        this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
     }
 
     /**
@@ -91,10 +131,14 @@ class K8sExecutor extends Executor {
             memory: MEMORY
         });
 
+        const podConfig = yaml.safeLoad(podTemplate);
+
+        setNodeSelector(podConfig, this.nodeSelectors);
+
         const options = {
             uri: this.podsUrl,
             method: 'POST',
-            json: yaml.safeLoad(podTemplate),
+            json: podConfig,
             headers: {
                 Authorization: `Bearer ${this.token}`
             },

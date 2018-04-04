@@ -3,6 +3,9 @@
 const assert = require('chai').assert;
 const sinon = require('sinon');
 const mockery = require('mockery');
+const yaml = require('js-yaml');
+const rewire = require('rewire');
+const index = rewire('../index.js');
 
 sinon.assert.expose(assert, { prefix: '' });
 
@@ -34,6 +37,27 @@ describe('index', function () {
     const testLaunchVersion = 'stable';
     const testServiceAccount = 'default';
     const podsUrl = 'https://kubernetes.default/api/v1/namespaces/default/pods';
+    const testSpec = {
+        tolerations: [{
+            key: 'key',
+            value: 'value',
+            effect: 'NoSchedule',
+            operator: 'Equal'
+        }],
+        affinity: {
+            nodeAffinity: {
+                requiredDuringSchedulingIgnoredDuringExecution: {
+                    nodeSelectorTerms: [{
+                        matchExpressions: [{
+                            key: 'key',
+                            operator: 'In',
+                            values: ['value']
+                        }]
+                    }]
+                }
+            }
+        }
+    };
 
     before(() => {
         mockery.enable({
@@ -319,6 +343,27 @@ describe('index', function () {
             });
         });
 
+        it('sets tolerations and node affinity with appropriate node config', () => {
+            postConfig.json.spec = testSpec;
+
+            executor = new Executor({
+                ecosystem: {
+                    api: testApiUri,
+                    store: testStoreUri
+                },
+                fusebox: { retry: { minTimeout: 1 } },
+                prefix: 'beta_',
+                kubernetes: {
+                    nodeSelectors: { key: 'value' }
+                }
+            });
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledOnce(requestMock);
+                assert.calledWith(requestMock, postConfig);
+            });
+        });
+
         it('returns error when request responds with error', () => {
             const error = new Error('lol');
 
@@ -348,6 +393,36 @@ describe('index', function () {
             }, (err) => {
                 assert.equal(err.message, returnMessage);
             });
+        });
+    });
+
+    describe('setNodeSelector', () => {
+        // eslint-disable-next-line no-underscore-dangle
+        const setNodeSelector = index.__get__('setNodeSelector');
+
+        let nodeSelectors;
+        let fakeConfig;
+
+        beforeEach(() => {
+            nodeSelectors = null;
+            fakeConfig = yaml.safeLoad(TEST_TIM_YAML);
+        });
+
+        it('does nothing if nodeSelector is not set', () => {
+            const updatedConfig = fakeConfig;
+
+            setNodeSelector(fakeConfig, nodeSelectors);
+            assert.equal(fakeConfig, updatedConfig);
+        });
+
+        it('updates config with tolerations', () => {
+            const updatedConfig = fakeConfig;
+
+            updatedConfig.spec = testSpec;
+            nodeSelectors = { key: 'value' };
+
+            setNodeSelector(fakeConfig, nodeSelectors);
+            assert.equal(fakeConfig, updatedConfig);
         });
     });
 });
