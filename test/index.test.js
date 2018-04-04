@@ -217,7 +217,7 @@ describe('index', function () {
             };
 
             const returnMessage = 'Failed to delete pod: '
-                  + `${JSON.stringify(fakeStopErrorResponse.body)}`;
+                + `${JSON.stringify(fakeStopErrorResponse.body)}`;
 
             requestMock.yieldsAsync(null, fakeStopErrorResponse, fakeStopErrorResponse.body);
 
@@ -238,7 +238,9 @@ describe('index', function () {
                 success: true
             }
         };
+
         let postConfig;
+        let fakeStartConfig;
 
         beforeEach(() => {
             postConfig = {
@@ -263,16 +265,18 @@ describe('index', function () {
                 },
                 strictSSL: false
             };
-            requestMock.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
-        });
-
-        it('successfully calls start', () => {
-            executor.start({
+            fakeStartConfig = {
+                annotations: {},
                 buildId: testBuildId,
                 container: testContainer,
                 token: testToken,
                 apiUri: testApiUri
-            }).then(() => {
+            };
+            requestMock.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
+        });
+
+        it('successfully calls start', () => {
+            executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
                 assert.calledWith(requestMock, postConfig);
             });
@@ -281,16 +285,9 @@ describe('index', function () {
         it('sets the memory appropriately when ram is set to HIGH', () => {
             postConfig.json.metadata.cpu = 2000;
             postConfig.json.metadata.memory = 12;
+            fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'HIGH';
 
-            return executor.start({
-                annotations: {
-                    'beta.screwdriver.cd/ram': 'HIGH'
-                },
-                buildId: testBuildId,
-                container: testContainer,
-                token: testToken,
-                apiUri: testApiUri
-            }).then(() => {
+            return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
                 assert.calledWith(requestMock, postConfig);
             });
@@ -299,16 +296,9 @@ describe('index', function () {
         it('sets the cpu appropriately when cpu is set to HIGH', () => {
             postConfig.json.metadata.cpu = 6000;
             postConfig.json.metadata.memory = 2;
+            fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'HIGH';
 
-            return executor.start({
-                annotations: {
-                    'beta.screwdriver.cd/cpu': 'HIGH'
-                },
-                buildId: testBuildId,
-                container: testContainer,
-                token: testToken,
-                apiUri: testApiUri
-            }).then(() => {
+            return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
                 assert.calledWith(requestMock, postConfig);
             });
@@ -317,19 +307,13 @@ describe('index', function () {
         it('sets the build timeout', () => {
             const testTimeout = 10800;
 
+            fakeStartConfig.annotations['beta.screwdriver.cd/timeout'] = testTimeout;
+
             postConfig.json.command = [
                 `/opt/sd/launch http://api:8080 http://store:8080 abcdefg ${testTimeout} 15`
             ];
 
-            return executor.start({
-                annotations: {
-                    'beta.screwdriver.cd/timeout': testTimeout
-                },
-                buildId: testBuildId,
-                container: testContainer,
-                token: testToken,
-                apiUri: testApiUri
-            }).then(() => {
+            return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
                 assert.calledWith(requestMock, postConfig);
             });
@@ -340,12 +324,7 @@ describe('index', function () {
 
             requestMock.yieldsAsync(error);
 
-            return executor.start({
-                buildId: testBuildId,
-                container: testContainer,
-                token: testToken,
-                apiUri: testApiUri
-            }).then(() => {
+            return executor.start(fakeStartConfig).then(() => {
                 throw new Error('did not fail');
             }, (err) => {
                 assert.deepEqual(err, error);
@@ -364,12 +343,7 @@ describe('index', function () {
 
             requestMock.yieldsAsync(null, returnResponse, returnResponse.body);
 
-            return executor.start({
-                buildId: testBuildId,
-                container: testContainer,
-                token: testToken,
-                apiUri: testApiUri
-            }).then(() => {
+            return executor.start(fakeStartConfig).then(() => {
                 throw new Error('did not fail');
             }, (err) => {
                 assert.equal(err.message, returnMessage);
