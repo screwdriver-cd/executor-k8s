@@ -1,19 +1,17 @@
-workflow:
-    - publish
-
 shared:
-    image: node:6
+  image: node:6
 
 jobs:
-    main:
-        steps:
-            - install: npm install
-            - test: npm test
-
-    publish:
-        template: screwdriver-cd/semantic-release 
-        secrets:
-            # Publishing to NPM
-            - NPM_TOKEN
-            # Pushing tags to Git
-            - GH_TOKEN
+  main:
+    requires: [ ~pr, ~commit ]
+    steps:
+      - install: npm install
+      - test: npm test
+  publish:
+    requires: [ main ]
+    template: screwdriver-cd/semantic-release
+    secrets:
+      # Publishing to NPM
+      - NPM_TOKEN
+      # Pushing tags to Git
+      - GH_TOKEN

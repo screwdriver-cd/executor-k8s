@@ -3,6 +3,9 @@
 const assert = require('chai').assert;
 const sinon = require('sinon');
 const mockery = require('mockery');
+const yaml = require('js-yaml');
+const rewire = require('rewire');
+const index = rewire('../index.js');
 
 sinon.assert.expose(assert, { prefix: '' });
 
@@ -34,6 +37,27 @@ describe('index', function () {
     const testLaunchVersion = 'stable';
     const testServiceAccount = 'default';
     const podsUrl = 'https://kubernetes.default/api/v1/namespaces/default/pods';
+    const testSpec = {
+        tolerations: [{
+            key: 'key',
+            value: 'value',
+            effect: 'NoSchedule',
+            operator: 'Equal'
+        }],
+        affinity: {
+            nodeAffinity: {
+                requiredDuringSchedulingIgnoredDuringExecution: {
+                    nodeSelectorTerms: [{
+                        matchExpressions: [{
+                            key: 'key',
+                            operator: 'In',
+                            values: ['value']
+                        }]
+                    }]
+                }
+            }
+        }
+    };
 
     before(() => {
         mockery.enable({
@@ -217,7 +241,7 @@ describe('index', function () {
             };
 
             const returnMessage = 'Failed to delete pod: '
-                  + `${JSON.stringify(fakeStopErrorResponse.body)}`;
+                + `${JSON.stringify(fakeStopErrorResponse.body)}`;
 
             requestMock.yieldsAsync(null, fakeStopErrorResponse, fakeStopErrorResponse.body);
 
@@ -238,7 +262,9 @@ describe('index', function () {
                 success: true
             }
         };
+
         let postConfig;
+        let fakeStartConfig;
 
         beforeEach(() => {
             postConfig = {
@@ -263,16 +289,18 @@ describe('index', function () {
                 },
                 strictSSL: false
             };
-            requestMock.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
-        });
-
-        it('successfully calls start', () => {
-            executor.start({
+            fakeStartConfig = {
+                annotations: {},
                 buildId: testBuildId,
                 container: testContainer,
                 token: testToken,
                 apiUri: testApiUri
-            }).then(() => {
+            };
+            requestMock.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
+        });
+
+        it('successfully calls start', () => {
+            executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
                 assert.calledWith(requestMock, postConfig);
             });
@@ -281,16 +309,9 @@ describe('index', function () {
         it('sets the memory appropriately when ram is set to HIGH', () => {
             postConfig.json.metadata.cpu = 2000;
             postConfig.json.metadata.memory = 12;
+            fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'HIGH';
 
-            return executor.start({
-                annotations: {
-                    'beta.screwdriver.cd/ram': 'HIGH'
-                },
-                buildId: testBuildId,
-                container: testContainer,
-                token: testToken,
-                apiUri: testApiUri
-            }).then(() => {
+            return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
                 assert.calledWith(requestMock, postConfig);
             });
@@ -299,16 +320,9 @@ describe('index', function () {
         it('sets the cpu appropriately when cpu is set to HIGH', () => {
             postConfig.json.metadata.cpu = 6000;
             postConfig.json.metadata.memory = 2;
+            fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'HIGH';
 
-            return executor.start({
-                annotations: {
-                    'beta.screwdriver.cd/cpu': 'HIGH'
-                },
-                buildId: testBuildId,
-                container: testContainer,
-                token: testToken,
-                apiUri: testApiUri
-            }).then(() => {
+            return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
                 assert.calledWith(requestMock, postConfig);
             });
@@ -317,19 +331,34 @@ describe('index', function () {
         it('sets the build timeout', () => {
             const testTimeout = 10800;
 
+            fakeStartConfig.annotations['beta.screwdriver.cd/timeout'] = testTimeout;
+
             postConfig.json.command = [
                 `/opt/sd/launch http://api:8080 http://store:8080 abcdefg ${testTimeout} 15`
             ];
 
-            return executor.start({
-                annotations: {
-                    'beta.screwdriver.cd/timeout': testTimeout
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledOnce(requestMock);
+                assert.calledWith(requestMock, postConfig);
+            });
+        });
+
+        it('sets tolerations and node affinity with appropriate node config', () => {
+            postConfig.json.spec = testSpec;
+
+            executor = new Executor({
+                ecosystem: {
+                    api: testApiUri,
+                    store: testStoreUri
                 },
-                buildId: testBuildId,
-                container: testContainer,
-                token: testToken,
-                apiUri: testApiUri
-            }).then(() => {
+                fusebox: { retry: { minTimeout: 1 } },
+                prefix: 'beta_',
+                kubernetes: {
+                    nodeSelectors: { key: 'value' }
+                }
+            });
+
+            return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
                 assert.calledWith(requestMock, postConfig);
             });
@@ -340,12 +369,7 @@ describe('index', function () {
 
             requestMock.yieldsAsync(error);
 
-            return executor.start({
-                buildId: testBuildId,
-                container: testContainer,
-                token: testToken,
-                apiUri: testApiUri
-            }).then(() => {
+            return executor.start(fakeStartConfig).then(() => {
                 throw new Error('did not fail');
             }, (err) => {
                 assert.deepEqual(err, error);
@@ -364,16 +388,41 @@ describe('index', function () {
 
             requestMock.yieldsAsync(null, returnResponse, returnResponse.body);
 
-            return executor.start({
-                buildId: testBuildId,
-                container: testContainer,
-                token: testToken,
-                apiUri: testApiUri
-            }).then(() => {
+            return executor.start(fakeStartConfig).then(() => {
                 throw new Error('did not fail');
             }, (err) => {
                 assert.equal(err.message, returnMessage);
             });
+        });
+    });
+
+    describe('setNodeSelector', () => {
+        // eslint-disable-next-line no-underscore-dangle
+        const setNodeSelector = index.__get__('setNodeSelector');
+
+        let nodeSelectors;
+        let fakeConfig;
+
+        beforeEach(() => {
+            nodeSelectors = null;
+            fakeConfig = yaml.safeLoad(TEST_TIM_YAML);
+        });
+
+        it('does nothing if nodeSelector is not set', () => {
+            const updatedConfig = fakeConfig;
+
+            setNodeSelector(fakeConfig, nodeSelectors);
+            assert.equal(fakeConfig, updatedConfig);
+        });
+
+        it('updates config with tolerations', () => {
+            const updatedConfig = fakeConfig;
+
+            updatedConfig.spec = testSpec;
+            nodeSelectors = { key: 'value' };
+
+            setNodeSelector(fakeConfig, nodeSelectors);
+            assert.equal(fakeConfig, updatedConfig);
         });
     });
 });
