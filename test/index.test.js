@@ -6,6 +6,7 @@ const mockery = require('mockery');
 const yaml = require('js-yaml');
 const rewire = require('rewire');
 const index = rewire('../index.js');
+const _ = require('lodash');
 
 sinon.assert.expose(assert, { prefix: '' });
 
@@ -55,6 +56,31 @@ describe('index', function () {
                         }]
                     }]
                 }
+            }
+        }
+    };
+    const testPreferredSpec = {
+        affinity: {
+            nodeAffinity: {
+                preferredDuringSchedulingIgnoredDuringExecution: [
+                    {
+                        weight: 100,
+                        preference: {
+                            matchExpressions: [
+                                {
+                                    key: 'key',
+                                    operator: 'In',
+                                    values: ['value']
+                                },
+                                {
+                                    key: 'foo',
+                                    operator: 'In',
+                                    values: ['bar']
+                                }
+                            ]
+                        }
+                    }
+                ]
             }
         }
     };
@@ -364,6 +390,51 @@ describe('index', function () {
             });
         });
 
+        it('sets preferred node affinity with appropriate node config', () => {
+            postConfig.json.spec = testPreferredSpec;
+
+            executor = new Executor({
+                ecosystem: {
+                    api: testApiUri,
+                    store: testStoreUri
+                },
+                fusebox: { retry: { minTimeout: 1 } },
+                prefix: 'beta_',
+                kubernetes: {
+                    preferredNodeSelectors: { key: 'value', foo: 'bar' }
+                }
+            });
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledOnce(requestMock);
+                assert.calledWith(requestMock, postConfig);
+            });
+        });
+
+        it('sets node affinity and preferred node affinity', () => {
+            const spec = _.merge({}, testSpec, testPreferredSpec);
+
+            postConfig.json.spec = spec;
+
+            executor = new Executor({
+                ecosystem: {
+                    api: testApiUri,
+                    store: testStoreUri
+                },
+                fusebox: { retry: { minTimeout: 1 } },
+                prefix: 'beta_',
+                kubernetes: {
+                    nodeSelectors: { key: 'value' },
+                    preferredNodeSelectors: { key: 'value', foo: 'bar' }
+                }
+            });
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledOnce(requestMock);
+                assert.calledWith(requestMock, postConfig);
+            });
+        });
+
         it('returns error when request responds with error', () => {
             const error = new Error('lol');
 
@@ -409,20 +480,50 @@ describe('index', function () {
         });
 
         it('does nothing if nodeSelector is not set', () => {
-            const updatedConfig = fakeConfig;
+            const updatedConfig = JSON.parse(JSON.stringify(fakeConfig));
 
             setNodeSelector(fakeConfig, nodeSelectors);
-            assert.equal(fakeConfig, updatedConfig);
+            assert.deepEqual(fakeConfig, updatedConfig);
         });
 
         it('updates config with tolerations', () => {
-            const updatedConfig = fakeConfig;
+            const updatedConfig = JSON.parse(JSON.stringify(fakeConfig));
 
             updatedConfig.spec = testSpec;
             nodeSelectors = { key: 'value' };
 
             setNodeSelector(fakeConfig, nodeSelectors);
-            assert.equal(fakeConfig, updatedConfig);
+            assert.deepEqual(fakeConfig, updatedConfig);
+        });
+    });
+
+    describe('setPreferredNodeSelector', () => {
+        // eslint-disable-next-line no-underscore-dangle
+        const setPreferredNodeSelector = index.__get__('setPreferredNodeSelector');
+
+        let nodeSelectors;
+        let fakeConfig;
+
+        beforeEach(() => {
+            nodeSelectors = null;
+            fakeConfig = yaml.safeLoad(TEST_TIM_YAML);
+        });
+
+        it('does nothing if preferredNodeSelector is not set', () => {
+            const updatedConfig = JSON.parse(JSON.stringify(fakeConfig));
+
+            setPreferredNodeSelector(fakeConfig, nodeSelectors);
+            assert.deepEqual(fakeConfig, updatedConfig);
+        });
+
+        it('updates config with preferred node settings', () => {
+            const updatedConfig = JSON.parse(JSON.stringify(fakeConfig));
+
+            updatedConfig.spec = testPreferredSpec;
+            nodeSelectors = { key: 'value', foo: 'bar' };
+
+            setPreferredNodeSelector(fakeConfig, nodeSelectors);
+            assert.deepEqual(fakeConfig, updatedConfig);
         });
     });
 });
