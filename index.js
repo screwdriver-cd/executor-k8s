@@ -18,6 +18,9 @@ const RAM_RESOURCE = 'beta.screwdriver.cd/ram';
 const TOLERATIONS_PATH = 'spec.tolerations';
 const AFFINITY_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
     'requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms';
+const AFFINITY_PREFERRED_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
+    'preferredDuringSchedulingIgnoredDuringExecution';
+const PREFERRED_WEIGHT = 100;
 
 /**
  * Parses nodeSelector config and update intended nodeSelector in tolerations
@@ -49,8 +52,48 @@ function setNodeSelector(podConfig, nodeSelectors) {
         });
     });
 
+    const tmpNodeAffinitySelector = {};
+
     _.set(podConfig, TOLERATIONS_PATH, tolerations);
-    _.set(podConfig, AFFINITY_NODE_SELECTOR_PATH, nodeAffinitySelectors);
+    _.set(tmpNodeAffinitySelector, AFFINITY_NODE_SELECTOR_PATH, nodeAffinitySelectors);
+    _.merge(podConfig, tmpNodeAffinitySelector);
+}
+
+/**
+ * Parses preferredNodeSelector config and update intended preferredNodeSelector in nodeAffinity.
+ * @param {Object} podConfig              k8s pod config
+ * @param {Object} preferredNodeSelectors key-value pairs of preferred node selectors
+ */
+function setPreferredNodeSelector(podConfig, preferredNodeSelectors) {
+    if (!preferredNodeSelectors || typeof preferredNodeSelectors !== 'object') {
+        return;
+    }
+
+    const preferredNodeAffinitySelectors = [];
+    const preferredNodeAffinityItem = {
+        weight: PREFERRED_WEIGHT,
+        preference: {}
+    };
+    const preferredNodeAffinity = _.get(podConfig, AFFINITY_PREFERRED_NODE_SELECTOR_PATH, []);
+
+    Object.keys(preferredNodeSelectors).forEach((key) => {
+        preferredNodeAffinitySelectors.push(
+            {
+                key,
+                operator: 'In',
+                values: [preferredNodeSelectors[key]]
+            }
+        );
+    });
+
+    preferredNodeAffinityItem.preference.matchExpressions = preferredNodeAffinitySelectors;
+    preferredNodeAffinity.push(preferredNodeAffinityItem);
+
+    const tmpPreferredNodeAffinitySelector = {};
+
+    _.set(tmpPreferredNodeAffinitySelector,
+        AFFINITY_PREFERRED_NODE_SELECTOR_PATH, preferredNodeAffinity);
+    _.merge(podConfig, tmpPreferredNodeAffinitySelector);
 }
 
 class K8sExecutor extends Executor {
@@ -100,6 +143,7 @@ class K8sExecutor extends Executor {
         this.highMemory = hoek.reach(options, 'kubernetes.resources.memory.high', { default: 12 });
         this.lowMemory = hoek.reach(options, 'kubernetes.resources.memory.low', { default: 2 });
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
+        this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
     }
 
     /**
@@ -134,6 +178,7 @@ class K8sExecutor extends Executor {
         const podConfig = yaml.safeLoad(podTemplate);
 
         setNodeSelector(podConfig, this.nodeSelectors);
+        setPreferredNodeSelector(podConfig, this.preferredNodeSelectors);
 
         const options = {
             uri: this.podsUrl,
