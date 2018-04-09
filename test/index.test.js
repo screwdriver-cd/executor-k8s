@@ -119,6 +119,10 @@ describe('index', function () {
                 api: testApiUri,
                 store: testStoreUri
             },
+            kubernetes: {
+                nodeSelectors: {},
+                preferredNodeSelectors: {}
+            },
             fusebox: { retry: { minTimeout: 1 } },
             prefix: 'beta_'
         });

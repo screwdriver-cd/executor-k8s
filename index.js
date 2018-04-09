@@ -29,7 +29,8 @@ const PREFERRED_WEIGHT = 100;
  * @param {Object} nodeSelectors  key-value pairs of node selectors
  */
 function setNodeSelector(podConfig, nodeSelectors) {
-    if (!nodeSelectors || typeof nodeSelectors !== 'object') {
+    if (!nodeSelectors || typeof nodeSelectors !== 'object' ||
+        Object.keys(nodeSelectors).length === 0) {
         return;
     }
 
@@ -65,7 +66,8 @@ function setNodeSelector(podConfig, nodeSelectors) {
  * @param {Object} preferredNodeSelectors key-value pairs of preferred node selectors
  */
 function setPreferredNodeSelector(podConfig, preferredNodeSelectors) {
-    if (!preferredNodeSelectors || typeof preferredNodeSelectors !== 'object') {
+    if (!preferredNodeSelectors || typeof preferredNodeSelectors !== 'object' ||
+        Object.keys(preferredNodeSelectors).length === 0) {
         return;
     }
 
