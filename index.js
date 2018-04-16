@@ -159,7 +159,9 @@ class K8sExecutor extends Executor {
      */
     _start(config) {
         const annotations = hoek.reach(config, 'annotations', { default: {} });
-        const buildTimeout = annotations[ANNOTATE_BUILD_TIMEOUT] || this.buildTimeout;
+        const buildTimeout = annotations[ANNOTATE_BUILD_TIMEOUT]
+            ? Math.min(annotations[ANNOTATE_BUILD_TIMEOUT], this.buildTimeout)
+            : this.buildTimeout;
         const cpuConfig = annotations[CPU_RESOURCE];
         const CPU = (cpuConfig === 'HIGH') ? this.highCpu * 1000 : this.lowCpu * 1000; // 6000 millicpu or 2000 millicpu
         const MEMORY = (annotations[RAM_RESOURCE] === 'HIGH') ? this.highMemory : this.lowMemory;      // 12GB or 2GB

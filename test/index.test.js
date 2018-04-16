@@ -358,13 +358,25 @@ describe('index', function () {
             });
         });
 
-        it('sets the build timeout', () => {
-            const testTimeout = 10800;
+        it('overrides the build timeout if specified by user', () => {
+            const testTimeout = 45;
 
             fakeStartConfig.annotations['beta.screwdriver.cd/timeout'] = testTimeout;
-
             postConfig.json.command = [
                 `/opt/sd/launch http://api:8080 http://store:8080 abcdefg ${testTimeout} 15`
+            ];
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledOnce(requestMock);
+                assert.calledWith(requestMock, postConfig);
+            });
+        });
+
+        it('uses cluster build timeout if user specified a higher timeout', () => {
+            executor.buildTimeout = 20;
+            fakeStartConfig.annotations['beta.screwdriver.cd/timeout'] = 120;
+            postConfig.json.command = [
+                '/opt/sd/launch http://api:8080 http://store:8080 abcdefg 20 15'
             ];
 
             return executor.start(fakeStartConfig).then(() => {
