@@ -152,11 +152,13 @@ describe('index', function () {
                 resources: {
                     cpu: {
                         high: 8,
-                        low: 1
+                        low: 1,
+                        micro: 0.5
                     },
                     memory: {
                         high: 5,
-                        low: 1
+                        low: 2,
+                        micro: 1
                     }
                 }
             },
@@ -172,8 +174,10 @@ describe('index', function () {
         assert.equal(executor.jobsNamespace, 'baz');
         assert.equal(executor.highCpu, 8);
         assert.equal(executor.lowCpu, 1);
+        assert.equal(executor.microCpu, 0.5);
         assert.equal(executor.highMemory, 5);
-        assert.equal(executor.lowMemory, 1);
+        assert.equal(executor.lowMemory, 2);
+        assert.equal(executor.microMemory, 1);
     });
 
     it('allow empty options', () => {
@@ -188,8 +192,10 @@ describe('index', function () {
         assert.equal(executor.prefix, '');
         assert.equal(executor.highCpu, 6);
         assert.equal(executor.lowCpu, 2);
+        assert.equal(executor.microCpu, 0.5);
         assert.equal(executor.highMemory, 12);
         assert.equal(executor.lowMemory, 2);
+        assert.equal(executor.microMemory, 1);
     });
 
     it('extends base class', () => {
@@ -306,8 +312,8 @@ describe('index', function () {
                         container: testContainer,
                         launchVersion: testLaunchVersion,
                         serviceAccount: testServiceAccount,
-                        cpu: 2000,
-                        memory: 2
+                        cpu: 500,
+                        memory: 1
                     },
                     command: [
                         '/opt/sd/launch http://api:8080 http://store:8080 abcdefg 90 '
@@ -337,8 +343,9 @@ describe('index', function () {
         });
 
         it('sets the memory appropriately when ram is set to HIGH', () => {
-            postConfig.json.metadata.cpu = 2000;
+            postConfig.json.metadata.cpu = 500;
             postConfig.json.metadata.memory = 12;
+            fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'MICRO';
             fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'HIGH';
 
             return executor.start(fakeStartConfig).then(() => {
@@ -349,8 +356,9 @@ describe('index', function () {
 
         it('sets the cpu appropriately when cpu is set to HIGH', () => {
             postConfig.json.metadata.cpu = 6000;
-            postConfig.json.metadata.memory = 2;
+            postConfig.json.metadata.memory = 1;
             fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'HIGH';
+            fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'MICRO';
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
