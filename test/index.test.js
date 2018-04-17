@@ -312,8 +312,8 @@ describe('index', function () {
                         container: testContainer,
                         launchVersion: testLaunchVersion,
                         serviceAccount: testServiceAccount,
-                        cpu: 500,
-                        memory: 1
+                        cpu: 2000,
+                        memory: 2
                     },
                     command: [
                         '/opt/sd/launch http://api:8080 http://store:8080 abcdefg 90 '

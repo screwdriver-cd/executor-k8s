@@ -171,7 +171,7 @@ class K8sExecutor extends Executor {
             MICRO: this.microCpu
         };
         const cpuConfig = annotations[CPU_RESOURCE];
-        const CPU = (cpuConfig in cpuValues) ? cpuValues[cpuConfig] * 1000 : cpuValues.MICRO * 1000;
+        const CPU = (cpuConfig in cpuValues) ? cpuValues[cpuConfig] * 1000 : cpuValues.LOW * 1000;
 
         const memValues = {
             HIGH: this.highMemory,
@@ -179,7 +179,7 @@ class K8sExecutor extends Executor {
             MICRO: this.microMemory
         };
         const memConfig = annotations[RAM_RESOURCE];
-        const MEMORY = (memConfig in memValues) ? memValues[memConfig] : memValues.MICRO;
+        const MEMORY = (memConfig in memValues) ? memValues[memConfig] : memValues.LOW;
 
         const podTemplate = tinytim.renderFile(path.resolve(__dirname, './config/pod.yaml.tim'), {
             build_id_with_prefix: `${this.prefix}${config.buildId}`,
