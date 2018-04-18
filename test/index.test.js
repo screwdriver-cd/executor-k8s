@@ -345,7 +345,6 @@ describe('index', function () {
         it('sets the memory appropriately when ram is set to HIGH', () => {
             postConfig.json.metadata.cpu = 2000;
             postConfig.json.metadata.memory = 12;
-            fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'LOW';
             fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'HIGH';
 
             return executor.start(fakeStartConfig).then(() => {
@@ -357,7 +356,6 @@ describe('index', function () {
         it('sets the memory appropriately when ram is set to MICRO', () => {
             postConfig.json.metadata.cpu = 2000;
             postConfig.json.metadata.memory = 1;
-            fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'LOW';
             fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'MICRO';
 
             return executor.start(fakeStartConfig).then(() => {
@@ -370,7 +368,6 @@ describe('index', function () {
             postConfig.json.metadata.cpu = 6000;
             postConfig.json.metadata.memory = 2;
             fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'HIGH';
-            fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'LOW';
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
@@ -382,7 +379,6 @@ describe('index', function () {
             postConfig.json.metadata.cpu = 500;
             postConfig.json.metadata.memory = 2;
             fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'MICRO';
-            fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'LOW';
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
