@@ -116,7 +116,7 @@ class K8sExecutor extends Executor {
      * @param  {Number} [options.kubernetes.resources.cpu.micro=0.5]  Value for MICRO CPU (in cores)
      * @param  {Number} [options.kubernetes.resources.memory.high=12] Value for HIGH memory (in GB)
      * @param  {Number} [options.kubernetes.resources.memory.low=2]   Value for LOW memory (in GB)
-     * @param  {Number} [options.kubernetes.resources.memory.micro=1] Value for memory (in GB)
+     * @param  {Number} [options.kubernetes.resources.memory.micro=1] Value for MICRO memory (in GB)
      * @param  {Number} [options.kubernetes.jobsNamespace=default]    Pods namespace for Screwdriver Jobs
      * @param  {String} [options.launchVersion=stable]                Launcher container version to use
      * @param  {String} [options.prefix='']                           Prefix for job name
