@@ -10,6 +10,8 @@ const _ = require('lodash');
 
 sinon.assert.expose(assert, { prefix: '' });
 
+const DEFAULT_BUILD_TIMEOUT = 90;
+const MAX_BUILD_TIMEOUT = 120;
 const TEST_TIM_YAML = `
 metadata:
   name: {{build_id_with_prefix}}
@@ -145,6 +147,7 @@ describe('index', function () {
         executor = new Executor({
             kubernetes: {
                 buildTimeout: 12,
+                maxBuildTimeout: 220,
                 token: 'api_key2',
                 host: 'kubernetes2',
                 serviceAccount: 'foobar',
@@ -164,6 +167,7 @@ describe('index', function () {
             launchVersion: 'v1.2.3'
         });
         assert.equal(executor.buildTimeout, 12);
+        assert.equal(executor.maxBuildTimeout, 220);
         assert.equal(executor.prefix, 'beta_');
         assert.equal(executor.token, 'api_key2');
         assert.equal(executor.host, 'kubernetes2');
@@ -179,7 +183,8 @@ describe('index', function () {
     it('allow empty options', () => {
         fsMock.existsSync.returns(false);
         executor = new Executor();
-        assert.equal(executor.buildTimeout, 90);
+        assert.equal(executor.buildTimeout, DEFAULT_BUILD_TIMEOUT);
+        assert.equal(executor.maxBuildTimeout, MAX_BUILD_TIMEOUT);
         assert.equal(executor.launchVersion, 'stable');
         assert.equal(executor.serviceAccount, 'default');
         assert.equal(executor.token, '');
@@ -358,12 +363,10 @@ describe('index', function () {
             });
         });
 
-        it('overrides the build timeout if specified by user', () => {
-            const testTimeout = 45;
-
-            fakeStartConfig.annotations['beta.screwdriver.cd/timeout'] = testTimeout;
+        it('sets the build timeout to default build timeout if not configured by user', () => {
             postConfig.json.command = [
-                `/opt/sd/launch http://api:8080 http://store:8080 abcdefg ${testTimeout} 15`
+                '/opt/sd/launch http://api:8080 http://store:8080 abcdefg '
+                + `${DEFAULT_BUILD_TIMEOUT} 15`
             ];
 
             return executor.start(fakeStartConfig).then(() => {
@@ -372,12 +375,25 @@ describe('index', function () {
             });
         });
 
-        it('uses cluster build timeout if user specified a higher timeout', () => {
-            executor.buildTimeout = 20;
-            fakeStartConfig.annotations['beta.screwdriver.cd/timeout'] = 120;
+        it('sets the build timeout if configured by user', () => {
+            const userTimeout = 45;
+
             postConfig.json.command = [
-                '/opt/sd/launch http://api:8080 http://store:8080 abcdefg ' +
-                `${executor.buildTimeout} 15`
+                `/opt/sd/launch http://api:8080 http://store:8080 abcdefg ${userTimeout} 15`
+            ];
+            fakeStartConfig.annotations = { 'beta.screwdriver.cd/timeout': userTimeout };
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledOnce(requestMock);
+                assert.calledWith(requestMock, postConfig);
+            });
+        });
+
+        it('sets the timeout to maxBuildTimeout if user specified a higher timeout', () => {
+            fakeStartConfig.annotations = { 'beta.screwdriver.cd/timeout': 220 };
+            postConfig.json.command = [
+                '/opt/sd/launch http://api:8080 http://store:8080 abcdefg '
+                + `${MAX_BUILD_TIMEOUT} 15`
             ];
 
             return executor.start(fakeStartConfig).then(() => {
