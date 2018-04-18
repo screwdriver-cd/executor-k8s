@@ -22,6 +22,8 @@ command:
 - "/opt/sd/launch {{api_uri}} {{store_uri}} {{token}} {{build_timeout}} {{build_id}}"
 `;
 
+const SMALLEST_FLOAT64 = 2.2250738585072014e-308;
+
 describe('index', function () {
     // Time not important. Only life important.
     this.timeout(5000);
@@ -175,6 +177,7 @@ describe('index', function () {
         assert.equal(executor.highCpu, 8);
         assert.equal(executor.lowCpu, 1);
         assert.equal(executor.microCpu, 0.5);
+        assert.closeTo(executor.microCpu, 0.5, SMALLEST_FLOAT64);
         assert.equal(executor.highMemory, 5);
         assert.equal(executor.lowMemory, 2);
         assert.equal(executor.microMemory, 1);
