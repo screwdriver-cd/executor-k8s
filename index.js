@@ -12,7 +12,7 @@ const _ = require('lodash');
 
 const ANNOTATE_BUILD_TIMEOUT = 'beta.screwdriver.cd/timeout';
 const CPU_RESOURCE = 'beta.screwdriver.cd/cpu';
-const DEFAULT_BUILD_TIMEOUT = 90;     // 90 minutes
+const DEFAULT_BUILD_TIMEOUT = 90; // 90 minutes
 const RAM_RESOURCE = 'beta.screwdriver.cd/ram';
 
 const TOLERATIONS_PATH = 'spec.tolerations';
@@ -162,7 +162,7 @@ class K8sExecutor extends Executor {
         const buildTimeout = annotations[ANNOTATE_BUILD_TIMEOUT] || this.buildTimeout;
         const cpuConfig = annotations[CPU_RESOURCE];
         const CPU = (cpuConfig === 'HIGH') ? this.highCpu * 1000 : this.lowCpu * 1000; // 6000 millicpu or 2000 millicpu
-        const MEMORY = (annotations[RAM_RESOURCE] === 'HIGH') ? this.highMemory : this.lowMemory;      // 12GB or 2GB
+        const MEMORY = (annotations[RAM_RESOURCE] === 'HIGH') ? this.highMemory : this.lowMemory; // 12GB or 2GB
         const podTemplate = tinytim.renderFile(path.resolve(__dirname, './config/pod.yaml.tim'), {
             build_id_with_prefix: `${this.prefix}${config.buildId}`,
             build_id: config.buildId,
