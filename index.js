@@ -12,7 +12,8 @@ const _ = require('lodash');
 
 const ANNOTATE_BUILD_TIMEOUT = 'beta.screwdriver.cd/timeout';
 const CPU_RESOURCE = 'beta.screwdriver.cd/cpu';
-const DEFAULT_BUILD_TIMEOUT = 90; // 90 minutes
+const DEFAULT_BUILD_TIMEOUT = 90;     // 90 minutes
+const MAX_BUILD_TIMEOUT = 120;        // 120 minutes
 const RAM_RESOURCE = 'beta.screwdriver.cd/ram';
 
 const TOLERATIONS_PATH = 'spec.tolerations';
@@ -108,6 +109,7 @@ class K8sExecutor extends Executor {
      * @param  {Object} options.ecosystem.store                       Routable URI to Screwdriver Store
      * @param  {Object} options.kubernetes                            Kubernetes configuration
      * @param  {Number} [options.kubernetes.buildTimeout=90]          Number of minutes to allow a build to run before considering it is timed out
+     * @param  {Number} [options.kubernetes.maxBuildTimeout=120]      Max timeout user can configure up to
      * @param  {String} [options.kubernetes.token]                    API Token (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
      * @param  {String} [options.kubernetes.host=kubernetes.default]  Kubernetes hostname
      * @param  {String} [options.kubernetes.serviceAccount=default]   Service Account for builds
@@ -133,6 +135,7 @@ class K8sExecutor extends Executor {
             this.token = fs.existsSync(tokenPath) ? fs.readFileSync(tokenPath).toString() : '';
         }
         this.buildTimeout = hoek.reach(options, 'kubernetes.buildTimeout') || DEFAULT_BUILD_TIMEOUT;
+        this.maxBuildTimeout = this.kubernetes.maxBuildTimeout || MAX_BUILD_TIMEOUT;
         this.host = this.kubernetes.host || 'kubernetes.default';
         this.launchVersion = options.launchVersion || 'stable';
         this.prefix = options.prefix || '';
@@ -159,7 +162,9 @@ class K8sExecutor extends Executor {
      */
     _start(config) {
         const annotations = hoek.reach(config, 'annotations', { default: {} });
-        const buildTimeout = annotations[ANNOTATE_BUILD_TIMEOUT] || this.buildTimeout;
+        const buildTimeout = annotations[ANNOTATE_BUILD_TIMEOUT]
+            ? Math.min(annotations[ANNOTATE_BUILD_TIMEOUT], this.maxBuildTimeout)
+            : this.buildTimeout;
         const cpuConfig = annotations[CPU_RESOURCE];
         const CPU = (cpuConfig === 'HIGH') ? this.highCpu * 1000 : this.lowCpu * 1000; // 6000 millicpu or 2000 millicpu
         const MEMORY = (annotations[RAM_RESOURCE] === 'HIGH') ? this.highMemory : this.lowMemory; // 12GB or 2GB
