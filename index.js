@@ -12,8 +12,8 @@ const _ = require('lodash');
 
 const ANNOTATE_BUILD_TIMEOUT = 'beta.screwdriver.cd/timeout';
 const CPU_RESOURCE = 'beta.screwdriver.cd/cpu';
-const DEFAULT_BUILD_TIMEOUT = 90;     // 90 minutes
-const MAX_BUILD_TIMEOUT = 120;        // 120 minutes
+const DEFAULT_BUILD_TIMEOUT = 90; // 90 minutes
+const MAX_BUILD_TIMEOUT = 120; // 120 minutes
 const RAM_RESOURCE = 'beta.screwdriver.cd/ram';
 
 const TOLERATIONS_PATH = 'spec.tolerations';
