@@ -9,7 +9,7 @@
     "semantic-release": "semantic-release pre && npm publish && semantic-release post"
   },
   "engines": {
-    "node": ">=6.0.0"
+    "node": ">=8.0.0"
   },
   "repository": {
     "type": "git",
@@ -40,8 +40,8 @@
   },
   "devDependencies": {
     "chai": "^3.5.0",
-    "eslint": "^3.2.2",
-    "eslint-config-screwdriver": "^2.0.0",
+    "eslint": "^4.19.1",
+    "eslint-config-screwdriver": "^3.0.0",
     "jenkins-mocha": "^4.0.0",
     "mockery": "^2.0.0",
     "rewire": "^3.0.2",
