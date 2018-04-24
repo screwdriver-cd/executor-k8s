@@ -24,6 +24,8 @@ command:
 - "/opt/sd/launch {{api_uri}} {{store_uri}} {{token}} {{build_timeout}} {{build_id}}"
 `;
 
+const SMALLEST_FLOAT64 = 2.2250738585072014e-308;
+
 describe('index', function () {
     // Time not important. Only life important.
     this.timeout(5000);
@@ -155,11 +157,13 @@ describe('index', function () {
                 resources: {
                     cpu: {
                         high: 8,
-                        low: 1
+                        low: 1,
+                        micro: 0.5
                     },
                     memory: {
                         high: 5,
-                        low: 1
+                        low: 2,
+                        micro: 1
                     }
                 }
             },
@@ -176,8 +180,10 @@ describe('index', function () {
         assert.equal(executor.jobsNamespace, 'baz');
         assert.equal(executor.highCpu, 8);
         assert.equal(executor.lowCpu, 1);
+        assert.closeTo(executor.microCpu, 0.5, SMALLEST_FLOAT64);
         assert.equal(executor.highMemory, 5);
-        assert.equal(executor.lowMemory, 1);
+        assert.equal(executor.lowMemory, 2);
+        assert.equal(executor.microMemory, 1);
     });
 
     it('allow empty options', () => {
@@ -193,8 +199,10 @@ describe('index', function () {
         assert.equal(executor.prefix, '');
         assert.equal(executor.highCpu, 6);
         assert.equal(executor.lowCpu, 2);
+        assert.equal(executor.microCpu, 0.5);
         assert.equal(executor.highMemory, 12);
         assert.equal(executor.lowMemory, 2);
+        assert.equal(executor.microMemory, 1);
     });
 
     it('extends base class', () => {
@@ -352,10 +360,32 @@ describe('index', function () {
             });
         });
 
+        it('sets the memory appropriately when ram is set to MICRO', () => {
+            postConfig.json.metadata.cpu = 2000;
+            postConfig.json.metadata.memory = 1;
+            fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'MICRO';
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledOnce(requestMock);
+                assert.calledWith(requestMock, postConfig);
+            });
+        });
+
         it('sets the cpu appropriately when cpu is set to HIGH', () => {
             postConfig.json.metadata.cpu = 6000;
             postConfig.json.metadata.memory = 2;
             fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'HIGH';
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledOnce(requestMock);
+                assert.calledWith(requestMock, postConfig);
+            });
+        });
+
+        it('sets the cpu appropriately when cpu is set to MICRO', () => {
+            postConfig.json.metadata.cpu = 500;
+            postConfig.json.metadata.memory = 2;
+            fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'MICRO';
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);

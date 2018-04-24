@@ -115,8 +115,10 @@ class K8sExecutor extends Executor {
      * @param  {String} [options.kubernetes.serviceAccount=default]   Service Account for builds
      * @param  {String} [options.kubernetes.resources.cpu.high=6]     Value for HIGH CPU (in cores)
      * @param  {Number} [options.kubernetes.resources.cpu.low=2]      Value for LOW CPU (in cores)
+     * @param  {Number} [options.kubernetes.resources.cpu.micro=0.5]  Value for MICRO CPU (in cores)
      * @param  {Number} [options.kubernetes.resources.memory.high=12] Value for HIGH memory (in GB)
      * @param  {Number} [options.kubernetes.resources.memory.low=2]   Value for LOW memory (in GB)
+     * @param  {Number} [options.kubernetes.resources.memory.micro=1] Value for MICRO memory (in GB)
      * @param  {Number} [options.kubernetes.jobsNamespace=default]    Pods namespace for Screwdriver Jobs
      * @param  {String} [options.launchVersion=stable]                Launcher container version to use
      * @param  {String} [options.prefix='']                           Prefix for job name
@@ -145,8 +147,10 @@ class K8sExecutor extends Executor {
         this.breaker = new Fusebox(request, options.fusebox);
         this.highCpu = hoek.reach(options, 'kubernetes.resources.cpu.high', { default: 6 });
         this.lowCpu = hoek.reach(options, 'kubernetes.resources.cpu.low', { default: 2 });
+        this.microCpu = hoek.reach(options, 'kubernetes.resources.cpu.micro', { default: 0.5 });
         this.highMemory = hoek.reach(options, 'kubernetes.resources.memory.high', { default: 12 });
         this.lowMemory = hoek.reach(options, 'kubernetes.resources.memory.low', { default: 2 });
+        this.microMemory = hoek.reach(options, 'kubernetes.resources.memory.micro', { default: 1 });
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
     }
@@ -162,12 +166,27 @@ class K8sExecutor extends Executor {
      */
     _start(config) {
         const annotations = hoek.reach(config, 'annotations', { default: {} });
+
+        const cpuValues = {
+            HIGH: this.highCpu,
+            LOW: this.lowCpu,
+            MICRO: this.microCpu
+        };
+        const cpuConfig = annotations[CPU_RESOURCE];
+        const CPU = (cpuConfig in cpuValues) ? cpuValues[cpuConfig] * 1000 : cpuValues.LOW * 1000;
+
+        const memValues = {
+            HIGH: this.highMemory,
+            LOW: this.lowMemory,
+            MICRO: this.microMemory
+        };
+        const memConfig = annotations[RAM_RESOURCE];
+        const MEMORY = (memConfig in memValues) ? memValues[memConfig] : memValues.LOW;
+
         const buildTimeout = annotations[ANNOTATE_BUILD_TIMEOUT]
             ? Math.min(annotations[ANNOTATE_BUILD_TIMEOUT], this.maxBuildTimeout)
             : this.buildTimeout;
-        const cpuConfig = annotations[CPU_RESOURCE];
-        const CPU = (cpuConfig === 'HIGH') ? this.highCpu * 1000 : this.lowCpu * 1000; // 6000 millicpu or 2000 millicpu
-        const MEMORY = (annotations[RAM_RESOURCE] === 'HIGH') ? this.highMemory : this.lowMemory; // 12GB or 2GB
+
         const podTemplate = tinytim.renderFile(path.resolve(__dirname, './config/pod.yaml.tim'), {
             build_id_with_prefix: `${this.prefix}${config.buildId}`,
             build_id: config.buildId,
