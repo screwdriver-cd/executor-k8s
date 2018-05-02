@@ -257,6 +257,24 @@ class K8sExecutor extends Executor {
     }
 
     /**
+     * Starts a new periodic build in an executor
+     * @method _startPeriodic
+     * @return {Promise}  Resolves to null since it's not supported
+     */
+    _startPeriodic() {
+        return Promise.resolve(null);
+    }
+
+    /**
+     * Stops a new periodic build in an executor
+     * @method _stopPeriodic
+     * @return {Promise}  Resolves to null since it's not supported
+     */
+    _stopPeriodic() {
+        return Promise.resolve(null);
+    }
+
+    /**
     * Retreive stats for the executor
     * @method stats
     * @param  {Response} Object          Object containing stats for the executor
