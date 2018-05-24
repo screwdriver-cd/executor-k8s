@@ -8,6 +8,7 @@ metadata:
     tier: builds
 spec:
   serviceAccount: {{service_account}}
+  automountServiceAccountToken: false
   restartPolicy: Never
   containers:
   - name: build
