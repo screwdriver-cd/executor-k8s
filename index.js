@@ -187,43 +187,47 @@ class K8sExecutor extends Executor {
             ? Math.min(annotations[ANNOTATE_BUILD_TIMEOUT], this.maxBuildTimeout)
             : this.buildTimeout;
 
-        const podTemplate = tinytim.renderFile(path.resolve(__dirname, './config/pod.yaml.tim'), {
-            build_id_with_prefix: `${this.prefix}${config.buildId}`,
-            build_id: config.buildId,
-            build_timeout: buildTimeout,
-            container: config.container,
-            api_uri: this.ecosystem.api,
-            store_uri: this.ecosystem.store,
-            token: config.token,
-            launcher_version: this.launchVersion,
-            service_account: this.serviceAccount,
-            cpu: CPU,
-            memory: MEMORY
+        // exchange temporal JWT to build JWT
+        this.exchangeTokenForBuild(config, buildTimeout).then(() => {
+            const podTemplate = tinytim.renderFile(
+                path.resolve(__dirname, './config/pod.yaml.tim'), {
+                    build_id_with_prefix: `${this.prefix}${config.buildId}`,
+                    build_id: config.buildId,
+                    build_timeout: buildTimeout,
+                    container: config.container,
+                    api_uri: this.ecosystem.api,
+                    store_uri: this.ecosystem.store,
+                    token: config.token,
+                    launcher_version: this.launchVersion,
+                    service_account: this.serviceAccount,
+                    cpu: CPU,
+                    memory: MEMORY
+                });
+
+            const podConfig = yaml.safeLoad(podTemplate);
+
+            setNodeSelector(podConfig, this.nodeSelectors);
+            setPreferredNodeSelector(podConfig, this.preferredNodeSelectors);
+
+            const options = {
+                uri: this.podsUrl,
+                method: 'POST',
+                json: podConfig,
+                headers: {
+                    Authorization: `Bearer ${this.token}`
+                },
+                strictSSL: false
+            };
+
+            return this.breaker.runCommand(options)
+                .then((resp) => {
+                    if (resp.statusCode !== 201) {
+                        throw new Error(`Failed to create pod: ${JSON.stringify(resp.body)}`);
+                    }
+
+                    return null;
+                });
         });
-
-        const podConfig = yaml.safeLoad(podTemplate);
-
-        setNodeSelector(podConfig, this.nodeSelectors);
-        setPreferredNodeSelector(podConfig, this.preferredNodeSelectors);
-
-        const options = {
-            uri: this.podsUrl,
-            method: 'POST',
-            json: podConfig,
-            headers: {
-                Authorization: `Bearer ${this.token}`
-            },
-            strictSSL: false
-        };
-
-        return this.breaker.runCommand(options)
-            .then((resp) => {
-                if (resp.statusCode !== 201) {
-                    throw new Error(`Failed to create pod: ${JSON.stringify(resp.body)}`);
-                }
-
-                return null;
-            });
     }
 
     /**
