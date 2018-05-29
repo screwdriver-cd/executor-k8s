@@ -10,6 +10,8 @@ const _ = require('lodash');
 
 sinon.assert.expose(assert, { prefix: '' });
 
+require('sinon-as-promised');
+
 const DEFAULT_BUILD_TIMEOUT = 90;
 const MAX_BUILD_TIMEOUT = 120;
 const TEST_TIM_YAML = `
@@ -308,6 +310,7 @@ describe('index', function () {
 
         let postConfig;
         let fakeStartConfig;
+        let exchangeTokenStub;
 
         beforeEach(() => {
             postConfig = {
@@ -340,6 +343,9 @@ describe('index', function () {
                 apiUri: testApiUri
             };
             requestMock.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
+
+            exchangeTokenStub = sinon.stub(executor, 'exchangeTokenForBuild');
+            exchangeTokenStub.resolves();
         });
 
         it('successfully calls start', () => {
@@ -447,6 +453,9 @@ describe('index', function () {
                 }
             });
 
+            exchangeTokenStub = sinon.stub(executor, 'exchangeTokenForBuild');
+            exchangeTokenStub.resolves();
+
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
                 assert.calledWith(requestMock, postConfig);
@@ -467,6 +476,9 @@ describe('index', function () {
                     preferredNodeSelectors: { key: 'value', foo: 'bar' }
                 }
             });
+
+            exchangeTokenStub = sinon.stub(executor, 'exchangeTokenForBuild');
+            exchangeTokenStub.resolves();
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
@@ -491,6 +503,9 @@ describe('index', function () {
                     preferredNodeSelectors: { key: 'value', foo: 'bar' }
                 }
             });
+
+            exchangeTokenStub = sinon.stub(executor, 'exchangeTokenForBuild');
+            exchangeTokenStub.resolves();
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);

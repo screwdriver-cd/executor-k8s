@@ -188,7 +188,7 @@ class K8sExecutor extends Executor {
             : this.buildTimeout;
 
         // exchange temporal JWT to build JWT
-        this.exchangeTokenForBuild(config, buildTimeout).then(() => {
+        return this.exchangeTokenForBuild(config, buildTimeout).then(() => {
             const podTemplate = tinytim.renderFile(
                 path.resolve(__dirname, './config/pod.yaml.tim'), {
                     build_id_with_prefix: `${this.prefix}${config.buildId}`,
