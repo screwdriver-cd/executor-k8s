@@ -187,8 +187,15 @@ class K8sExecutor extends Executor {
             ? Math.min(annotations[ANNOTATE_BUILD_TIMEOUT], this.maxBuildTimeout)
             : this.buildTimeout;
 
+        console.log('==before exchangeTokenForBuild=====');
+        console.log(config);
+        console.log(buildTimeout);
+
         // exchange temporal JWT to build JWT
-        return this.exchangeTokenForBuild(config, buildTimeout).then(() => {
+        return this.exchangeTokenForBuild(config, buildTimeout).then((buildToken) => {
+            console.log('==after exchangeTokenForBuild=====');
+            config.token = buildToken;
+            console.log(config);
             const podTemplate = tinytim.renderFile(
                 path.resolve(__dirname, './config/pod.yaml.tim'), {
                     build_id_with_prefix: `${this.prefix}${config.buildId}`,
