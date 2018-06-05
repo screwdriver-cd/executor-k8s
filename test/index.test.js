@@ -10,8 +10,6 @@ const _ = require('lodash');
 
 sinon.assert.expose(assert, { prefix: '' });
 
-require('sinon-as-promised');
-
 const DEFAULT_BUILD_TIMEOUT = 90;
 const MAX_BUILD_TIMEOUT = 120;
 const TEST_TIM_YAML = `
