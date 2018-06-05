@@ -45,7 +45,7 @@
     "jenkins-mocha": "^4.0.0",
     "mockery": "^2.0.0",
     "rewire": "^3.0.2",
-    "sinon": "^1.17.4"
+    "sinon": "^5.0.10"
   },
   "dependencies": {
     "circuit-fuses": "^2.1.0",
