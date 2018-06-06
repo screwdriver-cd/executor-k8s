@@ -19,10 +19,8 @@ spec:
         cpu: {{cpu}}m
         memory: {{memory}}Gi
     command:
-    - "/opt/sd/tini"
-    - "--"
-    - "/bin/sh"
-    - "-c"
+    - "/opt/sd/launcher_entrypoint.sh"
+    args:
     # Run the launcher and logservice in the background
     # Wait for both background jobs to complete
     - |
