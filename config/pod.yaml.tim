@@ -25,7 +25,7 @@ spec:
     # Wait for both background jobs to complete
     - |
       /opt/sd/launch --api-uri {{api_uri}} --store-uri {{store_uri}} --emitter /opt/sd/emitter --build-timeout {{build_timeout}} {{build_id}} &
-      /opt/sd/logservice --emitter /opt/sd/emitter --api-uri {{store_uri}} --build {{build_id}} &
+      /opt/sd/logservice --emitter /opt/sd/emitter --api-uri {{api_uri}} --store-uri {{store_uri}} --build {{build_id}} &
       wait $(jobs -p)
     volumeMounts:
     - mountPath: /opt/sd
