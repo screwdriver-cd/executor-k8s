@@ -35,7 +35,7 @@ describe('index', function () {
     let fsMock;
     let executor;
     const testBuildId = 15;
-    let testToken = 'abcdefg';
+    const testToken = 'abcdefg';
     const testApiUri = 'http://api:8080';
     const testStoreUri = 'http://store:8080';
     const testContainer = 'node:4';
@@ -308,7 +308,6 @@ describe('index', function () {
 
         let postConfig;
         let fakeStartConfig;
-        let exchangeTokenStub;
 
         beforeEach(() => {
             postConfig = {
@@ -324,7 +323,7 @@ describe('index', function () {
                         memory: 2
                     },
                     command: [
-                        '/opt/sd/launch http://api:8080 http://store:8080 someBuildToken 90 '
+                        '/opt/sd/launch http://api:8080 http://store:8080 abcdefg 90 '
                         + '15'
                     ]
                 },
@@ -341,13 +340,6 @@ describe('index', function () {
                 apiUri: testApiUri
             };
             requestMock.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
-
-            exchangeTokenStub = sinon.stub(executor, 'exchangeTokenForBuild');
-            exchangeTokenStub.resolves('someBuildToken');
-        });
-
-        afterEach(() => {
-            testToken = 'abcdefg';
         });
 
         it('successfully calls start', () => {
@@ -403,7 +395,7 @@ describe('index', function () {
 
         it('sets the build timeout to default build timeout if not configured by user', () => {
             postConfig.json.command = [
-                '/opt/sd/launch http://api:8080 http://store:8080 someBuildToken '
+                '/opt/sd/launch http://api:8080 http://store:8080 abcdefg '
                 + `${DEFAULT_BUILD_TIMEOUT} 15`
             ];
 
@@ -417,7 +409,7 @@ describe('index', function () {
             const userTimeout = 45;
 
             postConfig.json.command = [
-                `/opt/sd/launch http://api:8080 http://store:8080 someBuildToken ${userTimeout} 15`
+                `/opt/sd/launch http://api:8080 http://store:8080 abcdefg ${userTimeout} 15`
             ];
             fakeStartConfig.annotations = { 'beta.screwdriver.cd/timeout': userTimeout };
 
@@ -430,7 +422,7 @@ describe('index', function () {
         it('sets the timeout to maxBuildTimeout if user specified a higher timeout', () => {
             fakeStartConfig.annotations = { 'beta.screwdriver.cd/timeout': 220 };
             postConfig.json.command = [
-                '/opt/sd/launch http://api:8080 http://store:8080 someBuildToken '
+                '/opt/sd/launch http://api:8080 http://store:8080 abcdefg '
                 + `${MAX_BUILD_TIMEOUT} 15`
             ];
 
@@ -455,9 +447,6 @@ describe('index', function () {
                 }
             });
 
-            exchangeTokenStub = sinon.stub(executor, 'exchangeTokenForBuild');
-            exchangeTokenStub.resolves('someBuildToken');
-
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
                 assert.calledWith(requestMock, postConfig);
@@ -478,9 +467,6 @@ describe('index', function () {
                     preferredNodeSelectors: { key: 'value', foo: 'bar' }
                 }
             });
-
-            exchangeTokenStub = sinon.stub(executor, 'exchangeTokenForBuild');
-            exchangeTokenStub.resolves('someBuildToken');
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
@@ -505,9 +491,6 @@ describe('index', function () {
                     preferredNodeSelectors: { key: 'value', foo: 'bar' }
                 }
             });
-
-            exchangeTokenStub = sinon.stub(executor, 'exchangeTokenForBuild');
-            exchangeTokenStub.resolves('someBuildToken');
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
