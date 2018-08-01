@@ -24,7 +24,7 @@ spec:
     # Run the launcher and logservice in the background
     # Wait for both background jobs to complete
     - |
-      SD_TOKEN=`/opt/sd/launch --fetch-flag --api-uri {{api_uri}} --store-uri {{store_uri}} --emitter /opt/sd/emitter --build-timeout {{build_timeout}} {{build_id}}` &&
+      SD_TOKEN=`/opt/sd/launch --only-fetch-token --api-uri {{api_uri}} --store-uri {{store_uri}} --emitter /opt/sd/emitter --build-timeout {{build_timeout}} {{build_id}}` &&
       (/opt/sd/launch --api-uri {{api_uri}} --store-uri {{store_uri}} --emitter /opt/sd/emitter --build-timeout {{build_timeout}} {{build_id}} &
       /opt/sd/logservice --emitter /opt/sd/emitter --api-uri {{api_uri}} --store-uri {{store_uri}} --build {{build_id}} &
       wait $(jobs -p))
