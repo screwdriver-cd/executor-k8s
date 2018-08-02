@@ -21,13 +21,9 @@ spec:
     command:
     - "/opt/sd/launcher_entrypoint.sh"
     args:
-    # Run the launcher and logservice in the background
-    # Wait for both background jobs to complete
+    # Run the wrapper script
     - |
-      SD_TOKEN=`/opt/sd/launch --only-fetch-token --token "{{token}}" --api-uri {{api_uri}} --store-uri {{store_uri}} --emitter /opt/sd/emitter --build-timeout {{build_timeout}} {{build_id}}` &&
-      (/opt/sd/launch --api-uri {{api_uri}} --store-uri {{store_uri}} --emitter /opt/sd/emitter --build-timeout {{build_timeout}} {{build_id}} &
-      /opt/sd/logservice --emitter /opt/sd/emitter --api-uri {{api_uri}} --store-uri {{store_uri}} --build {{build_id}} &
-      wait $(jobs -p))
+      /opt/sd/run.sh "{{token}}" {{api_uri}} {{store_uri}} {{build_timeout}} {{build_id}}
     volumeMounts:
     - mountPath: /opt/sd
       name: screwdriver
