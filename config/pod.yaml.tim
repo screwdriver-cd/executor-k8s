@@ -23,7 +23,7 @@ spec:
     args:
     # Run the wrapper script
     - |
-      /opt/sd/run.sh "{{token}}" {{api_uri}} {{store_uri}} {{build_timeout}} {{build_id}}
+      /opt/sd/run.sh "{{token}}" "{{api_uri}}" "{{store_uri}}" "{{build_timeout}}" "{{build_id}}"
     volumeMounts:
     - mountPath: /opt/sd
       name: screwdriver
