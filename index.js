@@ -22,6 +22,21 @@ const AFFINITY_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
 const AFFINITY_PREFERRED_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
     'preferredDuringSchedulingIgnoredDuringExecution';
 const PREFERRED_WEIGHT = 100;
+const ANNOTATIONS_PATH = 'metadata.annotations';
+
+/**
+ * Parses annotations config and update intended annotations
+ * @param {Object} podConfig      k8s pod config
+ * @param {Object} annotations    key-value pairs of annotations
+ */
+function setAnnotations(podConfig, annotations) {
+    if (!annotations || typeof annotations !== 'object' ||
+        Object.keys(annotations).length === 0) {
+        return;
+    }
+
+    _.set(podConfig, ANNOTATIONS_PATH, annotations);
+}
 
 /**
  * Parses nodeSelector config and update intended nodeSelector in tolerations
@@ -153,6 +168,7 @@ class K8sExecutor extends Executor {
         this.microMemory = hoek.reach(options, 'kubernetes.resources.memory.micro', { default: 1 });
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
+        this.annotations = hoek.reach(options, 'kubernetes.annotations');
     }
 
     /**
@@ -206,6 +222,7 @@ class K8sExecutor extends Executor {
 
         setNodeSelector(podConfig, this.nodeSelectors);
         setPreferredNodeSelector(podConfig, this.preferredNodeSelectors);
+        setAnnotations(podConfig, this.annotations);
 
         const options = {
             uri: this.podsUrl,
