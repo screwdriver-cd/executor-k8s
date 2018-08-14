@@ -88,6 +88,12 @@ describe('index', function () {
             }
         }
     };
+    const testAnnotations = {
+        annotations: {
+            key: 'value',
+            key2: 'value2'
+        }
+    };
 
     before(() => {
         mockery.enable({
@@ -425,6 +431,27 @@ describe('index', function () {
                 '/opt/sd/launch http://api:8080 http://store:8080 abcdefg '
                 + `${MAX_BUILD_TIMEOUT} 15`
             ];
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledOnce(requestMock);
+                assert.calledWith(requestMock, postConfig);
+            });
+        });
+
+        it('sets annotations with appropriate annotations config', () => {
+            postConfig.json.metadata.annotations = testAnnotations.annotations;
+
+            executor = new Executor({
+                ecosystem: {
+                    api: testApiUri,
+                    store: testStoreUri
+                },
+                fusebox: { retry: { minTimeout: 1 } },
+                prefix: 'beta_',
+                kubernetes: {
+                    annotations: { key: 'value', key2: 'value2' }
+                }
+            });
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledOnce(requestMock);
