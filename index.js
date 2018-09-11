@@ -10,11 +10,11 @@ const fs = require('fs');
 const hoek = require('hoek');
 const _ = require('lodash');
 
-const ANNOTATE_BUILD_TIMEOUT = 'beta.screwdriver.cd/timeout';
-const CPU_RESOURCE = 'beta.screwdriver.cd/cpu';
+const ANNOTATE_BUILD_TIMEOUT = 'timeout';
+const CPU_RESOURCE = 'cpu';
 const DEFAULT_BUILD_TIMEOUT = 90; // 90 minutes
 const MAX_BUILD_TIMEOUT = 120; // 120 minutes
-const RAM_RESOURCE = 'beta.screwdriver.cd/ram';
+const RAM_RESOURCE = 'ram';
 
 const TOLERATIONS_PATH = 'spec.tolerations';
 const AFFINITY_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
@@ -181,8 +181,8 @@ class K8sExecutor extends Executor {
      * @return {Promise}
      */
     _start(config) {
-        const annotations = hoek.reach(config, 'annotations', { default: {} });
-
+        const annotations = this.parseAnnotations(
+            hoek.reach(config, 'annotations', { default: {} }));
         const cpuValues = {
             HIGH: this.highCpu,
             LOW: this.lowCpu,
