@@ -25,13 +25,15 @@ command:
 `;
 
 const SMALLEST_FLOAT64 = 2.2250738585072014e-308;
+const MAXATTEMPTS = 5;
+const RETRYDELAY = 3000;
 
 describe('index', function () {
     // Time not important. Only life important.
     this.timeout(5000);
 
     let Executor;
-    let requestMock;
+    let requestRetryMock;
     let fsMock;
     let executor;
     const testBuildId = 15;
@@ -103,7 +105,7 @@ describe('index', function () {
     });
 
     beforeEach(() => {
-        requestMock = sinon.stub();
+        requestRetryMock = sinon.stub();
 
         fsMock = {
             existsSync: sinon.stub(),
@@ -118,7 +120,7 @@ describe('index', function () {
             .returns(TEST_TIM_YAML);
 
         mockery.registerMock('fs', fsMock);
-        mockery.registerMock('request', requestMock);
+        mockery.registerMock('requestretry', requestRetryMock);
 
         /* eslint-disable global-require */
         Executor = require('../index');
@@ -254,22 +256,22 @@ describe('index', function () {
         };
 
         beforeEach(() => {
-            requestMock.yieldsAsync(null, fakeStopResponse, fakeStopResponse.body);
+            requestRetryMock.yieldsAsync(null, fakeStopResponse, fakeStopResponse.body);
         });
 
         it('calls breaker with correct config', () => (
             executor.stop({
                 buildId: testBuildId
             }).then(() => {
-                assert.calledWith(requestMock, deleteConfig);
-                assert.calledOnce(requestMock);
+                assert.calledWith(requestRetryMock, deleteConfig);
+                assert.calledOnce(requestRetryMock);
             })
         ));
 
         it('returns error when breaker does', () => {
             const error = new Error('error');
 
-            requestMock.yieldsAsync(error);
+            requestRetryMock.yieldsAsync(error);
 
             return executor.stop({
                 buildId: testBuildId
@@ -277,7 +279,7 @@ describe('index', function () {
                 throw new Error('did not fail');
             }, (err) => {
                 assert.deepEqual(err, error);
-                assert.equal(requestMock.callCount, 5);
+                assert.equal(requestRetryMock.callCount, 5);
             });
         });
 
@@ -292,7 +294,7 @@ describe('index', function () {
             const returnMessage = 'Failed to delete pod: '
                 + `${JSON.stringify(fakeStopErrorResponse.body)}`;
 
-            requestMock.yieldsAsync(null, fakeStopErrorResponse, fakeStopErrorResponse.body);
+            requestRetryMock.yieldsAsync(null, fakeStopErrorResponse, fakeStopErrorResponse.body);
 
             return executor.stop({
                 buildId: testBuildId
@@ -308,11 +310,24 @@ describe('index', function () {
         const fakeStartResponse = {
             statusCode: 201,
             body: {
+                metadata: {
+                    name: 'testpod'
+                },
                 success: true
+            }
+        };
+        const fakeGetResponse = {
+            statusCode: 200,
+            body: {
+                status: {
+                    phase: 'running'
+                }
             }
         };
 
         let postConfig;
+        let getConfig;
+        let putConfig;
         let fakeStartConfig;
 
         beforeEach(() => {
@@ -338,6 +353,32 @@ describe('index', function () {
                 },
                 strictSSL: false
             };
+            getConfig = {
+                uri: `${podsUrl}/testpod/status`,
+                method: 'GET',
+                headers: {
+                    Authorization: 'Bearer api_key'
+                },
+                strictSSL: false,
+                maxAttempts: MAXATTEMPTS,
+                retryDelay: RETRYDELAY,
+                // eslint-disable-next-line
+                retryStrategy: executor.podRetryStrategy
+            };
+            putConfig = {
+                uri: `${testApiUri}/v4/builds/${testBuildId}`,
+                method: 'PUT',
+                headers: {
+                    Authorization: `Bearer ${testToken}`
+                },
+                body: {
+                    statusMessage: 'Waiting for resources to be available.'
+                },
+                strictSSL: false,
+                json: true,
+                maxAttempts: MAXATTEMPTS,
+                retryDelay: RETRYDELAY
+            };
             fakeStartConfig = {
                 annotations: {},
                 buildId: testBuildId,
@@ -345,13 +386,17 @@ describe('index', function () {
                 token: testToken,
                 apiUri: testApiUri
             };
-            requestMock.yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
+            requestRetryMock.withArgs(sinon.match({ method: 'POST' })).yieldsAsync(
+                null, fakeStartResponse, fakeStartResponse.body);
+            requestRetryMock.withArgs(sinon.match({ method: 'GET' })).yieldsAsync(
+                null, fakeGetResponse, fakeGetResponse.body);
         });
 
         it('successfully calls start', () => {
             executor.start(fakeStartConfig).then(() => {
-                assert.calledOnce(requestMock);
-                assert.calledWith(requestMock, postConfig);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall,
+                    sinon.match(getConfig));
             });
         });
 
@@ -361,8 +406,9 @@ describe('index', function () {
             fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'HIGH';
 
             return executor.start(fakeStartConfig).then(() => {
-                assert.calledOnce(requestMock);
-                assert.calledWith(requestMock, postConfig);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall,
+                    sinon.match(getConfig));
             });
         });
 
@@ -372,8 +418,9 @@ describe('index', function () {
             fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'MICRO';
 
             return executor.start(fakeStartConfig).then(() => {
-                assert.calledOnce(requestMock);
-                assert.calledWith(requestMock, postConfig);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall,
+                    sinon.match(getConfig));
             });
         });
 
@@ -383,8 +430,9 @@ describe('index', function () {
             fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'HIGH';
 
             return executor.start(fakeStartConfig).then(() => {
-                assert.calledOnce(requestMock);
-                assert.calledWith(requestMock, postConfig);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall,
+                    sinon.match(getConfig));
             });
         });
 
@@ -394,8 +442,9 @@ describe('index', function () {
             fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'MICRO';
 
             return executor.start(fakeStartConfig).then(() => {
-                assert.calledOnce(requestMock);
-                assert.calledWith(requestMock, postConfig);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall,
+                    sinon.match(getConfig));
             });
         });
 
@@ -406,8 +455,9 @@ describe('index', function () {
             ];
 
             return executor.start(fakeStartConfig).then(() => {
-                assert.calledOnce(requestMock);
-                assert.calledWith(requestMock, postConfig);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall,
+                    sinon.match(getConfig));
             });
         });
 
@@ -420,8 +470,9 @@ describe('index', function () {
             fakeStartConfig.annotations = { 'beta.screwdriver.cd/timeout': userTimeout };
 
             return executor.start(fakeStartConfig).then(() => {
-                assert.calledOnce(requestMock);
-                assert.calledWith(requestMock, postConfig);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall,
+                    sinon.match(getConfig));
             });
         });
 
@@ -433,8 +484,9 @@ describe('index', function () {
             ];
 
             return executor.start(fakeStartConfig).then(() => {
-                assert.calledOnce(requestMock);
-                assert.calledWith(requestMock, postConfig);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall,
+                    sinon.match(getConfig));
             });
         });
 
@@ -453,9 +505,12 @@ describe('index', function () {
                 }
             });
 
+            getConfig.retryStrategy = executor.podRetryStrategy;
+
             return executor.start(fakeStartConfig).then(() => {
-                assert.calledOnce(requestMock);
-                assert.calledWith(requestMock, postConfig);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall,
+                    sinon.match(getConfig));
             });
         });
 
@@ -474,9 +529,12 @@ describe('index', function () {
                 }
             });
 
+            getConfig.retryStrategy = executor.podRetryStrategy;
+
             return executor.start(fakeStartConfig).then(() => {
-                assert.calledOnce(requestMock);
-                assert.calledWith(requestMock, postConfig);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall,
+                    sinon.match(getConfig));
             });
         });
 
@@ -495,9 +553,12 @@ describe('index', function () {
                 }
             });
 
+            getConfig.retryStrategy = executor.podRetryStrategy;
+
             return executor.start(fakeStartConfig).then(() => {
-                assert.calledOnce(requestMock);
-                assert.calledWith(requestMock, postConfig);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall,
+                    sinon.match(getConfig));
             });
         });
 
@@ -519,21 +580,137 @@ describe('index', function () {
                 }
             });
 
+            getConfig.retryStrategy = executor.podRetryStrategy;
+
             return executor.start(fakeStartConfig).then(() => {
-                assert.calledOnce(requestMock);
-                assert.calledWith(requestMock, postConfig);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall,
+                    sinon.match(getConfig));
+            });
+        });
+
+        it('update build status message when pod status is pending', () => {
+            const returnResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'pending'
+                    }
+                }
+            };
+
+            const returnResponseFromSDAPI = { statusCode: 200 };
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(
+                null, returnResponse, returnResponse.body);
+
+            requestRetryMock.withArgs(putConfig).yieldsAsync(
+                null, returnResponseFromSDAPI);
+
+            return executor.start(fakeStartConfig).then((resp) => {
+                assert.calledWith(requestRetryMock, putConfig);
+                assert.deepEqual(resp.statusCode, 200);
             });
         });
 
         it('returns error when request responds with error', () => {
             const error = new Error('lol');
 
-            requestMock.yieldsAsync(error);
+            requestRetryMock.withArgs(postConfig).yieldsAsync(error);
 
             return executor.start(fakeStartConfig).then(() => {
                 throw new Error('did not fail');
             }, (err) => {
                 assert.deepEqual(err, error);
+            });
+        });
+
+        it('returns error when not able to get pod status', () => {
+            const returnResponse = {
+                statusCode: 500,
+                body: {
+                    statusCode: 500,
+                    message: 'cannot get pod status'
+                }
+            };
+            const returnMessage = 'Failed to get pod status:' +
+                        `${JSON.stringify(returnResponse.body, null, 2)}`;
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(
+                null, returnResponse, returnResponse.body);
+
+            return executor.start(fakeStartConfig).then(() => {
+                throw new Error('did not fail');
+            }, (err) => {
+                assert.equal(err.message, returnMessage);
+            });
+        });
+
+        it('returns error when pod status is failed', () => {
+            const returnResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'failed'
+                    }
+                }
+            };
+            const returnMessage = 'Failed to create pod. Pod status is:' +
+                        `${JSON.stringify(returnResponse.body.status, null, 2)}`;
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(
+                null, returnResponse, returnResponse.body);
+
+            return executor.start(fakeStartConfig).then(() => {
+                throw new Error('did not fail');
+            }, (err) => {
+                assert.equal(err.message, returnMessage);
+            });
+        });
+
+        it('update build status message when pod status is pending', () => {
+            const returnResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'pending'
+                    }
+                }
+            };
+
+            const returnResponseFromSDAPI = { statusCode: 200 };
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(
+                null, returnResponse, returnResponse.body);
+
+            requestRetryMock.withArgs(putConfig).yieldsAsync(
+                null, returnResponseFromSDAPI);
+
+            return executor.start(fakeStartConfig).then((resp) => {
+                assert.calledWith(requestRetryMock, putConfig);
+                assert.deepEqual(resp.statusCode, 200);
+            });
+        });
+
+        it('sets error when pod status is failed', () => {
+            const returnResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'failed'
+                    }
+                }
+            };
+            const returnMessage = 'Failed to create pod. Pod status is:' +
+                        `${JSON.stringify(returnResponse.body.status, null, 2)}`;
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(
+                null, returnResponse, returnResponse.body);
+
+            return executor.start(fakeStartConfig).then(() => {
+                throw new Error('did not fail');
+            }, (err) => {
+                assert.equal(err.message, returnMessage);
             });
         });
 
@@ -547,7 +724,8 @@ describe('index', function () {
             };
             const returnMessage = `Failed to create pod: ${JSON.stringify(returnResponse.body)}`;
 
-            requestMock.yieldsAsync(null, returnResponse, returnResponse.body);
+            requestRetryMock.withArgs(postConfig)
+                .yieldsAsync(null, returnResponse, returnResponse.body);
 
             return executor.start(fakeStartConfig).then(() => {
                 throw new Error('did not fail');

@@ -52,7 +52,9 @@
     "hoek": "^5.0.2",
     "js-yaml": "^3.11.0",
     "lodash": "^4.17.5",
+    "randomstring": "^1.1.5",
     "request": "^2.87.0",
+    "requestretry": "^2.0.2",
     "screwdriver-executor-base": "^6.2.2",
     "tinytim": "^0.1.1"
   }

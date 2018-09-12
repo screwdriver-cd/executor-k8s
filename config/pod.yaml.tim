@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: "{{build_id_with_prefix}}"
+  name: "{{pod_name}}"
   labels:
     sdbuild: "{{build_id_with_prefix}}"
     app: screwdriver
