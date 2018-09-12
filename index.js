@@ -3,7 +3,8 @@
 const Executor = require('screwdriver-executor-base');
 const path = require('path');
 const Fusebox = require('circuit-fuses');
-const request = require('request');
+const randomstring = require('randomstring');
+const requestretry = require('requestretry');
 const tinytim = require('tinytim');
 const yaml = require('js-yaml');
 const fs = require('fs');
@@ -15,6 +16,8 @@ const CPU_RESOURCE = 'cpu';
 const DEFAULT_BUILD_TIMEOUT = 90; // 90 minutes
 const MAX_BUILD_TIMEOUT = 120; // 120 minutes
 const RAM_RESOURCE = 'ram';
+const MAXATTEMPTS = 5;
+const RETRYDELAY = 3000;
 
 const TOLERATIONS_PATH = 'spec.tolerations';
 const AFFINITY_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
@@ -159,7 +162,7 @@ class K8sExecutor extends Executor {
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
         this.jobsNamespace = this.kubernetes.jobsNamespace || 'default';
         this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
-        this.breaker = new Fusebox(request, options.fusebox);
+        this.breaker = new Fusebox(requestretry, options.fusebox);
         this.highCpu = hoek.reach(options, 'kubernetes.resources.cpu.high', { default: 6 });
         this.lowCpu = hoek.reach(options, 'kubernetes.resources.cpu.low', { default: 2 });
         this.microCpu = hoek.reach(options, 'kubernetes.resources.cpu.micro', { default: 0.5 });
@@ -169,6 +172,37 @@ class K8sExecutor extends Executor {
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
+        this.podRetryStrategy = (err, response, body) => {
+            const status = hoek.reach(body, 'status.phase');
+
+            return err || !status || status.toLowerCase() === 'pending';
+        };
+    }
+
+    /**
+     * Update build status message
+     * @method updateStatusMessage
+     * @param  {Object}          config                 build config of the job
+     * @param  {String}          config.apiUri          screwdriver base api uri
+     * @param  {Number}          config.buildId         build id
+     * @param  {String}          config.statusMessage   build status message
+     * @param  {String}          config.token           build temporal jwt token
+     * @return {Promise}
+     */
+    updateStatusMessage(config) {
+        const { apiUri, buildId, statusMessage, token } = config;
+        const statusMessageOptions = {
+            json: true,
+            method: 'PUT',
+            uri: `${apiUri}/v4/builds/${buildId}`,
+            body: { statusMessage },
+            headers: { Authorization: `Bearer ${token}` },
+            strictSSL: false,
+            maxAttempts: MAXATTEMPTS,
+            retryDelay: RETRYDELAY
+        };
+
+        return this.breaker.runCommand(statusMessageOptions);
     }
 
     /**
@@ -181,6 +215,11 @@ class K8sExecutor extends Executor {
      * @return {Promise}
      */
     _start(config) {
+        const random = randomstring.generate({
+            length: 5,
+            charset: 'alphanumeric',
+            capitalization: 'lowercase'
+        });
         const annotations = this.parseAnnotations(
             hoek.reach(config, 'annotations', { default: {} }));
         const cpuValues = {
@@ -205,6 +244,7 @@ class K8sExecutor extends Executor {
 
         const podTemplate = tinytim.renderFile(
             path.resolve(__dirname, './config/pod.yaml.tim'), {
+                pod_name: `${this.prefix}${config.buildId}-${random}`,
                 build_id_with_prefix: `${this.prefix}${config.buildId}`,
                 build_id: config.buildId,
                 build_timeout: buildTimeout,
@@ -238,6 +278,44 @@ class K8sExecutor extends Executor {
             .then((resp) => {
                 if (resp.statusCode !== 201) {
                     throw new Error(`Failed to create pod: ${JSON.stringify(resp.body)}`);
+                }
+
+                return resp.body.metadata.name;
+            })
+            .then((podname) => {
+                const statusOptions = {
+                    uri: `${this.podsUrl}/${podname}/status`,
+                    method: 'GET',
+                    headers: { Authorization: `Bearer ${this.token}` },
+                    strictSSL: false,
+                    maxAttempts: MAXATTEMPTS,
+                    retryDelay: RETRYDELAY,
+                    retryStrategy: this.podRetryStrategy,
+                    json: true
+                };
+
+                return this.breaker.runCommand(statusOptions);
+            })
+            .then((resp) => {
+                if (resp.statusCode !== 200) {
+                    throw new Error('Failed to get pod status:' +
+                        `${JSON.stringify(resp.body, null, 2)}`);
+                }
+
+                const status = resp.body.status.phase.toLowerCase();
+
+                if (status === 'failed' || status === 'unknown') {
+                    throw new Error('Failed to create pod. Pod status is:' +
+                        `${JSON.stringify(resp.body.status, null, 2)}`);
+                }
+
+                if (status === 'pending') {
+                    return this.updateStatusMessage({
+                        apiUri: this.ecosystem.api,
+                        buildId: config.buildId,
+                        statusMessage: 'Waiting for resources to be available.',
+                        token: config.token
+                    });
                 }
 
                 return null;
