@@ -21,7 +21,7 @@ const RETRYDELAY = 3000;
 
 const TOLERATIONS_PATH = 'spec.tolerations';
 const AFFINITY_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
-    'requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms';
+    'requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions';
 const AFFINITY_PREFERRED_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
     'preferredDuringSchedulingIgnoredDuringExecution';
 const PREFERRED_WEIGHT = 100;
@@ -64,11 +64,9 @@ function setNodeSelector(podConfig, nodeSelectors) {
             operator: 'Equal'
         });
         nodeAffinitySelectors.push({
-            matchExpressions: [{
-                key,
-                operator: 'In',
-                values: [nodeSelectors[key]]
-            }]
+            key,
+            operator: 'In',
+            values: [nodeSelectors[key]]
         });
     });
 
