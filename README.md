@@ -25,9 +25,11 @@ The class provides a couple options that are configurable in the instantiation o
 | config.launchVersion | String | 'stable' | Launcher container version to use (stable) |
 | config.prefix | String | '' | Prefix to container names ("") |
 | config.kubernetes.jobsNamespace | String | 'default' | Kubernetes namespace where builds are running on |
+| config.kubernetes.resources.memory.turbo | Number | 16 | Value for TURBO memory (in GB) |
 | config.kubernetes.resources.memory.high | Number | 12 | Value for HIGH memory (in GB) |
 | config.kubernetes.resources.memory.low | Number | 2 | Value for LOW memory (in GB) |
 | config.kubernetes.resources.memory.micro | Number | 1 | Value for MICRO memory (in GB) |
+| config.kubernetes.resources.cpu.turbo | Number | 12 | Value for TURBO CPU (in cores) |
 | config.kubernetes.resources.cpu.high | Number | 6 | Value for HIGH CPU (in cores) |
 | config.kubernetes.resources.cpu.low | Number | 2 | Value for LOW CPU (in cores) |
 | config.kubernetes.resources.cpu.micro | Number | 0.5 | Value for MICRO CPU (in cores) |
