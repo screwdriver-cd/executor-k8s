@@ -164,11 +164,13 @@ describe('index', function () {
                 jobsNamespace: 'baz',
                 resources: {
                     cpu: {
+                        turbo: 10,
                         high: 8,
                         low: 1,
                         micro: 0.5
                     },
                     memory: {
+                        turbo: 20,
                         high: 5,
                         low: 2,
                         micro: 1
@@ -186,9 +188,11 @@ describe('index', function () {
         assert.equal(executor.launchVersion, 'v1.2.3');
         assert.equal(executor.serviceAccount, 'foobar');
         assert.equal(executor.jobsNamespace, 'baz');
+        assert.equal(executor.turboCpu, 10);
         assert.equal(executor.highCpu, 8);
         assert.equal(executor.lowCpu, 1);
         assert.closeTo(executor.microCpu, 0.5, SMALLEST_FLOAT64);
+        assert.equal(executor.turboMemory, 20);
         assert.equal(executor.highMemory, 5);
         assert.equal(executor.lowMemory, 2);
         assert.equal(executor.microMemory, 1);

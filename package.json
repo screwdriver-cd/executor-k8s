@@ -48,7 +48,7 @@
     "sinon": "^5.0.10"
   },
   "dependencies": {
-    "circuit-fuses": "^2.1.0",
+    "circuit-fuses": "^4.0.3",
     "hoek": "^5.0.2",
     "js-yaml": "^3.11.0",
     "lodash": "^4.17.5",
