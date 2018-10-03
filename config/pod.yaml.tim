@@ -33,7 +33,7 @@ spec:
       name: habitat
   initContainers:
   - name: launcher
-    image: screwdrivercd/launcher:{{launcher_version}}
+    image: {{launcher_image}}
     command: ['/bin/sh', '-c', 'cp -a /opt/sd/* /opt/launcher && cp -a /hab/* /opt/hab']
     volumeMounts:
     - mountPath: /opt/launcher

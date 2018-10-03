@@ -157,6 +157,7 @@ class K8sExecutor extends Executor {
         this.buildTimeout = hoek.reach(options, 'kubernetes.buildTimeout') || DEFAULT_BUILD_TIMEOUT;
         this.maxBuildTimeout = this.kubernetes.maxBuildTimeout || MAX_BUILD_TIMEOUT;
         this.host = this.kubernetes.host || 'kubernetes.default';
+        this.launchImage = options.launchImage || 'screwdrivercd/launcher';
         this.launchVersion = options.launchVersion || 'stable';
         this.prefix = options.prefix || '';
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
@@ -257,7 +258,7 @@ class K8sExecutor extends Executor {
                 api_uri: this.ecosystem.api,
                 store_uri: this.ecosystem.store,
                 token: config.token,
-                launcher_version: this.launchVersion,
+                launcher_image: `${this.launchImage}:${this.launchVersion}`,
                 service_account: this.serviceAccount,
                 cpu: CPU,
                 memory: MEMORY

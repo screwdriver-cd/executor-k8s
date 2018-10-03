@@ -16,7 +16,7 @@ const TEST_TIM_YAML = `
 metadata:
   name: {{build_id_with_prefix}}
   container: {{container}}
-  launchVersion: {{launcher_version}}
+  launchImage: {{launcher_image}}
   serviceAccount: {{service_account}}
   cpu: {{cpu}}
   memory: {{memory}}
@@ -42,6 +42,7 @@ describe('index', function () {
     const testStoreUri = 'http://store:8080';
     const testContainer = 'node:4';
     const testLaunchVersion = 'stable';
+    const testLaunchImage = 'screwdrivercd/launcher';
     const testServiceAccount = 'default';
     const podsUrl = 'https://kubernetes.default/api/v1/namespaces/default/pods';
     const testSpec = {
@@ -342,7 +343,7 @@ describe('index', function () {
                     metadata: {
                         name: 'beta_15',
                         container: testContainer,
-                        launchVersion: testLaunchVersion,
+                        launchImage: `${testLaunchImage}:${testLaunchVersion}`,
                         serviceAccount: testServiceAccount,
                         cpu: 2000,
                         memory: 2
