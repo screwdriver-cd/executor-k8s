@@ -22,6 +22,7 @@ The class provides a couple options that are configurable in the instantiation o
 | config.kubernetes.host | String | 'kubernetes.defaults' | The hostname for the Kubernetes cluster (kubernetes) |
 | config.kubernetes.serviceAccount | String | 'default' | The service account to use in Kubernetes (default) |
 | config.ecosystem | Object | | Screwdriver Ecosystem (ui, api, store, etc.) |
+| config.launchImage | String | 'screwdrivercd/launcher' | Launcher image to use |
 | config.launchVersion | String | 'stable' | Launcher container version to use (stable) |
 | config.prefix | String | '' | Prefix to container names ("") |
 | config.kubernetes.jobsNamespace | String | 'default' | Kubernetes namespace where builds are running on |
