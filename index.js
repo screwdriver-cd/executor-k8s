@@ -339,6 +339,9 @@ class K8sExecutor extends Executor {
         const options = {
             uri: this.podsUrl,
             method: 'DELETE',
+            json: {
+                gracePeriodSeconds: 0
+            },
             qs: {
                 labelSelector: `sdbuild=${this.prefix}${config.buildId}`
             },
