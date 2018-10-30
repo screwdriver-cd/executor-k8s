@@ -676,6 +676,38 @@ describe('index', function () {
             });
         });
 
+        it('returns error when pod waiting reason is ErrImagePull', () => {
+            const returnResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'pending',
+                        containerStatuses: [
+                            {
+                                state: {
+                                    waiting: {
+                                        reason: 'ErrImagePull',
+                                        message: 'can not pull image'
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            };
+
+            const returnMessage = 'Build failed to start. Please check if your image is valid.';
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(
+                null, returnResponse, returnResponse.body);
+
+            return executor.start(fakeStartConfig).then(() => {
+                throw new Error('did not fail');
+            }, (err) => {
+                assert.equal(err.message, returnMessage);
+            });
+        });
+
         it('update build status message when pod status is pending', () => {
             const returnResponse = {
                 statusCode: 200,

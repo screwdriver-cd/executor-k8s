@@ -26,6 +26,7 @@ const AFFINITY_PREFERRED_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
     'preferredDuringSchedulingIgnoredDuringExecution';
 const PREFERRED_WEIGHT = 100;
 const ANNOTATIONS_PATH = 'metadata.annotations';
+const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 
 /**
  * Parses annotations config and update intended annotations
@@ -177,9 +178,11 @@ class K8sExecutor extends Executor {
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
         this.podRetryStrategy = (err, response, body) => {
+            const waitingReason = hoek.reach(body, CONTAINER_WAITING_REASON_PATH);
             const status = hoek.reach(body, 'status.phase');
 
-            return err || !status || status.toLowerCase() === 'pending';
+            return err || !status || (status.toLowerCase() === 'pending'
+                && waitingReason !== 'ErrImagePull');
         };
     }
 
@@ -313,6 +316,12 @@ class K8sExecutor extends Executor {
                 if (status === 'failed' || status === 'unknown') {
                     throw new Error('Failed to create pod. Pod status is:' +
                         `${JSON.stringify(resp.body.status, null, 2)}`);
+                }
+
+                const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
+
+                if (waitingReason === 'ErrImagePull') {
+                    throw new Error('Build failed to start. Please check if your image is valid.');
                 }
 
                 if (status === 'pending') {
