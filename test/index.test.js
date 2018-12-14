@@ -315,30 +315,22 @@ describe('index', function () {
     });
 
     describe('start', () => {
-        const fakeStartResponse = {
-            statusCode: 201,
-            body: {
-                metadata: {
-                    name: 'testpod'
-                },
-                success: true
-            }
-        };
-        const fakeGetResponse = {
-            statusCode: 200,
-            body: {
-                status: {
-                    phase: 'running'
-                }
-            }
-        };
-
         let postConfig;
         let getConfig;
         let putConfig;
         let fakeStartConfig;
+        let fakeStartResponse;
+        let fakeGetResponse;
+        let fakePutResponse;
+        let buildMock;
 
         beforeEach(() => {
+            buildMock = {
+                id: testBuildId,
+                stats: {
+                    queueEnterTime: '2018-12-13T22:35:16.552Z'
+                }
+            };
             postConfig = {
                 uri: podsUrl,
                 method: 'POST',
@@ -379,9 +371,7 @@ describe('index', function () {
                 headers: {
                     Authorization: `Bearer ${testToken}`
                 },
-                body: {
-                    statusMessage: 'Waiting for resources to be available.'
-                },
+                body: {},
                 strictSSL: false,
                 json: true,
                 maxAttempts: MAXATTEMPTS,
@@ -394,17 +384,57 @@ describe('index', function () {
                 token: testToken,
                 apiUri: testApiUri
             };
+            fakePutResponse = {
+                id: testBuildId
+            };
+            fakeStartResponse = {
+                statusCode: 201,
+                body: {
+                    metadata: {
+                        name: 'testpod'
+                    },
+                    success: true
+                }
+            };
+            fakeGetResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'running'
+                    },
+                    spec: {
+                        nodeName: 'node1.my.k8s.cluster.com'
+                    }
+                }
+            };
+
             requestRetryMock.withArgs(sinon.match({ method: 'POST' })).yieldsAsync(
                 null, fakeStartResponse, fakeStartResponse.body);
             requestRetryMock.withArgs(sinon.match({ method: 'GET' })).yieldsAsync(
                 null, fakeGetResponse, fakeGetResponse.body);
+            requestRetryMock.withArgs(sinon.match({ method: 'PUT' })).yieldsAsync(
+                null, fakePutResponse, fakePutResponse.body);
         });
 
         it('successfully calls start', () => {
             executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall,
-                    sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+            });
+        });
+
+        it('successfully calls start and update hostname', () => {
+            fakeStartConfig.build = buildMock;
+            putConfig.body.stats = {
+                hostname: 'node1.my.k8s.cluster.com',
+                queueEnterTime: '2018-12-13T22:35:16.552Z'
+            };
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.equal(requestRetryMock.callCount, 3);
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.thirdCall, putConfig);
             });
         });
 
@@ -415,8 +445,7 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall,
-                    sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -427,8 +456,7 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall,
-                    sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -439,8 +467,7 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall,
-                    sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -451,8 +478,7 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall,
-                    sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -464,8 +490,7 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall,
-                    sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -479,8 +504,7 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall,
-                    sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -493,8 +517,7 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall,
-                    sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -517,8 +540,7 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall,
-                    sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -541,8 +563,7 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall,
-                    sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -565,8 +586,7 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall,
-                    sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -592,32 +612,18 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall,
-                    sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
         it('update build status message when pod status is pending', () => {
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    status: {
-                        phase: 'pending'
-                    }
-                }
-            };
+            fakeGetResponse.body.status.phase = 'pending';
+            putConfig.body.statusMessage = 'Waiting for resources to be available.';
 
-            const returnResponseFromSDAPI = { statusCode: 200 };
-
-            requestRetryMock.withArgs(getConfig).yieldsAsync(
-                null, returnResponse, returnResponse.body);
-
-            requestRetryMock.withArgs(putConfig).yieldsAsync(
-                null, returnResponseFromSDAPI);
-
-            return executor.start(fakeStartConfig).then((resp) => {
-                assert.calledWith(requestRetryMock, putConfig);
-                assert.deepEqual(resp.statusCode, 200);
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+                assert.calledWith(requestRetryMock.thirdCall, putConfig);
             });
         });
 
@@ -705,30 +711,6 @@ describe('index', function () {
                 throw new Error('did not fail');
             }, (err) => {
                 assert.equal(err.message, returnMessage);
-            });
-        });
-
-        it('update build status message when pod status is pending', () => {
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    status: {
-                        phase: 'pending'
-                    }
-                }
-            };
-
-            const returnResponseFromSDAPI = { statusCode: 200 };
-
-            requestRetryMock.withArgs(getConfig).yieldsAsync(
-                null, returnResponse, returnResponse.body);
-
-            requestRetryMock.withArgs(putConfig).yieldsAsync(
-                null, returnResponseFromSDAPI);
-
-            return executor.start(fakeStartConfig).then((resp) => {
-                assert.calledWith(requestRetryMock, putConfig);
-                assert.deepEqual(resp.statusCode, 200);
             });
         });
 
