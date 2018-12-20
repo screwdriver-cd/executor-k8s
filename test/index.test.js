@@ -322,15 +322,8 @@ describe('index', function () {
         let fakeStartResponse;
         let fakeGetResponse;
         let fakePutResponse;
-        let buildMock;
 
         beforeEach(() => {
-            buildMock = {
-                id: testBuildId,
-                stats: {
-                    queueEnterTime: '2018-12-13T22:35:16.552Z'
-                }
-            };
             postConfig = {
                 uri: podsUrl,
                 method: 'POST',
@@ -424,10 +417,8 @@ describe('index', function () {
         });
 
         it('successfully calls start and update hostname', () => {
-            fakeStartConfig.build = buildMock;
             putConfig.body.stats = {
-                hostname: 'node1.my.k8s.cluster.com',
-                queueEnterTime: '2018-12-13T22:35:16.552Z'
+                hostname: 'node1.my.k8s.cluster.com'
             };
 
             return executor.start(fakeStartConfig).then(() => {
@@ -618,6 +609,7 @@ describe('index', function () {
 
         it('update build status message when pod status is pending', () => {
             fakeGetResponse.body.status.phase = 'pending';
+            fakeGetResponse.body.spec = {};
             putConfig.body.statusMessage = 'Waiting for resources to be available.';
 
             return executor.start(fakeStartConfig).then(() => {
