@@ -416,9 +416,17 @@ describe('index', function () {
             });
         });
 
-        it('successfully calls start and update hostname', () => {
+        it('successfully calls start and update hostname and imagePullStartTime', () => {
+            const dateNow = Date.now();
+            const isoTime = (new Date(dateNow)).toISOString();
+            const sandbox = sinon.createSandbox({
+                useFakeTimers: false
+            });
+
+            sandbox.useFakeTimers(dateNow);
             putConfig.body.stats = {
-                hostname: 'node1.my.k8s.cluster.com'
+                hostname: 'node1.my.k8s.cluster.com',
+                imagePullStartTime: isoTime
             };
 
             return executor.start(fakeStartConfig).then(() => {
@@ -426,6 +434,7 @@ describe('index', function () {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
                 assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
                 assert.calledWith(requestRetryMock.thirdCall, putConfig);
+                sandbox.restore();
             });
         });
 
