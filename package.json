@@ -42,7 +42,7 @@
     "chai": "^3.5.0",
     "eslint": "^4.19.1",
     "eslint-config-screwdriver": "^3.0.0",
-    "jenkins-mocha": "^4.0.0",
+    "jenkins-mocha": "^6.0.0",
     "mockery": "^2.0.0",
     "rewire": "^3.0.2",
     "sinon": "^5.0.10"
@@ -53,7 +53,7 @@
     "js-yaml": "^3.11.0",
     "lodash": "^4.17.5",
     "randomstring": "^1.1.5",
-    "request": "^2.87.0",
+    "request": "^2.88.0",
     "requestretry": "^2.0.2",
     "screwdriver-executor-base": "^6.3.0",
     "tinytim": "^0.1.1"
