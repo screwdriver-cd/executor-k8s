@@ -342,7 +342,8 @@ class K8sExecutor extends Executor {
 
                 if (resp.body.spec && resp.body.spec.nodeName) {
                     updateConfig.stats = {
-                        hostname: resp.body.spec.nodeName
+                        hostname: resp.body.spec.nodeName,
+                        imagePullStartTime: (new Date()).toISOString()
                     };
                 }
 
