@@ -353,7 +353,7 @@ describe('index', function () {
                 maxAttempts: MAXATTEMPTS,
                 retryDelay: RETRYDELAY,
                 // eslint-disable-next-line
-                retryStrategy: executor.podRetryStrategy
+                retryStrategy: executor.scheduleStatusRetryStrategy
             };
             putConfig = {
                 uri: `${testApiUri}/v4/builds/${testBuildId}`,
@@ -427,10 +427,12 @@ describe('index', function () {
             };
 
             return executor.start(fakeStartConfig).then(() => {
-                assert.equal(requestRetryMock.callCount, 3);
+                assert.equal(requestRetryMock.callCount, 4);
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
                 assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
                 assert.calledWith(requestRetryMock.thirdCall, putConfig);
+                getConfig.retryStrategy = executor.pendingStatusRetryStrategy;
+                assert.calledWith(requestRetryMock.lastCall, sinon.match(getConfig));
                 sandbox.restore();
             });
         });
@@ -533,7 +535,7 @@ describe('index', function () {
                 }
             });
 
-            getConfig.retryStrategy = executor.podRetryStrategy;
+            getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
@@ -556,7 +558,7 @@ describe('index', function () {
                 }
             });
 
-            getConfig.retryStrategy = executor.podRetryStrategy;
+            getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
@@ -579,7 +581,7 @@ describe('index', function () {
                 }
             });
 
-            getConfig.retryStrategy = executor.podRetryStrategy;
+            getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
@@ -605,7 +607,7 @@ describe('index', function () {
                 }
             });
 
-            getConfig.retryStrategy = executor.podRetryStrategy;
+            getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);

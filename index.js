@@ -177,7 +177,19 @@ class K8sExecutor extends Executor {
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
-        this.podRetryStrategy = (err, response, body) => {
+        this.scheduleStatusRetryStrategy = (err, response, body) => {
+            const conditions = hoek.reach(body, 'status.conditions');
+            let scheduled = false;
+
+            if (conditions) {
+                const scheduledStatus = conditions.find(c => c.type === 'PodScheduled').status;
+
+                scheduled = String(scheduledStatus) === 'True';
+            }
+
+            return err || !scheduled;
+        };
+        this.pendingStatusRetryStrategy = (err, response, body) => {
             const waitingReason = hoek.reach(body, CONTAINER_WAITING_REASON_PATH);
             const status = hoek.reach(body, 'status.phase');
 
@@ -292,6 +304,7 @@ class K8sExecutor extends Executor {
             },
             strictSSL: false
         };
+        let podname;
 
         return this.breaker.runCommand(options)
             .then((resp) => {
@@ -301,7 +314,8 @@ class K8sExecutor extends Executor {
 
                 return resp.body.metadata.name;
             })
-            .then((podname) => {
+            .then((generatedPodName) => {
+                podname = generatedPodName;
                 const statusOptions = {
                     uri: `${this.podsUrl}/${podname}/status`,
                     method: 'GET',
@@ -309,7 +323,7 @@ class K8sExecutor extends Executor {
                     strictSSL: false,
                     maxAttempts: MAXATTEMPTS,
                     retryDelay: RETRYDELAY,
-                    retryStrategy: this.podRetryStrategy,
+                    retryStrategy: this.scheduleStatusRetryStrategy,
                     json: true
                 };
 
@@ -328,12 +342,6 @@ class K8sExecutor extends Executor {
                         `${JSON.stringify(resp.body.status, null, 2)}`);
                 }
 
-                const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
-
-                if (waitingReason === 'ErrImagePull') {
-                    throw new Error('Build failed to start. Please check if your image is valid.');
-                }
-
                 const updateConfig = {
                     apiUri: this.ecosystem.api,
                     buildId,
@@ -345,15 +353,34 @@ class K8sExecutor extends Executor {
                         hostname: resp.body.spec.nodeName,
                         imagePullStartTime: (new Date()).toISOString()
                     };
-                }
-
-                if (status === 'pending') {
+                } else {
                     updateConfig.statusMessage = 'Waiting for resources to be available.';
-
-                    return this.updateBuild(updateConfig);
                 }
 
                 return this.updateBuild(updateConfig).then(() => null);
+            })
+            .then(() => {
+                const statusOptions = {
+                    uri: `${this.podsUrl}/${podname}/status`,
+                    method: 'GET',
+                    headers: { Authorization: `Bearer ${this.token}` },
+                    strictSSL: false,
+                    maxAttempts: MAXATTEMPTS,
+                    retryDelay: RETRYDELAY,
+                    retryStrategy: this.pendingStatusRetryStrategy,
+                    json: true
+                };
+
+                return this.breaker.runCommand(statusOptions);
+            })
+            .then((res) => {
+                const waitingReason = hoek.reach(res.body, CONTAINER_WAITING_REASON_PATH);
+
+                if (waitingReason === 'ErrImagePull') {
+                    throw new Error('Build failed to start. Please check if your image is valid.');
+                }
+
+                return null;
             });
     }
 
