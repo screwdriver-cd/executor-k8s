@@ -714,6 +714,38 @@ describe('index', function () {
             });
         });
 
+        it('returns error when pod waiting reason is ImagePullBackOff', () => {
+            const returnResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'pending',
+                        containerStatuses: [
+                            {
+                                state: {
+                                    waiting: {
+                                        reason: 'ImagePullBackOff',
+                                        message: 'can not pull image'
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            };
+
+            const returnMessage = 'Build failed to start. Please check if your image is valid.';
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(
+                null, returnResponse, returnResponse.body);
+
+            return executor.start(fakeStartConfig).then(() => {
+                throw new Error('did not fail');
+            }, (err) => {
+                assert.equal(err.message, returnMessage);
+            });
+        });
+
         it('sets error when pod status is failed', () => {
             const returnResponse = {
                 statusCode: 200,
