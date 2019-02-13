@@ -797,6 +797,14 @@ describe('index', function () {
             () => executor.stopPeriodic().then(res => assert.isNull(res)));
     });
 
+    describe('frozen', () => {
+        it('resolves to null when calling frozen start',
+            () => executor.startFrozen().then(res => assert.isNull(res)));
+
+        it('resolves to null when calling frozen stop',
+            () => executor.stopFrozen().then(res => assert.isNull(res)));
+    });
+
     describe('setNodeSelector', () => {
         // eslint-disable-next-line no-underscore-dangle
         const setNodeSelector = index.__get__('setNodeSelector');
