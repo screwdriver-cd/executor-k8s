@@ -5,7 +5,7 @@ const path = require('path');
 const Fusebox = require('circuit-fuses').breaker;
 const randomstring = require('randomstring');
 const requestretry = require('requestretry');
-const tinytim = require('tinytim');
+const handlebars = require('handlebars');
 const yaml = require('js-yaml');
 const fs = require('fs');
 const hoek = require('hoek');
@@ -18,6 +18,10 @@ const MAX_BUILD_TIMEOUT = 120; // 120 minutes
 const RAM_RESOURCE = 'ram';
 const MAXATTEMPTS = 5;
 const RETRYDELAY = 3000;
+
+const DOCKER_ENABLED_KEY = 'dockerEnabled';
+const DOCKER_MEMORY_RESOURCE = 'dockerRam';
+const DOCKER_CPU_RESOURCE = 'dockerCpu';
 
 const TOLERATIONS_PATH = 'spec.tolerations';
 const AFFINITY_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
@@ -139,6 +143,7 @@ class K8sExecutor extends Executor {
      * @param  {Number} [options.kubernetes.resources.memory.high=12] Value for HIGH memory (in GB)
      * @param  {Number} [options.kubernetes.resources.memory.low=2]   Value for LOW memory (in GB)
      * @param  {Number} [options.kubernetes.resources.memory.micro=1] Value for MICRO memory (in GB)
+     * @param  {Boolean} [options.kubernetes.dockerFeatureEnabled=false] Whether to enable docker in docker on the executor k8 container
      * @param  {Number} [options.kubernetes.jobsNamespace=default]    Pods namespace for Screwdriver Jobs
      * @param  {String} [options.launchVersion=stable]                Launcher container version to use
      * @param  {String} [options.prefix='']                           Prefix for job name
@@ -175,6 +180,8 @@ class K8sExecutor extends Executor {
         this.highMemory = hoek.reach(options, 'kubernetes.resources.memory.high', { default: 12 });
         this.lowMemory = hoek.reach(options, 'kubernetes.resources.memory.low', { default: 2 });
         this.microMemory = hoek.reach(options, 'kubernetes.resources.memory.micro', { default: 1 });
+        this.dockerFeatureEnabled = hoek.reach(options, 'kubernetes.dockerFeatureEnabled',
+            { default: false });
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
@@ -270,26 +277,45 @@ class K8sExecutor extends Executor {
         const memConfig = annotations[RAM_RESOURCE];
         const MEMORY = (memConfig in memValues) ? memValues[memConfig] : memValues.LOW;
 
+        const dockerEnabledConfig = annotations[DOCKER_ENABLED_KEY];
+        const DOCKER_ENABLED = (this.dockerFeatureEnabled && dockerEnabledConfig === true);
+
+        const dockerCpuConfig = annotations[DOCKER_CPU_RESOURCE];
+        const DOCKER_CPU = (dockerCpuConfig in cpuValues) ?
+            cpuValues[dockerCpuConfig] * 1000 : cpuValues.LOW * 1000;
+
+        const dockerMemoryConfig = annotations[DOCKER_MEMORY_RESOURCE];
+        const DOCKER_RAM = (dockerMemoryConfig in memValues) ?
+            memValues[dockerMemoryConfig] : memValues.LOW;
+
         const buildTimeout = annotations[ANNOTATE_BUILD_TIMEOUT]
             ? Math.min(annotations[ANNOTATE_BUILD_TIMEOUT], this.maxBuildTimeout)
             : this.buildTimeout;
 
-        const podTemplate = tinytim.renderFile(
-            path.resolve(__dirname, './config/pod.yaml.tim'), {
-                pod_name: `${this.prefix}${buildId}-${random}`,
-                build_id_with_prefix: `${this.prefix}${buildId}`,
-                build_id: buildId,
-                build_timeout: buildTimeout,
-                container,
-                api_uri: this.ecosystem.api,
-                store_uri: this.ecosystem.store,
-                ui_uri: this.ecosystem.ui,
-                token,
-                launcher_image: `${this.launchImage}:${this.launchVersion}`,
-                service_account: this.serviceAccount,
-                cpu: CPU,
-                memory: MEMORY
-            });
+        const templateSourcePath = path.resolve(__dirname, './config/pod.yaml.hbs');
+
+        const source = fs.readFileSync(templateSourcePath, 'utf8');
+        const template = handlebars.compile(source);
+        const podTemplate = template({
+            pod_name: `${this.prefix}${buildId}-${random}`,
+            build_id_with_prefix: `${this.prefix}${buildId}`,
+            build_id: buildId,
+            build_timeout: buildTimeout,
+            container,
+            api_uri: this.ecosystem.api,
+            store_uri: this.ecosystem.store,
+            ui_uri: this.ecosystem.ui,
+            token,
+            launcher_image: `${this.launchImage}:${this.launchVersion}`,
+            service_account: this.serviceAccount,
+            cpu: CPU,
+            memory: MEMORY,
+            docker: {
+                enabled: DOCKER_ENABLED,
+                cpu: DOCKER_CPU,
+                memory: DOCKER_RAM
+            }
+        });
 
         const podConfig = yaml.safeLoad(podTemplate);
 

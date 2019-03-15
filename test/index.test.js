@@ -117,7 +117,7 @@ describe('index', function () {
 
         fsMock.readFileSync.withArgs('/var/run/secrets/kubernetes.io/serviceaccount/token')
             .returns('api_key');
-        fsMock.readFileSync.withArgs(sinon.match(/config\/pod.yaml.tim/))
+        fsMock.readFileSync.withArgs(sinon.match(/config\/pod.yaml.hbs/))
             .returns(TEST_TIM_YAML);
 
         mockery.registerMock('fs', fsMock);
