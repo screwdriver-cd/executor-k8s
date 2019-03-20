@@ -124,6 +124,7 @@ class K8sExecutor extends Executor {
      * @param  {Object} options.ecosystem                             Screwdriver Ecosystem
      * @param  {Object} options.ecosystem.api                         Routable URI to Screwdriver API
      * @param  {Object} options.ecosystem.store                       Routable URI to Screwdriver Store
+     * @param  {Object} options.ecosystem.ui                          Routable URI to Screwdriver UI
      * @param  {Object} options.kubernetes                            Kubernetes configuration
      * @param  {Number} [options.kubernetes.buildTimeout=90]          Number of minutes to allow a build to run before considering it is timed out
      * @param  {Number} [options.kubernetes.maxBuildTimeout=120]      Max timeout user can configure up to
@@ -282,6 +283,7 @@ class K8sExecutor extends Executor {
                 container,
                 api_uri: this.ecosystem.api,
                 store_uri: this.ecosystem.store,
+                ui_uri: this.ecosystem.ui,
                 token,
                 launcher_image: `${this.launchImage}:${this.launchVersion}`,
                 service_account: this.serviceAccount,
