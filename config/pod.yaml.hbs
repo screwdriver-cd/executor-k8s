@@ -18,6 +18,11 @@ spec:
       limits:
         cpu: {{cpu}}m
         memory: {{memory}}Gi
+    {{#if docker.enabled}}
+    env:
+      - name: DOCKER_HOST
+        value: tcp://localhost:2375
+    {{/if}}
     command:
     - "/opt/sd/launcher_entrypoint.sh"
     args:
@@ -31,6 +36,20 @@ spec:
       name: workspace
     - mountPath: /hab
       name: habitat
+  {{#if docker.enabled}}
+  - name: dind
+    image: docker:18.05-dind
+    resources:
+      limits:
+        cpu: {{docker.cpu }}m
+        memory: {{docker.memory }}Gi
+    securityContext:
+      privileged: true
+    volumeMounts:
+      - name: dind-storage
+        mountPath: /var/lib/docker
+  {{/if}}
+
   initContainers:
   - name: launcher
     image: {{launcher_image}}
@@ -47,3 +66,7 @@ spec:
       emptyDir: {}
     - name: workspace
       emptyDir: {}
+    {{#if docker.enabled}}
+    - name: dind-storage
+      emptyDir: {}
+    {{/if}}
