@@ -97,6 +97,18 @@ describe('index', function () {
             key2: 'value2'
         }
     };
+    const executorOptions = {
+        ecosystem: {
+            api: testApiUri,
+            store: testStoreUri
+        },
+        kubernetes: {
+            nodeSelectors: {},
+            preferredNodeSelectors: {}
+        },
+        fusebox: { retry: { minTimeout: 1 } },
+        prefix: 'beta_'
+    };
 
     before(() => {
         mockery.enable({
@@ -127,18 +139,7 @@ describe('index', function () {
         Executor = require('../index');
         /* eslint-enable global-require */
 
-        executor = new Executor({
-            ecosystem: {
-                api: testApiUri,
-                store: testStoreUri
-            },
-            kubernetes: {
-                nodeSelectors: {},
-                preferredNodeSelectors: {}
-            },
-            fusebox: { retry: { minTimeout: 1 } },
-            prefix: 'beta_'
-        });
+        executor = new Executor(executorOptions);
     });
 
     afterEach(() => {
@@ -521,20 +522,14 @@ describe('index', function () {
         });
 
         it('sets annotations with appropriate annotations config', () => {
-            postConfig.json.metadata.annotations = testAnnotations.annotations;
-
-            executor = new Executor({
-                ecosystem: {
-                    api: testApiUri,
-                    store: testStoreUri
-                },
-                fusebox: { retry: { minTimeout: 1 } },
-                prefix: 'beta_',
+            const options = _.assign({}, executorOptions, {
                 kubernetes: {
                     annotations: { key: 'value', key2: 'value2' }
                 }
             });
 
+            executor = new Executor(options);
+            postConfig.json.metadata.annotations = testAnnotations.annotations;
             getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
 
             return executor.start(fakeStartConfig).then(() => {
@@ -544,20 +539,14 @@ describe('index', function () {
         });
 
         it('sets tolerations and node affinity with appropriate node config', () => {
-            postConfig.json.spec = testSpec;
-
-            executor = new Executor({
-                ecosystem: {
-                    api: testApiUri,
-                    store: testStoreUri
-                },
-                fusebox: { retry: { minTimeout: 1 } },
-                prefix: 'beta_',
+            const options = _.assign({}, executorOptions, {
                 kubernetes: {
                     nodeSelectors: { key: 'value' }
                 }
             });
 
+            executor = new Executor(options);
+            postConfig.json.spec = testSpec;
             getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
 
             return executor.start(fakeStartConfig).then(() => {
@@ -567,20 +556,14 @@ describe('index', function () {
         });
 
         it('sets preferred node affinity with appropriate node config', () => {
-            postConfig.json.spec = testPreferredSpec;
-
-            executor = new Executor({
-                ecosystem: {
-                    api: testApiUri,
-                    store: testStoreUri
-                },
-                fusebox: { retry: { minTimeout: 1 } },
-                prefix: 'beta_',
+            const options = _.assign({}, executorOptions, {
                 kubernetes: {
                     preferredNodeSelectors: { key: 'value', foo: 'bar' }
                 }
             });
 
+            executor = new Executor(options);
+            postConfig.json.spec = testPreferredSpec;
             getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
 
             return executor.start(fakeStartConfig).then(() => {
@@ -591,22 +574,15 @@ describe('index', function () {
 
         it('sets node affinity and preferred node affinity', () => {
             const spec = _.merge({}, testSpec, testPreferredSpec);
-
-            postConfig.json.spec = spec;
-
-            executor = new Executor({
-                ecosystem: {
-                    api: testApiUri,
-                    store: testStoreUri
-                },
-                fusebox: { retry: { minTimeout: 1 } },
-                prefix: 'beta_',
+            const options = _.assign({}, executorOptions, {
                 kubernetes: {
                     nodeSelectors: { key: 'value' },
                     preferredNodeSelectors: { key: 'value', foo: 'bar' }
                 }
             });
 
+            executor = new Executor(options);
+            postConfig.json.spec = spec;
             getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
 
             return executor.start(fakeStartConfig).then(() => {
@@ -788,24 +764,15 @@ describe('index', function () {
             });
         });
 
-        it('configures retryDelay and maxAttempts', () => {
-            executor = new Executor({
-                ecosystem: {
-                    api: testApiUri,
-                    store: testStoreUri
-                },
-                kubernetes: {
-                    nodeSelectors: {},
-                    preferredNodeSelectors: {}
-                },
-                fusebox: { retry: { minTimeout: 1 } },
-                prefix: 'beta_',
+        it('sets retryDelay and maxAttempts', () => {
+            const options = _.assign({}, executorOptions, {
                 requestretry: {
                     maxAttempts: 1,
                     retryDelay: 1000
                 }
             });
 
+            executor = new Executor(options);
             getConfig.retryDelay = 1000;
             getConfig.maxAttempts = 1;
             getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
