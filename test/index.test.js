@@ -787,6 +787,34 @@ describe('index', function () {
                 assert.equal(err.message, returnMessage);
             });
         });
+
+        it('configures retryDelay and maxAttempts', () => {
+            executor = new Executor({
+                ecosystem: {
+                    api: testApiUri,
+                    store: testStoreUri
+                },
+                kubernetes: {
+                    nodeSelectors: {},
+                    preferredNodeSelectors: {}
+                },
+                fusebox: { retry: { minTimeout: 1 } },
+                prefix: 'beta_',
+                requestretry: {
+                    maxAttempts: 1,
+                    retryDelay: 1000
+                }
+            });
+
+            getConfig.retryDelay = 1000;
+            getConfig.maxAttempts = 1;
+            getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+            });
+        });
     });
 
     describe('periodic', () => {
