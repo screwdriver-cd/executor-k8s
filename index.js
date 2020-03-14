@@ -282,8 +282,7 @@ class K8sExecutor extends Executor {
      * @return {Promise}
      */
     _start(config) {
-        const { buildId, container, token } = config;
-        const eventId = hoek.reach(config, 'eventId', { default: '' });
+        const { buildId, eventId, container, token } = config;
         let jobId = hoek.reach(config, 'jobId', { default: '' });
         const pipelineId = hoek.reach(config, 'pipeline.id', { default: '' });
         const jobName = hoek.reach(config, 'jobName', { default: '' });
