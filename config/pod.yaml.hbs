@@ -28,7 +28,11 @@ spec:
     args:
     # Run the wrapper script
     - |
+    {{#if cache.diskEnabled}}
+      /opt/sd/run.sh "{{token}}" "{{api_uri}}" "{{store_uri}}" "{{build_timeout}}" "{{build_id}}" "{{ui_uri}}" "{{cache.strategy}}" "/sdpipelinecache" "/sdjobcache" "/sdeventcache" "{{cache.compress}}" "{{cache.md5check}}" "{{cache.max_size_mb}}"
+    {{else}}
       /opt/sd/run.sh "{{token}}" "{{api_uri}}" "{{store_uri}}" "{{build_timeout}}" "{{build_id}}" "{{ui_uri}}"
+    {{/if}}
     volumeMounts:
     - mountPath: /opt/sd
       name: screwdriver
@@ -36,6 +40,16 @@ spec:
       name: workspace
     - mountPath: /hab
       name: habitat
+    {{#if cache.diskEnabled}}
+    - mountPath: /sdpipelinecache
+      name: sd-pipeline-cache
+      readOnly: {{cache.volumeReadOnly}}
+    - mountPath: /sdjobcache
+      name: sd-job-cache
+      readOnly: {{cache.volumeReadOnly}}
+    - mountPath: /sdeventcache
+      name: sd-event-cache
+    {{/if}}
   {{#if docker.enabled}}
   - name: dind
     image: docker:18.05-dind
@@ -49,16 +63,27 @@ spec:
       - name: dind-storage
         mountPath: /var/lib/docker
   {{/if}}
-
   initContainers:
   - name: launcher
     image: {{launcher_image}}
+    {{#if cache.diskEnabled}}
+    command: ['/bin/sh', '-c', 'chmod -R 777 /opt/sdpipelinecahe && chmod -R 777 /opt/sdjobcache && chmod -R 777 /opt/sdeventcache && cp -a /opt/sd/* /opt/launcher && cp -a /hab/* /opt/hab']
+    {{else}}
     command: ['/bin/sh', '-c', 'cp -a /opt/sd/* /opt/launcher && cp -a /hab/* /opt/hab']
+    {{/if}}
     volumeMounts:
     - mountPath: /opt/launcher
       name: screwdriver
     - mountPath: /opt/hab
       name: habitat
+    {{#if cache.diskEnabled}}
+    - mountPath: /opt/sdpipelinecahe
+      name: sd-pipeline-cache
+    - mountPath: /opt/sdjobcache
+      name: sd-job-cache
+    - mountPath: /opt/sdeventcache
+      name: sd-event-cache
+    {{/if}}
   volumes:
     - name: screwdriver
       emptyDir: {}
@@ -69,4 +94,18 @@ spec:
     {{#if docker.enabled}}
     - name: dind-storage
       emptyDir: {}
+    {{/if}}
+    {{#if cache.diskEnabled}}
+    - name: sd-pipeline-cache
+      type: DirectoryOrCreate
+      hostPath:
+        path: {{cache.path}}/pipelines/{{pipeline_id}}
+    - name: sd-job-cache
+      type: DirectoryOrCreate
+      hostPath:
+        path: {{cache.path}}/jobs/{{pipeline_id}}/{{job_id}}
+    - name: sd-event-cache
+      type: DirectoryOrCreate
+      hostPath:
+        path: {{cache.path}}/events/{{pipeline_id}}/{{event_id}}
     {{/if}}
