@@ -273,12 +273,12 @@ class K8sExecutor extends Executor {
      * @method start
      * @param  {Object}   config                A configuration object
      * @param  {Integer}  config.buildId        ID for the build
-     * @param  {Integer}  config.pipeline.id    pipelineId for the build
-     * @param  {Integer}  config.jobId          jobId for the build
+     * @param  {Integer}  [config.pipeline.id]    pipelineId for the build
+     * @param  {Integer}  [config.jobId]          jobId for the build
      * @param  {Integer}  config.eventId        eventId for the build
      * @param  {String}   config.container      Container for the build to run in
      * @param  {String}   config.token          JWT for the Build
-     * @param  {String}   config.jobName        jobName for the build
+     * @param  {String}   [config.jobName]        jobName for the build
      * @return {Promise}
      */
     _start(config) {

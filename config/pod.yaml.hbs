@@ -67,7 +67,7 @@ spec:
   - name: launcher
     image: {{launcher_image}}
     {{#if cache.diskEnabled}}
-    command: ['/bin/sh', '-c', 'chmod -R 777 /opt/sdpipelinecahe && chmod -R 777 /opt/sdjobcache && chmod -R 777 /opt/sdeventcache && cp -a /opt/sd/* /opt/launcher && cp -a /hab/* /opt/hab']
+    command: ['/bin/sh', '-c', 'chmod -R 777 /opt/sdpipelinecache && chmod -R 777 /opt/sdjobcache && chmod -R 777 /opt/sdeventcache && cp -a /opt/sd/* /opt/launcher && cp -a /hab/* /opt/hab']
     {{else}}
     command: ['/bin/sh', '-c', 'cp -a /opt/sd/* /opt/launcher && cp -a /hab/* /opt/hab']
     {{/if}}
@@ -77,7 +77,7 @@ spec:
     - mountPath: /opt/hab
       name: habitat
     {{#if cache.diskEnabled}}
-    - mountPath: /opt/sdpipelinecahe
+    - mountPath: /opt/sdpipelinecache
       name: sd-pipeline-cache
     - mountPath: /opt/sdjobcache
       name: sd-job-cache
