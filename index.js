@@ -1,36 +1,39 @@
 'use strict';
 
 const Executor = require('screwdriver-executor-base');
-const path = require('path');
 const Fusebox = require('circuit-fuses').breaker;
+const fs = require('fs');
+const hoek = require('hoek');
+const path = require('path');
 const randomstring = require('randomstring');
 const requestretry = require('requestretry');
 const handlebars = require('handlebars');
 const yaml = require('js-yaml');
-const fs = require('fs');
-const hoek = require('hoek');
 const _ = require('lodash');
+const jwt = require('jsonwebtoken');
 
-const ANNOTATE_BUILD_TIMEOUT = 'timeout';
-const CPU_RESOURCE = 'cpu';
 const DEFAULT_BUILD_TIMEOUT = 90; // 90 minutes
 const MAX_BUILD_TIMEOUT = 120; // 120 minutes
-const RAM_RESOURCE = 'ram';
 const DEFAULT_MAXATTEMPTS = 5;
 const DEFAULT_RETRYDELAY = 3000;
-
-const DOCKER_ENABLED_KEY = 'dockerEnabled';
-const DOCKER_MEMORY_RESOURCE = 'dockerRam';
-const DOCKER_CPU_RESOURCE = 'dockerCpu';
-
+const CPU_RESOURCE = 'cpu';
+const RAM_RESOURCE = 'ram';
+const DISK_RESOURCE = 'disk';
+const DISK_SPEED_RESOURCE = 'diskSpeed';
+const ANNOTATE_BUILD_TIMEOUT = 'timeout';
 const TOLERATIONS_PATH = 'spec.tolerations';
 const AFFINITY_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
     'requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions';
 const AFFINITY_PREFERRED_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
     'preferredDuringSchedulingIgnoredDuringExecution';
 const PREFERRED_WEIGHT = 100;
+const DISK_CACHE_STRATEGY = 'disk';
+const DOCKER_ENABLED_KEY = 'dockerEnabled';
+const DOCKER_MEMORY_RESOURCE = 'dockerRam';
+const DOCKER_CPU_RESOURCE = 'dockerCpu';
 const ANNOTATIONS_PATH = 'metadata.annotations';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
+const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
 
 /**
  * Parses annotations config and update intended annotations
@@ -124,33 +127,44 @@ class K8sExecutor extends Executor {
     /**
      * Constructor
      * @method constructor
-     * @param  {Object} options                                       Configuration options
-     * @param  {Object} options.ecosystem                             Screwdriver Ecosystem
-     * @param  {Object} options.ecosystem.api                         Routable URI to Screwdriver API
-     * @param  {Object} options.ecosystem.store                       Routable URI to Screwdriver Store
-     * @param  {Object} options.ecosystem.ui                          Routable URI to Screwdriver UI
-     * @param  {Object} options.kubernetes                            Kubernetes configuration
-     * @param  {Number} [options.kubernetes.buildTimeout=90]          Number of minutes to allow a build to run before considering it is timed out
-     * @param  {Number} [options.kubernetes.maxBuildTimeout=120]      Max timeout user can configure up to
-     * @param  {String} [options.kubernetes.token]                    API Token (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
-     * @param  {String} [options.kubernetes.host=kubernetes.default]  Kubernetes hostname
-     * @param  {String} [options.kubernetes.serviceAccount=default]   Service Account for builds
-     * @param  {String} [options.kubernetes.resources.cpu.turbo=12]   Value for TURBO CPU (in cores)
-     * @param  {String} [options.kubernetes.resources.cpu.high=6]     Value for HIGH CPU (in cores)
-     * @param  {Number} [options.kubernetes.resources.cpu.low=2]      Value for LOW CPU (in cores)
-     * @param  {Number} [options.kubernetes.resources.cpu.micro=0.5]  Value for MICRO CPU (in cores)
-     * @param  {Number} [options.kubernetes.resources.memory.turbo=16]Value for TURBO memory (in GB)
-     * @param  {Number} [options.kubernetes.resources.memory.high=12] Value for HIGH memory (in GB)
-     * @param  {Number} [options.kubernetes.resources.memory.low=2]   Value for LOW memory (in GB)
-     * @param  {Number} [options.kubernetes.resources.memory.micro=1] Value for MICRO memory (in GB)
-     * @param  {Boolean} [options.kubernetes.dockerFeatureEnabled=false] Whether to enable docker in docker on the executor k8 container
-     * @param  {Number} [options.kubernetes.jobsNamespace=default]    Pods namespace for Screwdriver Jobs
-     * @param  {String} [options.launchVersion=stable]                Launcher container version to use
-     * @param  {String} [options.prefix='']                           Prefix for job name
-     * @param  {String} [options.fusebox]                             Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
-     * @param  {Object} [options.requestretry]                        Options for the requestretry (https://github.com/FGRibreau/node-request-retry)
-     * @param  {Number} [options.requestretry.retryDelay]             Value for retryDelay option of the requestretry
-     * @param  {Number} [options.requestretry.maxAttempts]            Value for maxAttempts option of the requestretry
+     * @param  {Object} options                                            Configuration options
+     * @param  {Object} options.ecosystem                                  Screwdriver Ecosystem
+     * @param  {Object} options.ecosystem.api                              Routable URI to Screwdriver API
+     * @param  {Object} [options.ecosystem.pushgatewayUrl]                 Pushgateway URL for Prometheus
+     * @param  {Object} options.ecosystem.store                            Routable URI to Screwdriver Store
+     * @param  {Object} options.ecosystem.ui                               Routable URI to Screwdriver UI
+     * @param  {Object} options.kubernetes                                 Kubernetes configuration
+     * @param  {String} [options.kubernetes.token]                         API Token (loaded from /var/run/secrets/kubernetes.io/serviceaccount/token if not provided)
+     * @param  {String} [options.kubernetes.host=kubernetes.default]       Kubernetes hostname
+     * @param  {Number} [options.kubernetes.jobsNamespace=default]         Pods namespace for Screwdriver Jobs
+     * @param  {String} [options.kubernetes.baseImage]                     Base image for the pod
+     * @param  {Number} [options.kubernetes.buildTimeout=90]               Number of minutes to allow a build to run before considering it is timed out
+     * @param  {Number} [options.kubernetes.maxBuildTimeout=120]           Max timeout user can configure up to
+     * @param  {String} [options.kubernetes.serviceAccount=default]        Service Account for builds
+     * @param  {String} [options.kubernetes.resources.cpu.max=12]          Upper bound for custom CPU value (in cores)
+     * @param  {String} [options.kubernetes.resources.cpu.turbo=12]        Value for TURBO CPU (in cores)
+     * @param  {String} [options.kubernetes.resources.cpu.high=6]          Value for HIGH CPU (in cores)
+     * @param  {Number} [options.kubernetes.resources.cpu.low=2]           Value for LOW CPU (in cores)
+     * @param  {Number} [options.kubernetes.resources.cpu.micro=0.5]       Value for MICRO CPU (in cores)
+     * @param  {Number} [options.kubernetes.resources.memory.turbo=16]     Value for TURBO memory (in GB)
+     * @param  {Number} [options.kubernetes.resources.memory.high=12]      Value for HIGH memory (in GB)
+     * @param  {Number} [options.kubernetes.resources.memory.low=2]        Value for LOW memory (in GB)
+     * @param  {Number} [options.kubernetes.resources.memory.micro=1]      Value for MICRO memory (in GB)
+     * @param  {String} [options.kubernetes.resources.disk.space]          Value for disk space label (e.g.: screwdriver.cd/disk)
+     * @param  {String} [options.kubernetes.resources.disk.speed]          Value for disk speed label (e.g.: screwdriver.cd/diskSpeed)
+     * @param  {Boolean} [options.kubernetes.dockerFeatureEnabled=false]   Whether to enable docker in docker on the executor k8 container
+     * @param  {Object} [options.kubernetes.nodeSelectors]                 Object representing node label-value pairs
+     * @param  {String} [options.launchVersion=stable]                     Launcher container version to use
+     * @param  {String} [options.prefix='']                                 Prefix for job name
+     * @param  {String} [options.fusebox]                                  Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
+     * @param  {Object} [options.requestretry]                             Options for the requestretry (https://github.com/FGRibreau/node-request-retry)
+     * @param  {Number} [options.requestretry.retryDelay]                  Value for retryDelay option of the requestretry
+     * @param  {Number} [options.requestretry.maxAttempts]                 Value for maxAttempts option of the requestretry
+     * @param  {String} [options.ecosystem.cache.strategy='s3']            Value for build cache - s3, disk
+     * @param  {String} [options.ecosystem.cache.path='']                  Value for build cache path if options.cache.strategy is disk
+     * @param  {String} [options.ecosystem.cache.compress=false]           Value for build cache compress - true / false; used only when cache.strategy is disk
+     * @param  {String} [options.ecosystem.cache.md5check=false]           Value for build cache md5check - true / false; used only when cache.strategy is disk
+     * @param  {String} [options.ecosystem.cache.max_size_mb=0]            Value for build cache max size in mb; used only when cache.strategy is disk
      */
     constructor(options = {}) {
         super();
@@ -165,18 +179,20 @@ class K8sExecutor extends Executor {
 
             this.token = fs.existsSync(tokenPath) ? fs.readFileSync(tokenPath).toString() : '';
         }
-        this.buildTimeout = hoek.reach(options, 'kubernetes.buildTimeout') || DEFAULT_BUILD_TIMEOUT;
-        this.maxBuildTimeout = this.kubernetes.maxBuildTimeout || MAX_BUILD_TIMEOUT;
         this.host = this.kubernetes.host || 'kubernetes.default';
         this.launchImage = options.launchImage || 'screwdrivercd/launcher';
         this.launchVersion = options.launchVersion || 'stable';
         this.prefix = options.prefix || '';
-        this.serviceAccount = this.kubernetes.serviceAccount || 'default';
         this.jobsNamespace = this.kubernetes.jobsNamespace || 'default';
+        this.baseImage = this.kubernetes.baseImage;
+        this.buildTimeout = hoek.reach(options, 'kubernetes.buildTimeout') || DEFAULT_BUILD_TIMEOUT;
+        this.maxBuildTimeout = this.kubernetes.maxBuildTimeout || MAX_BUILD_TIMEOUT;
+        this.serviceAccount = this.kubernetes.serviceAccount || 'default';
         this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
         this.breaker = new Fusebox(requestretry, options.fusebox);
         this.retryDelay = this.requestretryOptions.retryDelay || DEFAULT_RETRYDELAY;
         this.maxAttempts = this.requestretryOptions.maxAttempts || DEFAULT_MAXATTEMPTS;
+        this.maxCpu = hoek.reach(options, 'kubernetes.resources.cpu.max', { default: 12 });
         this.turboCpu = hoek.reach(options, 'kubernetes.resources.cpu.turbo', { default: 12 });
         this.highCpu = hoek.reach(options, 'kubernetes.resources.cpu.high', { default: 6 });
         this.lowCpu = hoek.reach(options, 'kubernetes.resources.cpu.low', { default: 2 });
@@ -186,10 +202,19 @@ class K8sExecutor extends Executor {
         this.highMemory = hoek.reach(options, 'kubernetes.resources.memory.high', { default: 12 });
         this.lowMemory = hoek.reach(options, 'kubernetes.resources.memory.low', { default: 2 });
         this.microMemory = hoek.reach(options, 'kubernetes.resources.memory.micro', { default: 1 });
-        this.dockerFeatureEnabled = hoek.reach(options, 'kubernetes.dockerFeatureEnabled',
-            { default: false });
+        this.diskLabel = hoek.reach(options, 'kubernetes.resources.disk.space', { default: '' });
+        this.diskSpeedLabel = hoek.reach(options,
+            'kubernetes.resources.disk.speed', { default: '' });
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
+        this.cacheStrategy = hoek.reach(options, 'ecosystem.cache.strategy', { default: 's3' });
+        this.cachePath = hoek.reach(options, 'ecosystem.cache.path', { default: '/' });
+        this.cacheCompress = hoek.reach(options, 'ecosystem.cache.compress', { default: 'false' });
+        this.cacheMd5Check = hoek.reach(options, 'ecosystem.cache.md5check', { default: 'false' });
+        this.cacheMaxSizeInMB = hoek.reach(options,
+            'ecosystem.cache.max_size_mb', { default: 0 });
+        this.dockerFeatureEnabled = hoek.reach(options, 'kubernetes.dockerFeatureEnabled',
+            { default: false });
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
         this.scheduleStatusRetryStrategy = (err, response, body) => {
             const conditions = hoek.reach(body, 'status.conditions');
@@ -229,11 +254,11 @@ class K8sExecutor extends Executor {
             json: true,
             method: 'PUT',
             uri: `${apiUri}/v4/builds/${buildId}`,
-            body: {},
             headers: { Authorization: `Bearer ${token}` },
             strictSSL: false,
             maxAttempts: this.maxAttempts,
-            retryDelay: this.retryDelay
+            retryDelay: this.retryDelay,
+            body: {}
         };
 
         if (statusMessage) {
@@ -250,29 +275,50 @@ class K8sExecutor extends Executor {
     /**
      * Starts a k8s build
      * @method start
-     * @param  {Object}   config            A configuration object
-     * @param  {Integer}  config.buildId    ID for the build
-     * @param  {String}   config.container  Container for the build to run in
-     * @param  {String}   config.token      JWT for the Build
+     * @param  {Object}   config                A configuration object
+     * @param  {Integer}  config.buildId        ID for the build
+     * @param  {Integer}  [config.pipeline.id]    pipelineId for the build
+     * @param  {Integer}  [config.jobId]          jobId for the build
+     * @param  {Integer}  config.eventId        eventId for the build
+     * @param  {String}   config.container      Container for the build to run in
+     * @param  {String}   config.token          JWT for the Build
+     * @param  {String}   [config.jobName]        jobName for the build
      * @return {Promise}
      */
     _start(config) {
-        const { buildId, container, token } = config;
-        const random = randomstring.generate({
-            length: 5,
-            charset: 'alphanumeric',
-            capitalization: 'lowercase'
-        });
+        const { buildId, eventId, container, token } = config;
+        let jobId = hoek.reach(config, 'jobId', { default: '' });
+        const pipelineId = hoek.reach(config, 'pipeline.id', { default: '' });
+        const jobName = hoek.reach(config, 'jobName', { default: '' });
         const annotations = this.parseAnnotations(
             hoek.reach(config, 'annotations', { default: {} }));
         const cpuValues = {
+            MAX: this.maxCpu,
             TURBO: this.turboCpu,
             HIGH: this.highCpu,
             LOW: this.lowCpu,
             MICRO: this.microCpu
         };
+
+        // for PRs - set pipeline, job cache volume readonly and job cache dir to parent job cache dir
+        const matched = PR_JOBNAME_REGEX_PATTERN.exec(jobName);
+        let volumeReadOnly = false;
+
+        if (matched && matched.length === 2) {
+            const decodedToken = jwt.decode(token, { complete: true });
+
+            volumeReadOnly = true;
+            jobId = hoek.reach(decodedToken.payload,
+                'prParentJobId', { default: jobId });
+        }
+
         const cpuConfig = annotations[CPU_RESOURCE];
-        const CPU = (cpuConfig in cpuValues) ? cpuValues[cpuConfig] * 1000 : cpuValues.LOW * 1000;
+        let cpu = (cpuConfig in cpuValues) ? cpuValues[cpuConfig] * 1000 : cpuValues.LOW * 1000;
+
+        // allow custom cpu value
+        if (Number.isInteger(cpuConfig)) {
+            cpu = Math.min(cpuConfig, this.maxCpu) * 1000;
+        }
 
         const memValues = {
             TURBO: this.turboMemory,
@@ -281,7 +327,12 @@ class K8sExecutor extends Executor {
             MICRO: this.microMemory
         };
         const memConfig = annotations[RAM_RESOURCE];
-        const MEMORY = (memConfig in memValues) ? memValues[memConfig] : memValues.LOW;
+        let memory = (memConfig in memValues) ? memValues[memConfig] : memValues.LOW;
+
+        // allow custom memory value
+        if (Number.isInteger(memConfig)) {
+            memory = Math.min(memConfig, this.maxMemory);
+        }
 
         const dockerEnabledConfig = annotations[DOCKER_ENABLED_KEY];
         const DOCKER_ENABLED = (this.dockerFeatureEnabled && dockerEnabledConfig === true);
@@ -294,6 +345,11 @@ class K8sExecutor extends Executor {
         const DOCKER_RAM = (dockerMemoryConfig in memValues) ?
             memValues[dockerMemoryConfig] : memValues.LOW;
 
+        const random = randomstring.generate({
+            length: 5,
+            charset: 'alphanumeric',
+            capitalization: 'lowercase'
+        });
         const buildTimeout = annotations[ANNOTATE_BUILD_TIMEOUT]
             ? Math.min(annotations[ANNOTATE_BUILD_TIMEOUT], this.maxBuildTimeout)
             : this.buildTimeout;
@@ -302,30 +358,69 @@ class K8sExecutor extends Executor {
 
         const source = fs.readFileSync(templateSourcePath, 'utf8');
         const template = handlebars.compile(source);
+        let diskCacheEnabled = false;
+
+        if (this.cachePath && this.cacheStrategy === DISK_CACHE_STRATEGY) {
+            diskCacheEnabled = true;
+            if (this.prefix) {
+                this.cachePath = this.cachePath.concat('/').concat(this.prefix);
+            }
+        }
         const podTemplate = template({
+            cpu,
+            memory,
             pod_name: `${this.prefix}${buildId}-${random}`,
             build_id_with_prefix: `${this.prefix}${buildId}`,
             build_id: buildId,
+            job_id: jobId,
+            pipeline_id: pipelineId,
+            event_id: eventId,
             build_timeout: buildTimeout,
             container,
             api_uri: this.ecosystem.api,
             store_uri: this.ecosystem.store,
             ui_uri: this.ecosystem.ui,
+            pushgateway_url: hoek.reach(this.ecosystem, 'pushgatewayUrl', { default: '' }),
             token,
             launcher_image: `${this.launchImage}:${this.launchVersion}`,
+            launcher_version: this.launchVersion,
+            base_image: this.baseImage,
+            cache: {
+                diskEnabled: diskCacheEnabled,
+                strategy: this.cacheStrategy,
+                path: this.cachePath,
+                compress: this.cacheCompress,
+                md5check: this.cacheMd5Check,
+                max_size_mb: this.cacheMaxSizeInMB,
+                volumeReadOnly
+            },
             service_account: this.serviceAccount,
-            cpu: CPU,
-            memory: MEMORY,
             docker: {
                 enabled: DOCKER_ENABLED,
                 cpu: DOCKER_CPU,
                 memory: DOCKER_RAM
             }
         });
-
         const podConfig = yaml.safeLoad(podTemplate);
+        const nodeSelectors = {};
 
-        setNodeSelector(podConfig, this.nodeSelectors);
+        if (this.diskLabel) {
+            const diskConfig = (annotations[DISK_RESOURCE] || '').toLowerCase();
+            const diskSelectors = diskConfig ? { [this.diskLabel]: diskConfig } : {};
+
+            hoek.merge(nodeSelectors, diskSelectors);
+        }
+
+        if (this.diskSpeedLabel) {
+            const diskSpeedConfig = (annotations[DISK_SPEED_RESOURCE] || '').toLowerCase();
+            const diskSpeedSelectors = diskSpeedConfig ?
+                { [this.diskSpeedLabel]: diskSpeedConfig } : {};
+
+            hoek.merge(nodeSelectors, diskSpeedSelectors);
+        }
+        hoek.merge(nodeSelectors, this.nodeSelectors);
+
+        setNodeSelector(podConfig, nodeSelectors);
         setPreferredNodeSelector(podConfig, this.preferredNodeSelectors);
         setAnnotations(podConfig, this.annotations);
 
