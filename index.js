@@ -33,6 +33,7 @@ const DOCKER_MEMORY_RESOURCE = 'dockerRam';
 const DOCKER_CPU_RESOURCE = 'dockerCpu';
 const ANNOTATIONS_PATH = 'metadata.annotations';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
+const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
 
 /**
  * Parses annotations config and update intended annotations
@@ -159,8 +160,11 @@ class K8sExecutor extends Executor {
      * @param  {Object} [options.requestretry]                             Options for the requestretry (https://github.com/FGRibreau/node-request-retry)
      * @param  {Number} [options.requestretry.retryDelay]                  Value for retryDelay option of the requestretry
      * @param  {Number} [options.requestretry.maxAttempts]                 Value for maxAttempts option of the requestretry
-     * @param  {String} [options.ecosystem.cache.strategy]                 Value for build cache - s3, disk
-     * @param  {String} [options.ecosystem.cache.path]                     Value for build cache path if options.cache.strategy is disk
+     * @param  {String} [options.ecosystem.cache.strategy='s3']            Value for build cache - s3, disk
+     * @param  {String} [options.ecosystem.cache.path='']                  Value for build cache path if options.cache.strategy is disk
+     * @param  {String} [options.ecosystem.cache.compress=false]           Value for build cache compress - true / false; used only when cache.strategy is disk
+     * @param  {String} [options.ecosystem.cache.md5check=false]           Value for build cache md5check - true / false; used only when cache.strategy is disk
+     * @param  {String} [options.ecosystem.cache.max_size_mb=0]            Value for build cache max size in mb; used only when cache.strategy is disk
      */
     constructor(options = {}) {
         super();
@@ -296,9 +300,8 @@ class K8sExecutor extends Executor {
             MICRO: this.microCpu
         };
 
-        // PRs - set pipeline, job cache volume readonly and job cache dir to parent job cache dir
-        const regex = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
-        const matched = regex.exec(jobName);
+        // for PRs - set pipeline, job cache volume readonly and job cache dir to parent job cache dir
+        const matched = PR_JOBNAME_REGEX_PATTERN.exec(jobName);
         let volumeReadOnly = false;
 
         if (matched && matched.length === 2) {
