@@ -15,7 +15,7 @@ spec:
     image: {{container}}
     imagePullPolicy: Always
     securityContext:
-      privileged: true
+      privileged: {{privileged}}
     resources:
       limits:
         cpu: {{cpu}}m
