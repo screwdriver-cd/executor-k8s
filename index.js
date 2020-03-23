@@ -153,6 +153,7 @@ class K8sExecutor extends Executor {
      * @param  {String} [options.kubernetes.resources.disk.space]          Value for disk space label (e.g.: screwdriver.cd/disk)
      * @param  {String} [options.kubernetes.resources.disk.speed]          Value for disk speed label (e.g.: screwdriver.cd/diskSpeed)
      * @param  {Boolean} [options.kubernetes.dockerFeatureEnabled=false]   Whether to enable docker in docker on the executor k8 container
+     * @param  {Boolean} [options.kubernetes.privileged=false]             Privileged mode, default restricted, set to true for DIND use-case
      * @param  {Object} [options.kubernetes.nodeSelectors]                 Object representing node label-value pairs
      * @param  {String} [options.launchVersion=stable]                     Launcher container version to use
      * @param  {String} [options.prefix='']                                 Prefix for job name
@@ -216,6 +217,7 @@ class K8sExecutor extends Executor {
         this.dockerFeatureEnabled = hoek.reach(options, 'kubernetes.dockerFeatureEnabled',
             { default: false });
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
+        this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
         this.scheduleStatusRetryStrategy = (err, response, body) => {
             const conditions = hoek.reach(body, 'status.conditions');
             let scheduled = false;
@@ -370,6 +372,7 @@ class K8sExecutor extends Executor {
             cpu,
             memory,
             pod_name: `${this.prefix}${buildId}-${random}`,
+            privileged: this.privileged,
             build_id_with_prefix: `${this.prefix}${buildId}`,
             build_id: buildId,
             job_id: jobId,
