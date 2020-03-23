@@ -163,6 +163,7 @@ describe('index', function () {
                 token: 'api_key2',
                 host: 'kubernetes2',
                 serviceAccount: 'foobar',
+                automountServiceAccountToken: 'true',
                 jobsNamespace: 'baz',
                 resources: {
                     cpu: {
@@ -189,6 +190,7 @@ describe('index', function () {
         assert.equal(executor.host, 'kubernetes2');
         assert.equal(executor.launchVersion, 'v1.2.3');
         assert.equal(executor.serviceAccount, 'foobar');
+        assert.equal(executor.automountServiceAccountToken, true);
         assert.equal(executor.jobsNamespace, 'baz');
         assert.equal(executor.turboCpu, 10);
         assert.equal(executor.highCpu, 8);
@@ -207,6 +209,7 @@ describe('index', function () {
         assert.equal(executor.maxBuildTimeout, MAX_BUILD_TIMEOUT);
         assert.equal(executor.launchVersion, 'stable');
         assert.equal(executor.serviceAccount, 'default');
+        assert.equal(executor.automountServiceAccountToken, false);
         assert.equal(executor.token, '');
         assert.equal(executor.host, 'kubernetes.default');
         assert.equal(executor.launchVersion, 'stable');
