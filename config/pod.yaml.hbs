@@ -20,8 +20,14 @@ spec:
       limits:
         cpu: {{cpu}}m
         memory: {{memory}}Gi
-    {{#if docker.enabled}}
     env:
+      - name: PUSHGATEWAY_URL
+        value: {{pushgateway_url}}
+      - name: CONTAINER_IMAGE
+        value: {{container}}
+      - name: SD_PIPELINE_ID
+        value: {{pipeline_id}}
+    {{#if docker.enabled}}
       - name: DOCKER_HOST
         value: tcp://localhost:2375
     {{/if}}
