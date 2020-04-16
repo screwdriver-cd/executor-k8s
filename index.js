@@ -18,7 +18,6 @@ const DEFAULT_MAXATTEMPTS = 5;
 const DEFAULT_RETRYDELAY = 3000;
 const CPU_RESOURCE = 'cpu';
 const RAM_RESOURCE = 'ram';
-const DISK_RESOURCE = 'disk';
 const DISK_SPEED_RESOURCE = 'diskSpeed';
 const ANNOTATE_BUILD_TIMEOUT = 'timeout';
 const TOLERATIONS_PATH = 'spec.tolerations';
@@ -206,7 +205,6 @@ class K8sExecutor extends Executor {
         this.highMemory = hoek.reach(options, 'kubernetes.resources.memory.high', { default: 12 });
         this.lowMemory = hoek.reach(options, 'kubernetes.resources.memory.low', { default: 2 });
         this.microMemory = hoek.reach(options, 'kubernetes.resources.memory.micro', { default: 1 });
-        this.diskLabel = hoek.reach(options, 'kubernetes.resources.disk.space', { default: '' });
         this.diskSpeedLabel = hoek.reach(options,
             'kubernetes.resources.disk.speed', { default: '' });
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
@@ -410,13 +408,6 @@ class K8sExecutor extends Executor {
         });
         const podConfig = yaml.safeLoad(podTemplate);
         const nodeSelectors = {};
-
-        if (this.diskLabel) {
-            const diskConfig = (annotations[DISK_RESOURCE] || '').toLowerCase();
-            const diskSelectors = diskConfig ? { [this.diskLabel]: diskConfig } : {};
-
-            hoek.merge(nodeSelectors, diskSelectors);
-        }
 
         if (this.diskSpeedLabel) {
             const diskSpeedConfig = (annotations[DISK_SPEED_RESOURCE] || '').toLowerCase();
