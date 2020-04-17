@@ -181,6 +181,7 @@ class K8sExecutor extends Executor {
             this.token = fs.existsSync(tokenPath) ? fs.readFileSync(tokenPath).toString() : '';
         }
         this.host = this.kubernetes.host || 'kubernetes.default';
+        this.runtimeClassName = this.kubernetes.runtimeClassName || '';
         this.launchImage = options.launchImage || 'screwdrivercd/launcher';
         this.launchVersion = options.launchVersion || 'stable';
         this.prefix = options.prefix || '';
@@ -370,6 +371,7 @@ class K8sExecutor extends Executor {
             }
         }
         const podTemplate = template({
+            runtimeClassName: this.runtimeClassName,
             cpu,
             memory,
             pod_name: `${this.prefix}${buildId}-${random}`,
