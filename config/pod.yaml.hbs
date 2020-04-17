@@ -7,6 +7,9 @@ metadata:
     app: screwdriver
     tier: builds
 spec:
+  {{#if runtimeClass}}
+  runtimeClassName: {{runtimeClass}}
+  {{/if}}
   serviceAccountName: {{service_account}}
   automountServiceAccountToken: {{automount_service_account_token}}
   restartPolicy: Never
@@ -31,6 +34,10 @@ spec:
         valueFrom:
           fieldRef:
             fieldPath: spec.nodeName
+      - name: SD_BASE_COMMAND_PATH
+        value: "/sd/commands/"
+      - name: SD_TEMP
+        value: "/opt/sd_tmp"
     {{#if docker.enabled}}
       - name: DOCKER_HOST
         value: tcp://localhost:2375
@@ -48,10 +55,11 @@ spec:
     volumeMounts:
     - mountPath: /opt/sd
       name: screwdriver
-    - mountPath: /sd
+      readOnly: true
+    - mountPath: /opt/sd_tmp
+      name: sdtemp
+    - mountPath: /workspace
       name: workspace
-    - mountPath: /hab
-      name: habitat
     {{#if cache.diskEnabled}}
     - mountPath: /sdpipelinecache
       name: sd-pipeline-cache
@@ -79,15 +87,13 @@ spec:
   - name: launcher
     image: {{launcher_image}}
     {{#if cache.diskEnabled}}
-    command: ['/bin/sh', '-c', 'chmod -R 777 /opt/sdpipelinecache && chmod -R 777 /opt/sdjobcache && chmod -R 777 /opt/sdeventcache && cp -a /opt/sd/* /opt/launcher && cp -a /hab/* /opt/hab']
+    command: ['/bin/sh', '-c', 'chmod -R 777 /opt/sdpipelinecache && chmod -R 777 /opt/sdjobcache && chmod -R 777 /opt/sdeventcache && if ! [ -f /opt/launcher/launch ]; then TEMP_DIR=`mktemp -d -p /opt/launcher` && cp -a /opt/sd/* $TEMP_DIR && mkdir -p $TEMP_DIR/hab && cp -a /hab/* $TEMP_DIR/hab && mv $TEMP_DIR/* /opt/launcher && rm -rf $TEMP_DIR || true; else ls /opt/launcher; fi;']
     {{else}}
-    command: ['/bin/sh', '-c', 'cp -a /opt/sd/* /opt/launcher && cp -a /hab/* /opt/hab']
+    command: ['/bin/sh', '-c', 'if ! [ -f /opt/launcher/launch ]; then TEMP_DIR=`mktemp -d -p /opt/launcher` && cp -a /opt/sd/* $TEMP_DIR && mkdir -p $TEMP_DIR/hab && cp -a /hab/* $TEMP_DIR/hab && mv $TEMP_DIR/* /opt/launcher && rm -rf $TEMP_DIR || true; else ls /opt/launcher; fi;']
     {{/if}}
     volumeMounts:
     - mountPath: /opt/launcher
       name: screwdriver
-    - mountPath: /opt/hab
-      name: habitat
     {{#if cache.diskEnabled}}
     - mountPath: /opt/sdpipelinecache
       name: sd-pipeline-cache
@@ -98,9 +104,13 @@ spec:
     {{/if}}
   volumes:
     - name: screwdriver
-      emptyDir: {}
-    - name: habitat
-      emptyDir: {}
+      type: DirectoryOrCreate
+      hostPath:
+        path: /opt/screwdriver/sdlauncher/{{launcher_version}}
+    - name: sdtemp
+      type: DirectoryOrCreate
+      hostPath:
+        path: /opt/screwdriver/tmp_{{build_id}}
     - name: workspace
       emptyDir: {}
     {{#if docker.enabled}}
@@ -121,3 +131,4 @@ spec:
       hostPath:
         path: {{cache.path}}/events/{{pipeline_id}}/{{event_id}}
     {{/if}}
+
