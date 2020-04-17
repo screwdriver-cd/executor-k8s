@@ -7,8 +7,8 @@ metadata:
     app: screwdriver
     tier: builds
 spec:
-  {{#if runtimeClassName}}
-  runtimeClassName: {{runtimeClassName}}
+  {{#if runtimeClass}}
+  runtimeClassName: {{runtimeClass}}
   {{/if}}
   serviceAccountName: {{service_account}}
   automountServiceAccountToken: {{automount_service_account_token}}
