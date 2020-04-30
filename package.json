@@ -6,7 +6,9 @@
   "scripts": {
     "pretest": "eslint .",
     "test": "jenkins-mocha --recursive",
-    "semantic-release": "semantic-release pre && npm publish && semantic-release post"
+    "semantic-release": "semantic-release pre && npm publish && semantic-release post",
+    "snyk-protect": "snyk protect",
+    "prepublish": "npm run snyk-protect"
   },
   "engines": {
     "node": ">=8.0.0"
@@ -58,6 +60,8 @@
     "request": "^2.88.0",
     "requestretry": "^4.0.0",
     "screwdriver-executor-base": "^7.1.0",
-    "tinytim": "^0.1.1"
-  }
+    "tinytim": "^0.1.1",
+    "snyk": "^1.316.1"
+  },
+  "snyk": true
 }
