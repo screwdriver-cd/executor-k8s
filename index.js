@@ -85,6 +85,30 @@ function setNodeSelector(podConfig, nodeSelectors) {
 }
 
 /**
+ * Parses and update lifecycle hooks config for build container
+ * @param {Object} podConfig      k8s pod config
+ * @param {Object} lifecycleHooks container lifecycle hooks config
+ * @param {String} containerName  name of the build container
+ */
+function setLifecycleHooks(podConfig, lifecycleHooks, containerName) {
+    if (!lifecycleHooks || typeof lifecycleHooks !== 'object' ||
+        Object.keys(lifecycleHooks).length === 0) {
+        return;
+    }
+
+    const buildContainerIndex = _.get(podConfig, 'spec.containers', [])
+        .findIndex(c => c.name === containerName);
+
+    if (buildContainerIndex > -1) {
+        _.set(
+            podConfig,
+            ['spec', 'containers', buildContainerIndex, 'lifecycle'],
+            _.assign({}, lifecycleHooks)
+        );
+    }
+}
+
+/**
  * Parses preferredNodeSelector config and update intended preferredNodeSelector in nodeAffinity.
  * @param {Object} podConfig              k8s pod config
  * @param {Object} preferredNodeSelectors key-value pairs of preferred node selectors
@@ -155,6 +179,7 @@ class K8sExecutor extends Executor {
      * @param  {Boolean} [options.kubernetes.privileged=false]                   Privileged mode, default restricted, set to true for DIND use-case
      * @param  {Boolean} [options.kubernetes.automountServiceAccountToken=false] opt-in/out for service account token automount
      * @param  {Object}  [options.kubernetes.nodeSelectors]                      Object representing node label-value pairs
+     * @param  {Object}  [options.kubernetes.lifecycleHooks]                     Object representing pod lifecycle hooks
      * @param  {String}  [options.launchVersion=stable]                          Launcher container version to use
      * @param  {String}  [options.prefix='']                                     Prefix for job name
      * @param  {String}  [options.fusebox]                                       Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
@@ -210,6 +235,7 @@ class K8sExecutor extends Executor {
             'kubernetes.resources.disk.speed', { default: '' });
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
+        this.lifecycleHooks = hoek.reach(options, 'kubernetes.lifecycleHooks');
         this.cacheStrategy = hoek.reach(options, 'ecosystem.cache.strategy', { default: 's3' });
         this.cachePath = hoek.reach(options, 'ecosystem.cache.path', { default: '/' });
         this.cacheCompress = hoek.reach(options, 'ecosystem.cache.compress', { default: 'false' });
@@ -370,13 +396,16 @@ class K8sExecutor extends Executor {
                 this.cachePath = this.cachePath.concat('/').concat(this.prefix);
             }
         }
+
+        const buildContainerName = `${this.prefix}${buildId}`;
+
         const podTemplate = template({
             runtimeClass: this.runtimeClass,
             cpu,
             memory,
-            pod_name: `${this.prefix}${buildId}-${random}`,
+            pod_name: `${buildContainerName}-${random}`,
             privileged: this.privileged,
-            build_id_with_prefix: `${this.prefix}${buildId}`,
+            build_id_with_prefix: buildContainerName,
             build_id: buildId,
             job_id: jobId,
             pipeline_id: pipelineId,
@@ -423,6 +452,7 @@ class K8sExecutor extends Executor {
         setNodeSelector(podConfig, nodeSelectors);
         setPreferredNodeSelector(podConfig, this.preferredNodeSelectors);
         setAnnotations(podConfig, this.annotations);
+        setLifecycleHooks(podConfig, this.lifecycleHooks, buildContainerName);
 
         const options = {
             uri: this.podsUrl,

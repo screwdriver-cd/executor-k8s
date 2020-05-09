@@ -20,6 +20,9 @@ metadata:
   serviceAccount: {{service_account}}
   cpu: {{cpu}}
   memory: {{memory}}
+spec:
+  containers:
+  - name: beta_15
 command:
 - "/opt/sd/launch {{api_uri}} {{store_uri}} {{token}} {{build_timeout}} {{build_id}}"
 `;
@@ -91,6 +94,22 @@ describe('index', function () {
             }
         }
     };
+    const testLifecycleHooksSpec = { containers: [{
+        name: 'beta_15',
+        lifecycle: {
+            postStart: {
+                exec: {
+                    command: ['/bin/sh', '-c', 'echo Hello World']
+                }
+            },
+            preStop: {
+                httpGet: {
+                    path: '/gracefulShutDown',
+                    port: 8000
+                }
+            }
+        }
+    }] };
     const testAnnotations = {
         annotations: {
             key: 'value',
@@ -104,7 +123,8 @@ describe('index', function () {
         },
         kubernetes: {
             nodeSelectors: {},
-            preferredNodeSelectors: {}
+            preferredNodeSelectors: {},
+            lifecycleHooks: {}
         },
         fusebox: { retry: { minTimeout: 1 } },
         prefix: 'beta_'
@@ -337,6 +357,9 @@ describe('index', function () {
                         cpu: 2000,
                         memory: 2
                     },
+                    spec: {
+                        containers: [{ name: 'beta_15' }]
+                    },
                     command: [
                         '/opt/sd/launch http://api:8080 http://store:8080 abcdefg 90 '
                         + '15'
@@ -541,6 +564,35 @@ describe('index', function () {
             });
         });
 
+        it('sets lifecycle configs for the target container', () => {
+            const options = _.assign({}, executorOptions, {
+                kubernetes: {
+                    lifecycleHooks: {
+                        postStart: {
+                            exec: {
+                                command: ['/bin/sh', '-c', 'echo Hello World']
+                            }
+                        },
+                        preStop: {
+                            httpGet: {
+                                path: '/gracefulShutDown',
+                                port: 8000
+                            }
+                        }
+                    }
+                }
+            });
+
+            executor = new Executor(options);
+            postConfig.json.spec = _.assign({}, postConfig.json.spec, testLifecycleHooksSpec);
+            getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+            });
+        });
+
         it('sets tolerations and node affinity with appropriate node config', () => {
             const options = _.assign({}, executorOptions, {
                 kubernetes: {
@@ -549,7 +601,7 @@ describe('index', function () {
             });
 
             executor = new Executor(options);
-            postConfig.json.spec = testSpec;
+            postConfig.json.spec = _.assign({}, postConfig.json.spec, testSpec);
             getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
 
             return executor.start(fakeStartConfig).then(() => {
@@ -566,7 +618,7 @@ describe('index', function () {
             });
 
             executor = new Executor(options);
-            postConfig.json.spec = testPreferredSpec;
+            postConfig.json.spec = _.assign({}, postConfig.json.spec, testPreferredSpec);
             getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
 
             return executor.start(fakeStartConfig).then(() => {
@@ -585,7 +637,7 @@ describe('index', function () {
             });
 
             executor = new Executor(options);
-            postConfig.json.spec = spec;
+            postConfig.json.spec = _.assign({}, postConfig.json.spec, spec);
             getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
 
             return executor.start(fakeStartConfig).then(() => {
@@ -825,7 +877,7 @@ describe('index', function () {
         it('updates config with tolerations', () => {
             const updatedConfig = JSON.parse(JSON.stringify(fakeConfig));
 
-            updatedConfig.spec = testSpec;
+            updatedConfig.spec = _.assign({}, updatedConfig.spec, testSpec);
             nodeSelectors = { key: 'value' };
 
             setNodeSelector(fakeConfig, nodeSelectors);
@@ -855,10 +907,52 @@ describe('index', function () {
         it('updates config with preferred node settings', () => {
             const updatedConfig = JSON.parse(JSON.stringify(fakeConfig));
 
-            updatedConfig.spec = testPreferredSpec;
+            updatedConfig.spec = _.assign({}, updatedConfig.spec, testPreferredSpec);
             nodeSelectors = { key: 'value', foo: 'bar' };
 
             setPreferredNodeSelector(fakeConfig, nodeSelectors);
+            assert.deepEqual(fakeConfig, updatedConfig);
+        });
+    });
+
+    describe('setLifecycleHooks', () => {
+        // eslint-disable-next-line no-underscore-dangle
+        const setLifecycleHooks = index.__get__('setLifecycleHooks');
+
+        let lifecycleHooks;
+        let fakeConfig;
+
+        beforeEach(() => {
+            lifecycleHooks = {
+                postStart: {
+                    exec: {
+                        command: ['/bin/sh', '-c', 'echo Hello World']
+                    }
+                },
+                preStop: {
+                    httpGet: {
+                        path: '/gracefulShutDown',
+                        port: 8000
+                    }
+                }
+            };
+            fakeConfig = yaml.safeLoad(TEST_TIM_YAML);
+        });
+
+        it('does nothing if no build container is found', () => {
+            const updatedConfig = JSON.parse(JSON.stringify(fakeConfig));
+
+            setLifecycleHooks(fakeConfig, lifecycleHooks, 'do_no_exist');
+            assert.deepEqual(fakeConfig, updatedConfig);
+        });
+
+        it('updates config with container lifecycle settings', () => {
+            const updatedConfig = JSON.parse(JSON.stringify(fakeConfig));
+
+            fakeConfig.spec = { containers: [{ name: 'beta_15' }] };
+            updatedConfig.spec = _.assign({}, updatedConfig.spec, testLifecycleHooksSpec);
+
+            setLifecycleHooks(fakeConfig, lifecycleHooks, 'beta_15');
             assert.deepEqual(fakeConfig, updatedConfig);
         });
     });
