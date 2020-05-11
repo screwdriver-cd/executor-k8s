@@ -406,6 +406,7 @@ class K8sExecutor extends Executor {
             pod_name: `${buildContainerName}-${random}`,
             privileged: this.privileged,
             build_id_with_prefix: buildContainerName,
+            prefix: this.prefix,
             build_id: buildId,
             job_id: jobId,
             pipeline_id: pipelineId,
