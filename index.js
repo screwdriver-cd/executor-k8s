@@ -181,7 +181,7 @@ class K8sExecutor extends Executor {
      * @param  {Object}  [options.kubernetes.nodeSelectors]                      Object representing node label-value pairs
      * @param  {Object}  [options.kubernetes.lifecycleHooks]                     Object representing pod lifecycle hooks
      * @param  {String}  [options.launchVersion=stable]                          Launcher container version to use
-     * @param  {String}  [options.prefix='']                                     Prefix for job name
+     * @param  {String}  [options.prefix='']                                      Prefix for job name
      * @param  {String}  [options.fusebox]                                       Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
      * @param  {Object}  [options.requestretry]                                  Options for the requestretry (https://github.com/FGRibreau/node-request-retry)
      * @param  {Number}  [options.requestretry.retryDelay]                       Value for retryDelay option of the requestretry
@@ -406,6 +406,7 @@ class K8sExecutor extends Executor {
             pod_name: `${buildContainerName}-${random}`,
             privileged: this.privileged,
             build_id_with_prefix: buildContainerName,
+            prefix: this.prefix,
             build_id: buildId,
             job_id: jobId,
             pipeline_id: pipelineId,
