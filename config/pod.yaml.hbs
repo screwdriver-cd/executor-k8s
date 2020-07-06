@@ -21,9 +21,11 @@ spec:
       privileged: {{privileged}}
     resources:
       limits:
-        cpu: {{cpu}}m
+        cpu: {{cpu}}
         memory: {{memory}}Gi
     env:
+      - name: SD_RUNTIME_CLASS
+        value: {{runtimeClass}}
       - name: PUSHGATEWAY_URL
         value: {{pushgateway_url}}
       - name: CONTAINER_IMAGE
