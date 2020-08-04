@@ -226,6 +226,7 @@ class K8sExecutor extends Executor {
         this.highCpu = hoek.reach(options, 'kubernetes.resources.cpu.high', { default: 6 });
         this.lowCpu = hoek.reach(options, 'kubernetes.resources.cpu.low', { default: 2 });
         this.microCpu = hoek.reach(options, 'kubernetes.resources.cpu.micro', { default: 0.5 });
+        this.maxMemory = hoek.reach(options, 'kubernetes.resources.memory.max', { default: 16 });
         this.turboMemory = hoek.reach(options,
             'kubernetes.resources.memory.turbo', { default: 16 });
         this.highMemory = hoek.reach(options, 'kubernetes.resources.memory.high', { default: 12 });
