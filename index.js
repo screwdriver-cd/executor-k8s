@@ -169,6 +169,7 @@ class K8sExecutor extends Executor {
      * @param  {String}  [options.kubernetes.resources.cpu.high=6]               Value for HIGH CPU (in cores)
      * @param  {Number}  [options.kubernetes.resources.cpu.low=2]                Value for LOW CPU (in cores)
      * @param  {Number}  [options.kubernetes.resources.cpu.micro=0.5]            Value for MICRO CPU (in cores)
+     * @param  {Number}  [options.kubernetes.resources.memory.max=16]            Value for MAX memory, upper bound for custom memory value (in GB)
      * @param  {Number}  [options.kubernetes.resources.memory.turbo=16]          Value for TURBO memory (in GB)
      * @param  {Number}  [options.kubernetes.resources.memory.high=12]           Value for HIGH memory (in GB)
      * @param  {Number}  [options.kubernetes.resources.memory.low=2]             Value for LOW memory (in GB)
@@ -226,6 +227,7 @@ class K8sExecutor extends Executor {
         this.highCpu = hoek.reach(options, 'kubernetes.resources.cpu.high', { default: 6 });
         this.lowCpu = hoek.reach(options, 'kubernetes.resources.cpu.low', { default: 2 });
         this.microCpu = hoek.reach(options, 'kubernetes.resources.cpu.micro', { default: 0.5 });
+        this.maxMemory = hoek.reach(options, 'kubernetes.resources.memory.max', { default: 16 });
         this.turboMemory = hoek.reach(options,
             'kubernetes.resources.memory.turbo', { default: 16 });
         this.highMemory = hoek.reach(options, 'kubernetes.resources.memory.high', { default: 12 });

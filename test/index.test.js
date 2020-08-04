@@ -486,6 +486,17 @@ describe('index', function () {
             });
         });
 
+        it('sets the memory appropriately when ram is set to Integer', () => {
+            postConfig.json.metadata.cpu = 2000;
+            postConfig.json.metadata.memory = 16;
+            fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 64;
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+            });
+        });
+
         it('sets the cpu appropriately when cpu is set to HIGH', () => {
             postConfig.json.metadata.cpu = 6000;
             postConfig.json.metadata.memory = 2;
