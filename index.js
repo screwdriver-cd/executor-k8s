@@ -232,12 +232,9 @@ class K8sExecutor extends Executor {
         this.cachePath = hoek.reach(options, 'ecosystem.cache.path', { default: '/' });
         this.cacheCompress = hoek.reach(options, 'ecosystem.cache.compress', { default: 'false' });
         this.cacheMd5Check = hoek.reach(options, 'ecosystem.cache.md5check', { default: 'false' });
-        this.cacheMaxSizeInMB = hoek.reach(options,
-            'ecosystem.cache.max_size_mb', { default: 0 });
-        this.cacheMaxGoThreads = hoek.reach(options,
-            'ecosystem.cache.max_go_threads', { default: 10000 });
-        this.dockerFeatureEnabled = hoek.reach(options, 'kubernetes.dockerFeatureEnabled',
-            { default: false });
+        this.cacheMaxSizeInMB = hoek.reach(options, 'ecosystem.cache.max_size_mb', { default: 0 });
+        this.cacheMaxGoThreads = hoek.reach(options, 'ecosystem.cache.max_go_threads', { default: 10000 });
+        this.dockerFeatureEnabled = hoek.reach(options, 'kubernetes.dockerFeatureEnabled', { default: false });
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
         this.scheduleStatusRetryStrategy = (err, response, body) => {
