@@ -31,7 +31,7 @@ const SMALLEST_FLOAT64 = 2.2250738585072014e-308;
 const MAXATTEMPTS = 5;
 const RETRYDELAY = 3000;
 
-describe('index', function () {
+describe('index', function() {
     // Time not important. Only life important.
     this.timeout(5000);
 
@@ -49,22 +49,28 @@ describe('index', function () {
     const testServiceAccount = 'default';
     const podsUrl = 'https://kubernetes.default/api/v1/namespaces/default/pods';
     const testSpec = {
-        tolerations: [{
-            key: 'key',
-            value: 'value',
-            effect: 'NoSchedule',
-            operator: 'Equal'
-        }],
+        tolerations: [
+            {
+                key: 'key',
+                value: 'value',
+                effect: 'NoSchedule',
+                operator: 'Equal'
+            }
+        ],
         affinity: {
             nodeAffinity: {
                 requiredDuringSchedulingIgnoredDuringExecution: {
-                    nodeSelectorTerms: [{
-                        matchExpressions: [{
-                            key: 'key',
-                            operator: 'In',
-                            values: ['value']
-                        }]
-                    }]
+                    nodeSelectorTerms: [
+                        {
+                            matchExpressions: [
+                                {
+                                    key: 'key',
+                                    operator: 'In',
+                                    values: ['value']
+                                }
+                            ]
+                        }
+                    ]
                 }
             }
         }
@@ -94,22 +100,26 @@ describe('index', function () {
             }
         }
     };
-    const testLifecycleHooksSpec = { containers: [{
-        name: 'beta_15',
-        lifecycle: {
-            postStart: {
-                exec: {
-                    command: ['/bin/sh', '-c', 'echo Hello World']
-                }
-            },
-            preStop: {
-                httpGet: {
-                    path: '/gracefulShutDown',
-                    port: 8000
+    const testLifecycleHooksSpec = {
+        containers: [
+            {
+                name: 'beta_15',
+                lifecycle: {
+                    postStart: {
+                        exec: {
+                            command: ['/bin/sh', '-c', 'echo Hello World']
+                        }
+                    },
+                    preStop: {
+                        httpGet: {
+                            path: '/gracefulShutDown',
+                            port: 8000
+                        }
+                    }
                 }
             }
-        }
-    }] };
+        ]
+    };
     const testAnnotations = {
         annotations: {
             key: 'value',
@@ -147,10 +157,8 @@ describe('index', function () {
 
         fsMock.existsSync.returns(true);
 
-        fsMock.readFileSync.withArgs('/var/run/secrets/kubernetes.io/serviceaccount/token')
-            .returns('api_key');
-        fsMock.readFileSync.withArgs(sinon.match(/config\/pod.yaml.hbs/))
-            .returns(TEST_TIM_YAML);
+        fsMock.readFileSync.withArgs('/var/run/secrets/kubernetes.io/serviceaccount/token').returns('api_key');
+        fsMock.readFileSync.withArgs(sinon.match(/config\/pod.yaml.hbs/)).returns(TEST_TIM_YAML);
 
         mockery.registerMock('fs', fsMock);
         mockery.registerMock('requestretry', requestRetryMock);
@@ -288,28 +296,34 @@ describe('index', function () {
             requestRetryMock.yieldsAsync(null, fakeStopResponse, fakeStopResponse.body);
         });
 
-        it('calls breaker with correct config', () => (
-            executor.stop({
-                buildId: testBuildId
-            }).then(() => {
-                assert.calledWith(requestRetryMock, deleteConfig);
-                assert.calledOnce(requestRetryMock);
-            })
-        ));
+        it('calls breaker with correct config', () =>
+            executor
+                .stop({
+                    buildId: testBuildId
+                })
+                .then(() => {
+                    assert.calledWith(requestRetryMock, deleteConfig);
+                    assert.calledOnce(requestRetryMock);
+                }));
 
         it('returns error when breaker does', () => {
             const error = new Error('error');
 
             requestRetryMock.yieldsAsync(error);
 
-            return executor.stop({
-                buildId: testBuildId
-            }).then(() => {
-                throw new Error('did not fail');
-            }, (err) => {
-                assert.deepEqual(err, error);
-                assert.equal(requestRetryMock.callCount, 5);
-            });
+            return executor
+                .stop({
+                    buildId: testBuildId
+                })
+                .then(
+                    () => {
+                        throw new Error('did not fail');
+                    },
+                    err => {
+                        assert.deepEqual(err, error);
+                        assert.equal(requestRetryMock.callCount, 5);
+                    }
+                );
         });
 
         it('returns error when response is non 200', () => {
@@ -320,18 +334,22 @@ describe('index', function () {
                 }
             };
 
-            const returnMessage = 'Failed to delete pod: '
-                + `${JSON.stringify(fakeStopErrorResponse.body)}`;
+            const returnMessage = `Failed to delete pod:${JSON.stringify(fakeStopErrorResponse.body)}`;
 
             requestRetryMock.yieldsAsync(null, fakeStopErrorResponse, fakeStopErrorResponse.body);
 
-            return executor.stop({
-                buildId: testBuildId
-            }).then(() => {
-                throw new Error('did not fail');
-            }, (err) => {
-                assert.equal(err.message, returnMessage);
-            });
+            return executor
+                .stop({
+                    buildId: testBuildId
+                })
+                .then(
+                    () => {
+                        throw new Error('did not fail');
+                    },
+                    err => {
+                        assert.equal(err.message, returnMessage);
+                    }
+                );
         });
     });
 
@@ -360,10 +378,7 @@ describe('index', function () {
                     spec: {
                         containers: [{ name: 'beta_15' }]
                     },
-                    command: [
-                        '/opt/sd/launch http://api:8080 http://store:8080 abcdefg 90 '
-                        + '15'
-                    ]
+                    command: ['/opt/sd/launch http://api:8080 http://store:8080 abcdefg 90 15']
                 },
                 headers: {
                     Authorization: 'Bearer api_key'
@@ -425,12 +440,15 @@ describe('index', function () {
                 }
             };
 
-            requestRetryMock.withArgs(sinon.match({ method: 'POST' })).yieldsAsync(
-                null, fakeStartResponse, fakeStartResponse.body);
-            requestRetryMock.withArgs(sinon.match({ method: 'GET' })).yieldsAsync(
-                null, fakeGetResponse, fakeGetResponse.body);
-            requestRetryMock.withArgs(sinon.match({ method: 'PUT' })).yieldsAsync(
-                null, fakePutResponse, fakePutResponse.body);
+            requestRetryMock
+                .withArgs(sinon.match({ method: 'POST' }))
+                .yieldsAsync(null, fakeStartResponse, fakeStartResponse.body);
+            requestRetryMock
+                .withArgs(sinon.match({ method: 'GET' }))
+                .yieldsAsync(null, fakeGetResponse, fakeGetResponse.body);
+            requestRetryMock
+                .withArgs(sinon.match({ method: 'PUT' }))
+                .yieldsAsync(null, fakePutResponse, fakePutResponse.body);
         });
 
         it('successfully calls start', () => {
@@ -442,7 +460,7 @@ describe('index', function () {
 
         it('successfully calls start and update hostname and imagePullStartTime', () => {
             const dateNow = Date.now();
-            const isoTime = (new Date(dateNow)).toISOString();
+            const isoTime = new Date(dateNow).toISOString();
             const sandbox = sinon.createSandbox({
                 useFakeTimers: false
             });
@@ -521,8 +539,7 @@ describe('index', function () {
 
         it('sets the build timeout to default build timeout if not configured by user', () => {
             postConfig.json.command = [
-                '/opt/sd/launch http://api:8080 http://store:8080 abcdefg '
-                + `${DEFAULT_BUILD_TIMEOUT} 15`
+                `/opt/sd/launch http://api:8080 http://store:8080 abcdefg ${DEFAULT_BUILD_TIMEOUT} 15`
             ];
 
             return executor.start(fakeStartConfig).then(() => {
@@ -534,9 +551,7 @@ describe('index', function () {
         it('sets the build timeout if configured by user', () => {
             const userTimeout = 45;
 
-            postConfig.json.command = [
-                `/opt/sd/launch http://api:8080 http://store:8080 abcdefg ${userTimeout} 15`
-            ];
+            postConfig.json.command = [`/opt/sd/launch http://api:8080 http://store:8080 abcdefg ${userTimeout} 15`];
             fakeStartConfig.annotations = { 'beta.screwdriver.cd/timeout': userTimeout };
 
             return executor.start(fakeStartConfig).then(() => {
@@ -548,8 +563,7 @@ describe('index', function () {
         it('sets the timeout to maxBuildTimeout if user specified a higher timeout', () => {
             fakeStartConfig.annotations = { 'beta.screwdriver.cd/timeout': 220 };
             postConfig.json.command = [
-                '/opt/sd/launch http://api:8080 http://store:8080 abcdefg '
-                + `${MAX_BUILD_TIMEOUT} 15`
+                `/opt/sd/launch http://api:8080 http://store:8080 abcdefg ${MAX_BUILD_TIMEOUT} 15`
             ];
 
             return executor.start(fakeStartConfig).then(() => {
@@ -674,11 +688,14 @@ describe('index', function () {
 
             requestRetryMock.withArgs(postConfig).yieldsAsync(error);
 
-            return executor.start(fakeStartConfig).then(() => {
-                throw new Error('did not fail');
-            }, (err) => {
-                assert.deepEqual(err, error);
-            });
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.deepEqual(err, error);
+                }
+            );
         });
 
         it('returns error when not able to get pod status', () => {
@@ -689,17 +706,18 @@ describe('index', function () {
                     message: 'cannot get pod status'
                 }
             };
-            const returnMessage = 'Failed to get pod status:' +
-                        `${JSON.stringify(returnResponse.body, null, 2)}`;
+            const returnMessage = `Failed to get pod status:${JSON.stringify(returnResponse.body, null, 2)}`;
 
-            requestRetryMock.withArgs(getConfig).yieldsAsync(
-                null, returnResponse, returnResponse.body);
+            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
-            return executor.start(fakeStartConfig).then(() => {
-                throw new Error('did not fail');
-            }, (err) => {
-                assert.equal(err.message, returnMessage);
-            });
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.equal(err.message, returnMessage);
+                }
+            );
         });
 
         it('returns error when pod status is failed', () => {
@@ -711,17 +729,22 @@ describe('index', function () {
                     }
                 }
             };
-            const returnMessage = 'Failed to create pod. Pod status is:' +
-                        `${JSON.stringify(returnResponse.body.status, null, 2)}`;
+            const returnMessage = `Failed to create pod. Pod status is:${JSON.stringify(
+                returnResponse.body.status,
+                null,
+                2
+            )}`;
 
-            requestRetryMock.withArgs(getConfig).yieldsAsync(
-                null, returnResponse, returnResponse.body);
+            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
-            return executor.start(fakeStartConfig).then(() => {
-                throw new Error('did not fail');
-            }, (err) => {
-                assert.equal(err.message, returnMessage);
-            });
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.equal(err.message, returnMessage);
+                }
+            );
         });
 
         it('returns error when pod waiting reason is ErrImagePull', () => {
@@ -746,14 +769,16 @@ describe('index', function () {
 
             const returnMessage = 'Build failed to start. Please check if your image is valid.';
 
-            requestRetryMock.withArgs(getConfig).yieldsAsync(
-                null, returnResponse, returnResponse.body);
+            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
-            return executor.start(fakeStartConfig).then(() => {
-                throw new Error('did not fail');
-            }, (err) => {
-                assert.equal(err.message, returnMessage);
-            });
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.equal(err.message, returnMessage);
+                }
+            );
         });
 
         it('returns error when pod waiting reason is ImagePullBackOff', () => {
@@ -778,14 +803,16 @@ describe('index', function () {
 
             const returnMessage = 'Build failed to start. Please check if your image is valid.';
 
-            requestRetryMock.withArgs(getConfig).yieldsAsync(
-                null, returnResponse, returnResponse.body);
+            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
-            return executor.start(fakeStartConfig).then(() => {
-                throw new Error('did not fail');
-            }, (err) => {
-                assert.equal(err.message, returnMessage);
-            });
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.equal(err.message, returnMessage);
+                }
+            );
         });
 
         it('sets error when pod status is failed', () => {
@@ -797,17 +824,22 @@ describe('index', function () {
                     }
                 }
             };
-            const returnMessage = 'Failed to create pod. Pod status is:' +
-                        `${JSON.stringify(returnResponse.body.status, null, 2)}`;
+            const returnMessage = `Failed to create pod. Pod status is:${JSON.stringify(
+                returnResponse.body.status,
+                null,
+                2
+            )}`;
 
-            requestRetryMock.withArgs(getConfig).yieldsAsync(
-                null, returnResponse, returnResponse.body);
+            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
-            return executor.start(fakeStartConfig).then(() => {
-                throw new Error('did not fail');
-            }, (err) => {
-                assert.equal(err.message, returnMessage);
-            });
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.equal(err.message, returnMessage);
+                }
+            );
         });
 
         it('returns body when request responds with error in response', () => {
@@ -818,16 +850,18 @@ describe('index', function () {
                     message: 'lol'
                 }
             };
-            const returnMessage = `Failed to create pod: ${JSON.stringify(returnResponse.body)}`;
+            const returnMessage = `Failed to create pod:${JSON.stringify(returnResponse.body)}`;
 
-            requestRetryMock.withArgs(postConfig)
-                .yieldsAsync(null, returnResponse, returnResponse.body);
+            requestRetryMock.withArgs(postConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
-            return executor.start(fakeStartConfig).then(() => {
-                throw new Error('did not fail');
-            }, (err) => {
-                assert.equal(err.message, returnMessage);
-            });
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.equal(err.message, returnMessage);
+                }
+            );
         });
 
         it('sets retryDelay and maxAttempts', () => {
@@ -851,19 +885,17 @@ describe('index', function () {
     });
 
     describe('periodic', () => {
-        it('resolves to null when calling periodic start',
-            () => executor.startPeriodic().then(res => assert.isNull(res)));
+        it('resolves to null when calling periodic start', () =>
+            executor.startPeriodic().then(res => assert.isNull(res)));
 
-        it('resolves to null when calling periodic stop',
-            () => executor.stopPeriodic().then(res => assert.isNull(res)));
+        it('resolves to null when calling periodic stop', () =>
+            executor.stopPeriodic().then(res => assert.isNull(res)));
     });
 
     describe('frozen', () => {
-        it('resolves to null when calling frozen start',
-            () => executor.startFrozen().then(res => assert.isNull(res)));
+        it('resolves to null when calling frozen start', () => executor.startFrozen().then(res => assert.isNull(res)));
 
-        it('resolves to null when calling frozen stop',
-            () => executor.stopFrozen().then(res => assert.isNull(res)));
+        it('resolves to null when calling frozen stop', () => executor.stopFrozen().then(res => assert.isNull(res)));
     });
 
     describe('setNodeSelector', () => {
