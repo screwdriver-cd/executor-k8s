@@ -1,6 +1,6 @@
 {
   "name": "screwdriver-executor-k8s",
-  "version": "11.0.0",
+  "version": "14.0.0",
   "description": "Kubernetes Executor plugin for Screwdriver",
   "main": "index.js",
   "scripts": {
