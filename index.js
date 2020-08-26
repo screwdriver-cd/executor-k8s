@@ -3,7 +3,7 @@
 const Executor = require('screwdriver-executor-base');
 const Fusebox = require('circuit-fuses').breaker;
 const fs = require('fs');
-const hoek = require('hoek');
+const hoek = require('@hapi/hoek');
 const path = require('path');
 const randomstring = require('randomstring');
 const requestretry = require('requestretry');
@@ -21,10 +21,10 @@ const RAM_RESOURCE = 'ram';
 const DISK_SPEED_RESOURCE = 'diskSpeed';
 const ANNOTATE_BUILD_TIMEOUT = 'timeout';
 const TOLERATIONS_PATH = 'spec.tolerations';
-const AFFINITY_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
-    'requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions';
-const AFFINITY_PREFERRED_NODE_SELECTOR_PATH = 'spec.affinity.nodeAffinity.' +
-    'preferredDuringSchedulingIgnoredDuringExecution';
+const AFFINITY_NODE_SELECTOR_PATH =
+    'spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions';
+const AFFINITY_PREFERRED_NODE_SELECTOR_PATH =
+    'spec.affinity.nodeAffinity.preferredDuringSchedulingIgnoredDuringExecution';
 const PREFERRED_WEIGHT = 100;
 const DISK_CACHE_STRATEGY = 'disk';
 const DOCKER_ENABLED_KEY = 'dockerEnabled';
@@ -40,8 +40,7 @@ const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
  * @param {Object} annotations    key-value pairs of annotations
  */
 function setAnnotations(podConfig, annotations) {
-    if (!annotations || typeof annotations !== 'object' ||
-        Object.keys(annotations).length === 0) {
+    if (!annotations || typeof annotations !== 'object' || Object.keys(annotations).length === 0) {
         return;
     }
 
@@ -55,15 +54,14 @@ function setAnnotations(podConfig, annotations) {
  * @param {Object} nodeSelectors  key-value pairs of node selectors
  */
 function setNodeSelector(podConfig, nodeSelectors) {
-    if (!nodeSelectors || typeof nodeSelectors !== 'object' ||
-        Object.keys(nodeSelectors).length === 0) {
+    if (!nodeSelectors || typeof nodeSelectors !== 'object' || Object.keys(nodeSelectors).length === 0) {
         return;
     }
 
     const tolerations = _.get(podConfig, TOLERATIONS_PATH, []);
     const nodeAffinitySelectors = _.get(podConfig, AFFINITY_NODE_SELECTOR_PATH, []);
 
-    Object.keys(nodeSelectors).forEach((key) => {
+    Object.keys(nodeSelectors).forEach(key => {
         tolerations.push({
             key,
             value: nodeSelectors[key],
@@ -91,20 +89,14 @@ function setNodeSelector(podConfig, nodeSelectors) {
  * @param {String} containerName  name of the build container
  */
 function setLifecycleHooks(podConfig, lifecycleHooks, containerName) {
-    if (!lifecycleHooks || typeof lifecycleHooks !== 'object' ||
-        Object.keys(lifecycleHooks).length === 0) {
+    if (!lifecycleHooks || typeof lifecycleHooks !== 'object' || Object.keys(lifecycleHooks).length === 0) {
         return;
     }
 
-    const buildContainerIndex = _.get(podConfig, 'spec.containers', [])
-        .findIndex(c => c.name === containerName);
+    const buildContainerIndex = _.get(podConfig, 'spec.containers', []).findIndex(c => c.name === containerName);
 
     if (buildContainerIndex > -1) {
-        _.set(
-            podConfig,
-            ['spec', 'containers', buildContainerIndex, 'lifecycle'],
-            _.assign({}, lifecycleHooks)
-        );
+        _.set(podConfig, ['spec', 'containers', buildContainerIndex, 'lifecycle'], _.assign({}, lifecycleHooks));
     }
 }
 
@@ -114,8 +106,11 @@ function setLifecycleHooks(podConfig, lifecycleHooks, containerName) {
  * @param {Object} preferredNodeSelectors key-value pairs of preferred node selectors
  */
 function setPreferredNodeSelector(podConfig, preferredNodeSelectors) {
-    if (!preferredNodeSelectors || typeof preferredNodeSelectors !== 'object' ||
-        Object.keys(preferredNodeSelectors).length === 0) {
+    if (
+        !preferredNodeSelectors ||
+        typeof preferredNodeSelectors !== 'object' ||
+        Object.keys(preferredNodeSelectors).length === 0
+    ) {
         return;
     }
 
@@ -126,14 +121,12 @@ function setPreferredNodeSelector(podConfig, preferredNodeSelectors) {
     };
     const preferredNodeAffinity = _.get(podConfig, AFFINITY_PREFERRED_NODE_SELECTOR_PATH, []);
 
-    Object.keys(preferredNodeSelectors).forEach((key) => {
-        preferredNodeAffinitySelectors.push(
-            {
-                key,
-                operator: 'In',
-                values: [preferredNodeSelectors[key]]
-            }
-        );
+    Object.keys(preferredNodeSelectors).forEach(key => {
+        preferredNodeAffinitySelectors.push({
+            key,
+            operator: 'In',
+            values: [preferredNodeSelectors[key]]
+        });
     });
 
     preferredNodeAffinityItem.preference.matchExpressions = preferredNodeAffinitySelectors;
@@ -141,8 +134,7 @@ function setPreferredNodeSelector(podConfig, preferredNodeSelectors) {
 
     const tmpPreferredNodeAffinitySelector = {};
 
-    _.set(tmpPreferredNodeAffinitySelector,
-        AFFINITY_PREFERRED_NODE_SELECTOR_PATH, preferredNodeAffinity);
+    _.set(tmpPreferredNodeAffinitySelector, AFFINITY_PREFERRED_NODE_SELECTOR_PATH, preferredNodeAffinity);
     _.merge(podConfig, tmpPreferredNodeAffinitySelector);
 }
 
@@ -217,8 +209,7 @@ class K8sExecutor extends Executor {
         this.buildTimeout = hoek.reach(options, 'kubernetes.buildTimeout') || DEFAULT_BUILD_TIMEOUT;
         this.maxBuildTimeout = this.kubernetes.maxBuildTimeout || MAX_BUILD_TIMEOUT;
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
-        this.automountServiceAccountToken =
-            this.kubernetes.automountServiceAccountToken === 'true' || false;
+        this.automountServiceAccountToken = this.kubernetes.automountServiceAccountToken === 'true' || false;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
         this.breaker = new Fusebox(requestretry, options.fusebox);
         this.retryDelay = this.requestretryOptions.retryDelay || DEFAULT_RETRYDELAY;
@@ -229,13 +220,11 @@ class K8sExecutor extends Executor {
         this.lowCpu = hoek.reach(options, 'kubernetes.resources.cpu.low', { default: 2 });
         this.microCpu = hoek.reach(options, 'kubernetes.resources.cpu.micro', { default: 0.5 });
         this.maxMemory = hoek.reach(options, 'kubernetes.resources.memory.max', { default: 16 });
-        this.turboMemory = hoek.reach(options,
-            'kubernetes.resources.memory.turbo', { default: 16 });
+        this.turboMemory = hoek.reach(options, 'kubernetes.resources.memory.turbo', { default: 16 });
         this.highMemory = hoek.reach(options, 'kubernetes.resources.memory.high', { default: 12 });
         this.lowMemory = hoek.reach(options, 'kubernetes.resources.memory.low', { default: 2 });
         this.microMemory = hoek.reach(options, 'kubernetes.resources.memory.micro', { default: 1 });
-        this.diskSpeedLabel = hoek.reach(options,
-            'kubernetes.resources.disk.speed', { default: '' });
+        this.diskSpeedLabel = hoek.reach(options, 'kubernetes.resources.disk.speed', { default: '' });
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
         this.lifecycleHooks = hoek.reach(options, 'kubernetes.lifecycleHooks');
@@ -243,12 +232,9 @@ class K8sExecutor extends Executor {
         this.cachePath = hoek.reach(options, 'ecosystem.cache.path', { default: '/' });
         this.cacheCompress = hoek.reach(options, 'ecosystem.cache.compress', { default: 'false' });
         this.cacheMd5Check = hoek.reach(options, 'ecosystem.cache.md5check', { default: 'false' });
-        this.cacheMaxSizeInMB = hoek.reach(options,
-            'ecosystem.cache.max_size_mb', { default: 0 });
-        this.cacheMaxGoThreads = hoek.reach(options,
-            'ecosystem.cache.max_go_threads', { default: 10000 });
-        this.dockerFeatureEnabled = hoek.reach(options, 'kubernetes.dockerFeatureEnabled',
-            { default: false });
+        this.cacheMaxSizeInMB = hoek.reach(options, 'ecosystem.cache.max_size_mb', { default: 0 });
+        this.cacheMaxGoThreads = hoek.reach(options, 'ecosystem.cache.max_go_threads', { default: 10000 });
+        this.dockerFeatureEnabled = hoek.reach(options, 'kubernetes.dockerFeatureEnabled', { default: false });
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
         this.scheduleStatusRetryStrategy = (err, response, body) => {
@@ -267,8 +253,13 @@ class K8sExecutor extends Executor {
             const waitingReason = hoek.reach(body, CONTAINER_WAITING_REASON_PATH);
             const status = hoek.reach(body, 'status.phase');
 
-            return err || !status || (status.toLowerCase() === 'pending' &&
-                waitingReason !== 'ErrImagePull' && waitingReason !== 'ImagePullBackOff');
+            return (
+                err ||
+                !status ||
+                (status.toLowerCase() === 'pending' &&
+                    waitingReason !== 'ErrImagePull' &&
+                    waitingReason !== 'ImagePullBackOff')
+            );
         };
     }
 
@@ -325,8 +316,7 @@ class K8sExecutor extends Executor {
         let jobId = hoek.reach(config, 'jobId', { default: '' });
         const pipelineId = hoek.reach(config, 'pipeline.id', { default: '' });
         const jobName = hoek.reach(config, 'jobName', { default: '' });
-        const annotations = this.parseAnnotations(
-            hoek.reach(config, 'annotations', { default: {} }));
+        const annotations = this.parseAnnotations(hoek.reach(config, 'annotations', { default: {} }));
         const cpuValues = {
             MAX: this.maxCpu,
             TURBO: this.turboCpu,
@@ -343,12 +333,11 @@ class K8sExecutor extends Executor {
             const decodedToken = jwt.decode(token, { complete: true });
 
             volumeReadOnly = true;
-            jobId = hoek.reach(decodedToken.payload,
-                'prParentJobId', { default: jobId });
+            jobId = hoek.reach(decodedToken.payload, 'prParentJobId', { default: jobId });
         }
 
         const cpuConfig = annotations[CPU_RESOURCE];
-        let cpu = (cpuConfig in cpuValues) ? cpuValues[cpuConfig] * 1000 : cpuValues.LOW * 1000;
+        let cpu = cpuConfig in cpuValues ? cpuValues[cpuConfig] * 1000 : cpuValues.LOW * 1000;
 
         // allow custom cpu value
         if (Number.isInteger(cpuConfig)) {
@@ -362,7 +351,7 @@ class K8sExecutor extends Executor {
             MICRO: this.microMemory
         };
         const memConfig = annotations[RAM_RESOURCE];
-        let memory = (memConfig in memValues) ? memValues[memConfig] : memValues.LOW;
+        let memory = memConfig in memValues ? memValues[memConfig] : memValues.LOW;
 
         // allow custom memory value
         if (Number.isInteger(memConfig)) {
@@ -370,15 +359,13 @@ class K8sExecutor extends Executor {
         }
 
         const dockerEnabledConfig = annotations[DOCKER_ENABLED_KEY];
-        const DOCKER_ENABLED = (this.dockerFeatureEnabled && dockerEnabledConfig === true);
+        const DOCKER_ENABLED = this.dockerFeatureEnabled && dockerEnabledConfig === true;
 
         const dockerCpuConfig = annotations[DOCKER_CPU_RESOURCE];
-        const DOCKER_CPU = (dockerCpuConfig in cpuValues) ?
-            cpuValues[dockerCpuConfig] * 1000 : cpuValues.LOW * 1000;
+        const DOCKER_CPU = dockerCpuConfig in cpuValues ? cpuValues[dockerCpuConfig] * 1000 : cpuValues.LOW * 1000;
 
         const dockerMemoryConfig = annotations[DOCKER_MEMORY_RESOURCE];
-        const DOCKER_RAM = (dockerMemoryConfig in memValues) ?
-            memValues[dockerMemoryConfig] : memValues.LOW;
+        const DOCKER_RAM = dockerMemoryConfig in memValues ? memValues[dockerMemoryConfig] : memValues.LOW;
 
         const random = randomstring.generate({
             length: 5,
@@ -449,8 +436,7 @@ class K8sExecutor extends Executor {
 
         if (this.diskSpeedLabel) {
             const diskSpeedConfig = (annotations[DISK_SPEED_RESOURCE] || '').toLowerCase();
-            const diskSpeedSelectors = diskSpeedConfig ?
-                { [this.diskSpeedLabel]: diskSpeedConfig } : {};
+            const diskSpeedSelectors = diskSpeedConfig ? { [this.diskSpeedLabel]: diskSpeedConfig } : {};
 
             hoek.merge(nodeSelectors, diskSpeedSelectors);
         }
@@ -472,15 +458,16 @@ class K8sExecutor extends Executor {
         };
         let podname;
 
-        return this.breaker.runCommand(options)
-            .then((resp) => {
+        return this.breaker
+            .runCommand(options)
+            .then(resp => {
                 if (resp.statusCode !== 201) {
-                    throw new Error(`Failed to create pod: ${JSON.stringify(resp.body)}`);
+                    throw new Error(`Failed to create pod:${JSON.stringify(resp.body)}`);
                 }
 
                 return resp.body.metadata.name;
             })
-            .then((generatedPodName) => {
+            .then(generatedPodName => {
                 podname = generatedPodName;
                 const statusOptions = {
                     uri: `${this.podsUrl}/${podname}/status`,
@@ -495,17 +482,15 @@ class K8sExecutor extends Executor {
 
                 return this.breaker.runCommand(statusOptions);
             })
-            .then((resp) => {
+            .then(resp => {
                 if (resp.statusCode !== 200) {
-                    throw new Error('Failed to get pod status:' +
-                        `${JSON.stringify(resp.body, null, 2)}`);
+                    throw new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`);
                 }
 
                 const status = resp.body.status.phase.toLowerCase();
 
                 if (status === 'failed' || status === 'unknown') {
-                    throw new Error('Failed to create pod. Pod status is:' +
-                        `${JSON.stringify(resp.body.status, null, 2)}`);
+                    throw new Error(`Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`);
                 }
 
                 const updateConfig = {
@@ -517,7 +502,7 @@ class K8sExecutor extends Executor {
                 if (resp.body.spec && resp.body.spec.nodeName) {
                     updateConfig.stats = {
                         hostname: resp.body.spec.nodeName,
-                        imagePullStartTime: (new Date()).toISOString()
+                        imagePullStartTime: new Date().toISOString()
                     };
                 } else {
                     updateConfig.statusMessage = 'Waiting for resources to be available.';
@@ -539,7 +524,7 @@ class K8sExecutor extends Executor {
 
                 return this.breaker.runCommand(statusOptions);
             })
-            .then((res) => {
+            .then(res => {
                 const waitingReason = hoek.reach(res.body, CONTAINER_WAITING_REASON_PATH);
 
                 if (waitingReason === 'ErrImagePull' || waitingReason === 'ImagePullBackOff') {
@@ -570,14 +555,13 @@ class K8sExecutor extends Executor {
             strictSSL: false
         };
 
-        return this.breaker.runCommand(options)
-            .then((resp) => {
-                if (resp.statusCode !== 200) {
-                    throw new Error(`Failed to delete pod: ${JSON.stringify(resp.body)}`);
-                }
+        return this.breaker.runCommand(options).then(resp => {
+            if (resp.statusCode !== 200) {
+                throw new Error(`Failed to delete pod:${JSON.stringify(resp.body)}`);
+            }
 
-                return null;
-            });
+            return null;
+        });
     }
 
     /**
@@ -617,10 +601,10 @@ class K8sExecutor extends Executor {
     }
 
     /**
-    * Retreive stats for the executor
-    * @method stats
-    * @param  {Response} Object          Object containing stats for the executor
-    */
+     * Retreive stats for the executor
+     * @method stats
+     * @param  {Response} Object          Object containing stats for the executor
+     */
     stats() {
         return this.breaker.stats();
     }
