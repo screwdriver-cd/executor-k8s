@@ -156,6 +156,7 @@ class K8sExecutor extends Executor {
      * @param  {Number}  [options.kubernetes.buildTimeout=90]                    Number of minutes to allow a build to run before considering it is timed out
      * @param  {Number}  [options.kubernetes.maxBuildTimeout=120]                Max timeout user can configure up to
      * @param  {String}  [options.kubernetes.serviceAccount=default]             Service Account for builds
+     * @param  {String}  [options.kubernetes.dnsPolicy=ClusterFirst]             DNS Policy for build pod
      * @param  {String}  [options.kubernetes.resources.cpu.max=12]               Upper bound for custom CPU value (in cores)
      * @param  {String}  [options.kubernetes.resources.cpu.turbo=12]             Value for TURBO CPU (in cores)
      * @param  {String}  [options.kubernetes.resources.cpu.high=6]               Value for HIGH CPU (in cores)
@@ -209,6 +210,7 @@ class K8sExecutor extends Executor {
         this.buildTimeout = hoek.reach(options, 'kubernetes.buildTimeout') || DEFAULT_BUILD_TIMEOUT;
         this.maxBuildTimeout = this.kubernetes.maxBuildTimeout || MAX_BUILD_TIMEOUT;
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
+        this.dnsPolicy = this.kubernetes.dnsPolicy || 'ClusterFirst';
         this.automountServiceAccountToken = this.kubernetes.automountServiceAccountToken === 'true' || false;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
         this.breaker = new Fusebox(requestretry, options.fusebox);
@@ -429,7 +431,8 @@ class K8sExecutor extends Executor {
                 enabled: DOCKER_ENABLED,
                 cpu: DOCKER_CPU,
                 memory: DOCKER_RAM
-            }
+            },
+            dns_policy: this.dnsPolicy
         });
         const podConfig = yaml.safeLoad(podTemplate);
         const nodeSelectors = {};

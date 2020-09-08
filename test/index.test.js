@@ -20,6 +20,7 @@ metadata:
   serviceAccount: {{service_account}}
   cpu: {{cpu}}
   memory: {{memory}}
+  dnsPolicy: {{dns_policy}}
 spec:
   containers:
   - name: beta_15
@@ -126,19 +127,7 @@ describe('index', function() {
             key2: 'value2'
         }
     };
-    const executorOptions = {
-        ecosystem: {
-            api: testApiUri,
-            store: testStoreUri
-        },
-        kubernetes: {
-            nodeSelectors: {},
-            preferredNodeSelectors: {},
-            lifecycleHooks: {}
-        },
-        fusebox: { retry: { minTimeout: 1 } },
-        prefix: 'beta_'
-    };
+    let executorOptions;
 
     before(() => {
         mockery.enable({
@@ -148,6 +137,19 @@ describe('index', function() {
     });
 
     beforeEach(() => {
+        executorOptions = {
+            ecosystem: {
+                api: testApiUri,
+                store: testStoreUri
+            },
+            kubernetes: {
+                nodeSelectors: {},
+                preferredNodeSelectors: {},
+                lifecycleHooks: {}
+            },
+            fusebox: { retry: { minTimeout: 1 } },
+            prefix: 'beta_'
+        };
         requestRetryMock = sinon.stub();
 
         fsMock = {
@@ -373,6 +375,7 @@ describe('index', function() {
                         launchImage: `${testLaunchImage}:${testLaunchVersion}`,
                         serviceAccount: testServiceAccount,
                         cpu: 2000,
+                        dnsPolicy: 'ClusterFirst',
                         memory: 2
                     },
                     spec: {
@@ -489,6 +492,20 @@ describe('index', function() {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+            });
+        });
+
+        it('sets proper DNS policy required by cluster admin', () => {
+            postConfig.json.metadata.dnsPolicy = 'Default';
+
+            executorOptions.kubernetes.dnsPolicy = 'Default';
+
+            executor = new Executor(executorOptions);
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                delete getConfig.retryStrategy;
                 assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });

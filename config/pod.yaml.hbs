@@ -13,6 +13,7 @@ spec:
   serviceAccountName: {{service_account}}
   automountServiceAccountToken: {{automount_service_account_token}}
   restartPolicy: Never
+  dnsPolicy: {{dns_policy}}
   containers:
   - name: "{{build_id_with_prefix}}"
     image: {{container}}
