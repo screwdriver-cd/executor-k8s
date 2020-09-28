@@ -174,8 +174,9 @@ class K8sExecutor extends Executor {
      * @param  {Boolean} [options.kubernetes.automountServiceAccountToken=false] opt-in/out for service account token automount
      * @param  {Object}  [options.kubernetes.nodeSelectors]                      Object representing node label-value pairs
      * @param  {Object}  [options.kubernetes.lifecycleHooks]                     Object representing pod lifecycle hooks
+     * @param  {Object}  [options.kubernetes.volumeMounts]                       Object representing pod volume mounts (e.g.: [ { "name": "kvm", "mountPath": "/dev/kvm", "path": "/dev/kvm/" , "readOnly": true } ] )
      * @param  {String}  [options.launchVersion=stable]                          Launcher container version to use
-     * @param  {String}  [options.prefix='']                                      Prefix for job name
+     * @param  {String}  [options.prefix='']                                     Prefix for job name
      * @param  {String}  [options.fusebox]                                       Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
      * @param  {Object}  [options.requestretry]                                  Options for the requestretry (https://github.com/FGRibreau/node-request-retry)
      * @param  {Number}  [options.requestretry.retryDelay]                       Value for retryDelay option of the requestretry
@@ -230,6 +231,7 @@ class K8sExecutor extends Executor {
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
         this.lifecycleHooks = hoek.reach(options, 'kubernetes.lifecycleHooks');
+        this.volumeMounts = hoek.reach(options, 'kubernetes.volumeMounts', { default: {} });
         this.cacheStrategy = hoek.reach(options, 'ecosystem.cache.strategy', { default: 's3' });
         this.cachePath = hoek.reach(options, 'ecosystem.cache.path', { default: '/' });
         this.cacheCompress = hoek.reach(options, 'ecosystem.cache.compress', { default: 'false' });
@@ -432,7 +434,8 @@ class K8sExecutor extends Executor {
                 cpu: DOCKER_CPU,
                 memory: DOCKER_RAM
             },
-            dns_policy: this.dnsPolicy
+            dns_policy: this.dnsPolicy,
+            volume_mounts: this.volumeMounts
         });
         const podConfig = yaml.safeLoad(podTemplate);
         const nodeSelectors = {};

@@ -75,6 +75,11 @@ spec:
     - mountPath: /sdeventcache
       name: sd-event-cache
     {{/if}}
+    {{#each volume_mounts}}
+    - mountPath: {{this.mountPath}}
+      name: {{this.name}}
+      readOnly: {{this.readOnly}}
+    {{/each}}
   {{#if docker.enabled}}
   - name: dind
     image: docker:18.05-dind
@@ -138,4 +143,9 @@ spec:
       hostPath:
         path: {{cache.path}}/events/{{pipeline_id}}/{{event_id}}
     {{/if}}
+    {{#each volume_mounts}}
+    - name: {{this.name}}
+      hostPath:
+        path: {{this.path}}
+    {{/each}}
 
