@@ -174,7 +174,7 @@ class K8sExecutor extends Executor {
      * @param  {Boolean} [options.kubernetes.automountServiceAccountToken=false] opt-in/out for service account token automount
      * @param  {Object}  [options.kubernetes.nodeSelectors]                      Object representing node label-value pairs
      * @param  {Object}  [options.kubernetes.lifecycleHooks]                     Object representing pod lifecycle hooks
-     * @param  {Object}  [options.kubernetes.volumeMounts]                       Object representing pod volume mounts (e.g.: [ { "name": "kvm", "mountPath": "/dev/kvm", "path": "/dev/kvm/" , "readOnly": true } ] )
+     * @param  {Object}  [options.kubernetes.volumeMounts]                       Object representing pod volume mounts (e.g.: [ { "name": "kvm", "mountPath": "/dev/kvm", "path": "/dev/kvm/", "type": "File", "readOnly": true } ] )
      * @param  {String}  [options.launchVersion=stable]                          Launcher container version to use
      * @param  {String}  [options.prefix='']                                     Prefix for job name
      * @param  {String}  [options.fusebox]                                       Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
