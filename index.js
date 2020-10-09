@@ -33,7 +33,6 @@ const DOCKER_CPU_RESOURCE = 'dockerCpu';
 const ANNOTATIONS_PATH = 'metadata.annotations';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
-const BUILD_STATUS_FAILURE = 'FAILURE';
 
 /**
  * Parses annotations config and update intended annotations
@@ -277,11 +276,10 @@ class K8sExecutor extends Executor {
      * @param  {Object}          [config.stats]         build stats
      * @param  {String}          [config.statusMessage] build status message
      * @param  {String}          config.token           build temporal jwt token
-     * @param  {String}          config.status          build status
      * @return {Promise}
      */
     updateBuild(config) {
-        const { apiUri, buildId, statusMessage, token, stats, status } = config;
+        const { apiUri, buildId, statusMessage, token, stats } = config;
         const options = {
             json: true,
             method: 'PUT',
@@ -299,10 +297,6 @@ class K8sExecutor extends Executor {
 
         if (stats) {
             options.body.stats = stats;
-        }
-
-        if (status) {
-            options.body.status = status;
         }
 
         return this.breaker.runCommand(options);
@@ -495,37 +489,32 @@ class K8sExecutor extends Executor {
                 return this.breaker.runCommand(statusOptions);
             })
             .then(resp => {
-                let error = null;
+                if (resp.statusCode !== 200) {
+                    throw new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`);
+                }
+
+                const status = resp.body.status.phase.toLowerCase();
+
+                if (status === 'failed' || status === 'unknown') {
+                    throw new Error(`Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`);
+                }
+
                 const updateConfig = {
                     apiUri: this.ecosystem.api,
                     buildId,
                     token
                 };
 
-                if (resp.statusCode !== 200) {
-                    error = `Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`;
-                    updateConfig.status = BUILD_STATUS_FAILURE;
-                    updateConfig.statusMessage = error;
+                if (resp.body.spec && resp.body.spec.nodeName) {
+                    updateConfig.stats = {
+                        hostname: resp.body.spec.nodeName,
+                        imagePullStartTime: new Date().toISOString()
+                    };
                 } else {
-                    const status = resp.body.status.phase.toLowerCase();
-
-                    if (status === 'failed' || status === 'unknown') {
-                        error = `Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`;
-                        updateConfig.status = BUILD_STATUS_FAILURE;
-                        updateConfig.statusMessage = error;
-                    } else if (resp.body.spec && resp.body.spec.nodeName) {
-                        updateConfig.stats = {
-                            hostname: resp.body.spec.nodeName,
-                            imagePullStartTime: new Date().toISOString()
-                        };
-                    } else {
-                        updateConfig.statusMessage = 'Waiting for resources to be available.';
-                    }
+                    updateConfig.statusMessage = 'Waiting for resources to be available.';
                 }
-                this.updateBuild(updateConfig).then(() => null);
-                if (error) throw new Error(error);
 
-                return null;
+                return this.updateBuild(updateConfig).then(() => null);
             })
             .then(() => {
                 const statusOptions = {
@@ -545,17 +534,7 @@ class K8sExecutor extends Executor {
                 const waitingReason = hoek.reach(res.body, CONTAINER_WAITING_REASON_PATH);
 
                 if (waitingReason === 'ErrImagePull' || waitingReason === 'ImagePullBackOff') {
-                    const error = 'Build failed to start. Please check if your image is valid.';
-                    const updateConfig = {
-                        apiUri: this.ecosystem.api,
-                        buildId,
-                        token,
-                        status: BUILD_STATUS_FAILURE,
-                        statusMessage: error
-                    };
-
-                    this.updateBuild(updateConfig).then(() => null);
-                    throw new Error(error);
+                    throw new Error('Build failed to start. Please check if your image is valid.');
                 }
 
                 return null;
