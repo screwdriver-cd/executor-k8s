@@ -33,7 +33,7 @@ const DOCKER_CPU_RESOURCE = 'dockerCpu';
 const ANNOTATIONS_PATH = 'metadata.annotations';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
-const STATUS_FAILED = 'FAILED';
+const STATUS_FAILED = 'FAILURE';
 
 /**
  * Parses annotations config and update intended annotations
