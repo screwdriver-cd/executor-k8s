@@ -10,6 +10,7 @@ const _ = require('lodash');
 
 sinon.assert.expose(assert, { prefix: '' });
 
+const BUILD_STATUS_FAILURE = 'FAILURE';
 const DEFAULT_BUILD_TIMEOUT = 90;
 const MAX_BUILD_TIMEOUT = 120;
 const TEST_TIM_YAML = `
@@ -725,6 +726,8 @@ describe('index', function() {
             };
             const returnMessage = `Failed to get pod status:${JSON.stringify(returnResponse.body, null, 2)}`;
 
+            putConfig.body.status = BUILD_STATUS_FAILURE;
+            putConfig.body.statusMessage = returnMessage;
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
             return executor.start(fakeStartConfig).then(
@@ -732,6 +735,9 @@ describe('index', function() {
                     throw new Error('did not fail');
                 },
                 err => {
+                    assert.calledWith(requestRetryMock.firstCall, postConfig);
+                    assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+                    assert.equal(true, requestRetryMock.withArgs(putConfig).calledOnce);
                     assert.equal(err.message, returnMessage);
                 }
             );
@@ -752,6 +758,8 @@ describe('index', function() {
                 2
             )}`;
 
+            putConfig.body.status = BUILD_STATUS_FAILURE;
+            putConfig.body.statusMessage = returnMessage;
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
             return executor.start(fakeStartConfig).then(
@@ -759,6 +767,9 @@ describe('index', function() {
                     throw new Error('did not fail');
                 },
                 err => {
+                    assert.calledWith(requestRetryMock.firstCall, postConfig);
+                    assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+                    assert.equal(true, requestRetryMock.withArgs(putConfig).calledOnce);
                     assert.equal(err.message, returnMessage);
                 }
             );
@@ -783,9 +794,10 @@ describe('index', function() {
                     }
                 }
             };
-
             const returnMessage = 'Build failed to start. Please check if your image is valid.';
 
+            putConfig.body.status = BUILD_STATUS_FAILURE;
+            putConfig.body.statusMessage = returnMessage;
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
             return executor.start(fakeStartConfig).then(
@@ -793,6 +805,9 @@ describe('index', function() {
                     throw new Error('did not fail');
                 },
                 err => {
+                    assert.calledWith(requestRetryMock.firstCall, postConfig);
+                    assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+                    assert.equal(true, requestRetryMock.withArgs(putConfig).calledTwice);
                     assert.equal(err.message, returnMessage);
                 }
             );
@@ -820,6 +835,8 @@ describe('index', function() {
 
             const returnMessage = 'Build failed to start. Please check if your image is valid.';
 
+            putConfig.body.status = BUILD_STATUS_FAILURE;
+            putConfig.body.statusMessage = returnMessage;
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
             return executor.start(fakeStartConfig).then(
@@ -827,6 +844,9 @@ describe('index', function() {
                     throw new Error('did not fail');
                 },
                 err => {
+                    assert.calledWith(requestRetryMock.firstCall, postConfig);
+                    assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+                    assert.equal(true, requestRetryMock.withArgs(putConfig).calledTwice);
                     assert.equal(err.message, returnMessage);
                 }
             );
@@ -841,12 +861,15 @@ describe('index', function() {
                     }
                 }
             };
+
             const returnMessage = `Failed to create pod. Pod status is:${JSON.stringify(
                 returnResponse.body.status,
                 null,
                 2
             )}`;
 
+            putConfig.body.status = BUILD_STATUS_FAILURE;
+            putConfig.body.statusMessage = returnMessage;
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
             return executor.start(fakeStartConfig).then(
@@ -854,6 +877,9 @@ describe('index', function() {
                     throw new Error('did not fail');
                 },
                 err => {
+                    assert.calledWith(requestRetryMock.firstCall, postConfig);
+                    assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+                    assert.equal(true, requestRetryMock.withArgs(putConfig).calledOnce);
                     assert.equal(err.message, returnMessage);
                 }
             );
@@ -867,15 +893,20 @@ describe('index', function() {
                     message: 'lol'
                 }
             };
-            const returnMessage = `Failed to create pod:${JSON.stringify(returnResponse.body)}`;
+            const returnMessage = `Failed to get pod status:${JSON.stringify(returnResponse.body, null, 2)}`;
 
-            requestRetryMock.withArgs(postConfig).yieldsAsync(null, returnResponse, returnResponse.body);
+            putConfig.body.status = BUILD_STATUS_FAILURE;
+            putConfig.body.statusMessage = returnMessage;
+            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
             return executor.start(fakeStartConfig).then(
                 () => {
                     throw new Error('did not fail');
                 },
                 err => {
+                    assert.calledWith(requestRetryMock.firstCall, postConfig);
+                    assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+                    assert.equal(true, requestRetryMock.withArgs(putConfig).calledOnce);
                     assert.equal(err.message, returnMessage);
                 }
             );
