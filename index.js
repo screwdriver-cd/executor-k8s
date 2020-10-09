@@ -33,7 +33,7 @@ const DOCKER_CPU_RESOURCE = 'dockerCpu';
 const ANNOTATIONS_PATH = 'metadata.annotations';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
-const STATUS_FAILED = 'FAILURE';
+const BUILD_STATUS_FAILURE = 'FAILURE';
 
 /**
  * Parses annotations config and update intended annotations
@@ -504,14 +504,14 @@ class K8sExecutor extends Executor {
 
                 if (resp.statusCode !== 200) {
                     error = `Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`;
-                    updateConfig.status = STATUS_FAILED;
+                    updateConfig.status = BUILD_STATUS_FAILURE;
                     updateConfig.statusMessage = error;
                 } else {
                     const status = resp.body.status.phase.toLowerCase();
 
                     if (status === 'failed' || status === 'unknown') {
                         error = `Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`;
-                        updateConfig.status = STATUS_FAILED;
+                        updateConfig.status = BUILD_STATUS_FAILURE;
                         updateConfig.statusMessage = error;
                     } else if (resp.body.spec && resp.body.spec.nodeName) {
                         updateConfig.stats = {
@@ -550,7 +550,7 @@ class K8sExecutor extends Executor {
                         apiUri: this.ecosystem.api,
                         buildId,
                         token,
-                        status: STATUS_FAILED,
+                        status: BUILD_STATUS_FAILURE,
                         statusMessage: error
                     };
 
