@@ -10,6 +10,7 @@ const _ = require('lodash');
 
 sinon.assert.expose(assert, { prefix: '' });
 
+const STATUS_FAILED = 'FAILURE';
 const DEFAULT_BUILD_TIMEOUT = 90;
 const MAX_BUILD_TIMEOUT = 120;
 const TEST_TIM_YAML = `
@@ -725,7 +726,7 @@ describe('index', function() {
             };
             const returnMessage = `Failed to get pod status:${JSON.stringify(returnResponse.body, null, 2)}`;
 
-            putConfig.body.status = 'FAILED';
+            putConfig.body.status = STATUS_FAILED;
             putConfig.body.statusMessage = returnMessage;
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -757,7 +758,7 @@ describe('index', function() {
                 2
             )}`;
 
-            putConfig.body.status = 'FAILED';
+            putConfig.body.status = STATUS_FAILED;
             putConfig.body.statusMessage = returnMessage;
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -795,7 +796,7 @@ describe('index', function() {
             };
             const returnMessage = 'Build failed to start. Please check if your image is valid.';
 
-            putConfig.body.status = 'FAILED';
+            putConfig.body.status = STATUS_FAILED;
             putConfig.body.statusMessage = returnMessage;
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -834,7 +835,7 @@ describe('index', function() {
 
             const returnMessage = 'Build failed to start. Please check if your image is valid.';
 
-            putConfig.body.status = 'FAILED';
+            putConfig.body.status = STATUS_FAILED;
             putConfig.body.statusMessage = returnMessage;
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -867,7 +868,7 @@ describe('index', function() {
                 2
             )}`;
 
-            putConfig.body.status = 'FAILED';
+            putConfig.body.status = STATUS_FAILED;
             putConfig.body.statusMessage = returnMessage;
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -894,7 +895,7 @@ describe('index', function() {
             };
             const returnMessage = `Failed to get pod status:${JSON.stringify(returnResponse.body, null, 2)}`;
 
-            putConfig.body.status = 'FAILED';
+            putConfig.body.status = STATUS_FAILED;
             putConfig.body.statusMessage = returnMessage;
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
