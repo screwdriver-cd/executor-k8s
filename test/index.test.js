@@ -1,6 +1,6 @@
 'use strict';
 
-const { assert } = require('chai');
+const assert = require('chai').assert;
 const sinon = require('sinon');
 const mockery = require('mockery');
 const yaml = require('js-yaml');

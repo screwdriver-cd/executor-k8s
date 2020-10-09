@@ -271,7 +271,7 @@ class K8sExecutor extends Executor {
     /**
      * Update build
      * @method updateBuild
-     * @param  {{apiUri: string, buildId: Integer, token: String}}          config                 build config of the job
+     * @param  {Object}          config                 build config of the job
      * @param  {String}          config.apiUri          screwdriver base api uri
      * @param  {Number}          config.buildId         build id
      * @param  {Object}          [config.stats]         build stats
