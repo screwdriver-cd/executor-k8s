@@ -764,6 +764,40 @@ describe('index', function() {
             );
         });
 
+        it('returns error when pod waiting reason is CrashLoopBackOff', () => {
+            const returnResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'pending',
+                        containerStatuses: [
+                            {
+                                state: {
+                                    waiting: {
+                                        reason: 'CrashLoopBackOff',
+                                        message: 'crash loop backoff'
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            };
+
+            const returnMessage = 'Build failed to start. Please check if your image is valid.';
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
+
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.equal(err.message, returnMessage);
+                }
+            );
+        });
+
         it('returns error when pod waiting reason is ErrImagePull', () => {
             const returnResponse = {
                 statusCode: 200,
@@ -810,6 +844,108 @@ describe('index', function() {
                                     waiting: {
                                         reason: 'ImagePullBackOff',
                                         message: 'can not pull image'
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            };
+
+            const returnMessage = 'Build failed to start. Please check if your image is valid.';
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
+
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.equal(err.message, returnMessage);
+                }
+            );
+        });
+
+        it('returns error when pod waiting reason is CreateContainerConfigError', () => {
+            const returnResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'pending',
+                        containerStatuses: [
+                            {
+                                state: {
+                                    waiting: {
+                                        reason: 'CreateContainerConfigError',
+                                        message: 'create container config error'
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            };
+
+            const returnMessage = 'Build failed to start. Please check if your image is valid.';
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
+
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.equal(err.message, returnMessage);
+                }
+            );
+        });
+
+        it('returns error when pod waiting reason is InvalidImageName', () => {
+            const returnResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'pending',
+                        containerStatuses: [
+                            {
+                                state: {
+                                    waiting: {
+                                        reason: 'InvalidImageName',
+                                        message: 'invalid reference format'
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            };
+
+            const returnMessage = 'Build failed to start. Please check if your image is valid.';
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
+
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.equal(err.message, returnMessage);
+                }
+            );
+        });
+
+        it('returns error when pod waiting reason is CreateContainerError', () => {
+            const returnResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'pending',
+                        containerStatuses: [
+                            {
+                                state: {
+                                    waiting: {
+                                        reason: 'CreateContainerError',
+                                        message: 'create container error'
                                     }
                                 }
                             }

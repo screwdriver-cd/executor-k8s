@@ -261,8 +261,12 @@ class K8sExecutor extends Executor {
                 err ||
                 !status ||
                 (status.toLowerCase() === 'pending' &&
+                    waitingReason !== 'CrashLoopBackOff' &&
                     waitingReason !== 'ErrImagePull' &&
-                    waitingReason !== 'ImagePullBackOff')
+                    waitingReason !== 'ImagePullBackOff' &&
+                    waitingReason !== 'CreateContainerConfigError' &&
+                    waitingReason !== 'InvalidImageName' &&
+                    waitingReason !== 'CreateContainerError')
             );
         };
     }
@@ -533,7 +537,14 @@ class K8sExecutor extends Executor {
             .then(res => {
                 const waitingReason = hoek.reach(res.body, CONTAINER_WAITING_REASON_PATH);
 
-                if (waitingReason === 'ErrImagePull' || waitingReason === 'ImagePullBackOff') {
+                if (
+                    waitingReason === 'CrashLoopBackOff' ||
+                    waitingReason === 'ErrImagePull' ||
+                    waitingReason === 'ImagePullBackOff' ||
+                    waitingReason === 'CreateContainerConfigError' ||
+                    waitingReason === 'InvalidImageName' ||
+                    waitingReason === 'CreateContainerError'
+                ) {
                     throw new Error('Build failed to start. Please check if your image is valid.');
                 }
 
