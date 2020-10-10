@@ -540,7 +540,12 @@ class K8sExecutor extends Executor {
                 if (
                     waitingReason === 'CrashLoopBackOff' ||
                     waitingReason === 'CreateContainerConfigError' ||
-                    waitingReason === 'CreateContainerError' ||
+                    waitingReason === 'CreateContainerError'
+                ) {
+                    throw new Error('Build failed to start. Please reach out to your cluster admin for help.');
+                }
+
+                if (
                     waitingReason === 'ErrImagePull' ||
                     waitingReason === 'ImagePullBackOff' ||
                     waitingReason === 'InvalidImageName'

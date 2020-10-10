@@ -784,7 +784,7 @@ describe('index', function() {
                 }
             };
 
-            const returnMessage = 'Build failed to start. Please check if your image is valid.';
+            const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -818,7 +818,7 @@ describe('index', function() {
                 }
             };
 
-            const returnMessage = 'Build failed to start. Please check if your image is valid.';
+            const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -852,7 +852,7 @@ describe('index', function() {
                 }
             };
 
-            const returnMessage = 'Build failed to start. Please check if your image is valid.';
+            const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
