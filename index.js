@@ -262,11 +262,11 @@ class K8sExecutor extends Executor {
                 !status ||
                 (status.toLowerCase() === 'pending' &&
                     waitingReason !== 'CrashLoopBackOff' &&
+                    waitingReason !== 'CreateContainerConfigError' &&
+                    waitingReason !== 'CreateContainerError' &&
                     waitingReason !== 'ErrImagePull' &&
                     waitingReason !== 'ImagePullBackOff' &&
-                    waitingReason !== 'CreateContainerConfigError' &&
-                    waitingReason !== 'InvalidImageName' &&
-                    waitingReason !== 'CreateContainerError')
+                    waitingReason !== 'InvalidImageName')
             );
         };
     }
@@ -539,11 +539,11 @@ class K8sExecutor extends Executor {
 
                 if (
                     waitingReason === 'CrashLoopBackOff' ||
+                    waitingReason === 'CreateContainerConfigError' ||
+                    waitingReason === 'CreateContainerError' ||
                     waitingReason === 'ErrImagePull' ||
                     waitingReason === 'ImagePullBackOff' ||
-                    waitingReason === 'CreateContainerConfigError' ||
-                    waitingReason === 'InvalidImageName' ||
-                    waitingReason === 'CreateContainerError'
+                    waitingReason === 'InvalidImageName'
                 ) {
                     throw new Error('Build failed to start. Please check if your image is valid.');
                 }
