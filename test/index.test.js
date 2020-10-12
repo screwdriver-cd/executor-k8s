@@ -968,6 +968,40 @@ describe('index', function() {
             );
         });
 
+        it('returns error when pod waiting reason is StartError', () => {
+            const returnResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'pending',
+                        containerStatuses: [
+                            {
+                                state: {
+                                    waiting: {
+                                        reason: 'StartError',
+                                        message: 'mount path errors'
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            };
+
+            const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
+
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.equal(err.message, returnMessage);
+                }
+            );
+        });
+
         it('sets error when pod status is failed', () => {
             const returnResponse = {
                 statusCode: 200,

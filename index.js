@@ -266,7 +266,8 @@ class K8sExecutor extends Executor {
                     waitingReason !== 'CreateContainerError' &&
                     waitingReason !== 'ErrImagePull' &&
                     waitingReason !== 'ImagePullBackOff' &&
-                    waitingReason !== 'InvalidImageName')
+                    waitingReason !== 'InvalidImageName' &&
+                    waitingReason !== 'StartError')
             );
         };
     }
@@ -540,7 +541,8 @@ class K8sExecutor extends Executor {
                 if (
                     waitingReason === 'CrashLoopBackOff' ||
                     waitingReason === 'CreateContainerConfigError' ||
-                    waitingReason === 'CreateContainerError'
+                    waitingReason === 'CreateContainerError' ||
+                    waitingReason === 'StartError'
                 ) {
                     throw new Error('Build failed to start. Please reach out to your cluster admin for help.');
                 }
