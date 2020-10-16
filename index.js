@@ -537,6 +537,11 @@ class K8sExecutor extends Executor {
             })
             .then(res => {
                 const waitingReason = hoek.reach(res.body, CONTAINER_WAITING_REASON_PATH);
+                const status = res.body.status.phase.toLowerCase();
+
+                if (status === 'failed' || status === 'unknown') {
+                    throw new Error(`Failed to create pod. Pod status is:${JSON.stringify(res.body.status, null, 2)}`);
+                }
 
                 if (
                     waitingReason === 'CrashLoopBackOff' ||
