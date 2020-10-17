@@ -287,7 +287,6 @@ class K8sExecutor extends Executor {
         logger.info('k8s pod response ', JSON.stringify(resp));
 
         if (resp.statusCode !== 200) {
-            // return `Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`;
             return Promise.reject(new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`));
         }
 
@@ -295,7 +294,6 @@ class K8sExecutor extends Executor {
         const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
 
         if (status === 'failed' || status === 'unknown') {
-            // return `Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`;
             return Promise.reject(
                 new Error(`Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`)
             );
@@ -307,7 +305,6 @@ class K8sExecutor extends Executor {
             waitingReason === 'CreateContainerError' ||
             waitingReason === 'StartError'
         ) {
-            // return 'Build failed to start. Please reach out to your cluster admin for help.';
             return Promise.reject(new Error('Build failed to start. Please reach out to your cluster admin for help.'));
         }
 
@@ -316,7 +313,6 @@ class K8sExecutor extends Executor {
             waitingReason === 'ImagePullBackOff' ||
             waitingReason === 'InvalidImageName'
         ) {
-            // return 'Build failed to start. Please check if your image is valid.';
             return Promise.reject(new Error('Build failed to start. Please check if your image is valid.'));
         }
 
