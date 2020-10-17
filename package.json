@@ -58,6 +58,7 @@
     "request": "^2.88.0",
     "requestretry": "^4.0.0",
     "screwdriver-executor-base": "^8.0.0",
-    "tinytim": "^0.1.1"
+    "tinytim": "^0.1.1",
+    "screwdriver-logger": "^1.0.1"
   }
 }
