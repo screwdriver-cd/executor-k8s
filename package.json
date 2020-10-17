@@ -60,7 +60,6 @@
     "requestretry": "^4.0.0",
     "screwdriver-executor-base": "^8.0.0",
     "screwdriver-logger": "^1.0.1",
-    "tinytim": "^0.1.1",
-    "sleep": "^6.3.0"
+    "tinytim": "^0.1.1"
   }
 }

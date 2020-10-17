@@ -39,7 +39,6 @@ describe('index', function() {
     let Executor;
     let requestRetryMock;
     let fsMock;
-    let sleepMock;
     let executor;
     const testBuildId = 15;
     const testToken = 'abcdefg';
@@ -146,7 +145,8 @@ describe('index', function() {
             kubernetes: {
                 nodeSelectors: {},
                 preferredNodeSelectors: {},
-                lifecycleHooks: {}
+                lifecycleHooks: {},
+                podStatusQueryDelay: 0
             },
             fusebox: { retry: { minTimeout: 1 } },
             prefix: 'beta_'
@@ -160,18 +160,11 @@ describe('index', function() {
 
         fsMock.existsSync.returns(true);
 
-        sleepMock = {
-            msleep: sinon.stub()
-        };
-
-        sleepMock.msleep.returns(0);
-
         fsMock.readFileSync.withArgs('/var/run/secrets/kubernetes.io/serviceaccount/token').returns('api_key');
         fsMock.readFileSync.withArgs(sinon.match(/config\/pod.yaml.hbs/)).returns(TEST_TIM_YAML);
 
         mockery.registerMock('fs', fsMock);
         mockery.registerMock('requestretry', requestRetryMock);
-        mockery.registerMock('sleep', sleepMock);
         /* eslint-disable global-require */
         Executor = require('../index');
         /* eslint-enable global-require */
@@ -730,7 +723,7 @@ describe('index', function() {
                     message: 'cannot get pod status'
                 }
             };
-            const returnMessage = `Error: Failed to get pod status:${JSON.stringify(returnResponse.body, null, 2)}`;
+            const returnMessage = `Failed to get pod status:${JSON.stringify(returnResponse.body, null, 2)}`;
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -753,7 +746,7 @@ describe('index', function() {
                     }
                 }
             };
-            const returnMessage = `Error: Failed to create pod. Pod status is:${JSON.stringify(
+            const returnMessage = `Failed to create pod. Pod status is:${JSON.stringify(
                 returnResponse.body.status,
                 null,
                 2
@@ -791,7 +784,7 @@ describe('index', function() {
                 }
             };
 
-            const returnMessage = 'Error: Build failed to start. Please reach out to your cluster admin for help.';
+            const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -825,7 +818,7 @@ describe('index', function() {
                 }
             };
 
-            const returnMessage = 'Error: Build failed to start. Please reach out to your cluster admin for help.';
+            const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -859,7 +852,7 @@ describe('index', function() {
                 }
             };
 
-            const returnMessage = 'Error: Build failed to start. Please reach out to your cluster admin for help.';
+            const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -893,7 +886,7 @@ describe('index', function() {
                 }
             };
 
-            const returnMessage = 'Error: Build failed to start. Please check if your image is valid.';
+            const returnMessage = 'Build failed to start. Please check if your image is valid.';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -927,7 +920,7 @@ describe('index', function() {
                 }
             };
 
-            const returnMessage = 'Error: Build failed to start. Please check if your image is valid.';
+            const returnMessage = 'Build failed to start. Please check if your image is valid.';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -961,7 +954,7 @@ describe('index', function() {
                 }
             };
 
-            const returnMessage = 'Error: Build failed to start. Please check if your image is valid.';
+            const returnMessage = 'Build failed to start. Please check if your image is valid.';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -995,7 +988,7 @@ describe('index', function() {
                 }
             };
 
-            const returnMessage = 'Error: Build failed to start. Please reach out to your cluster admin for help.';
+            const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -1028,7 +1021,7 @@ describe('index', function() {
                 }
             };
 
-            const returnMessage = `Error: Failed to create pod. Pod status is:${JSON.stringify(
+            const returnMessage = `Failed to create pod. Pod status is:${JSON.stringify(
                 returnResponse.body.status,
                 null,
                 2
@@ -1055,7 +1048,7 @@ describe('index', function() {
                     }
                 }
             };
-            const returnMessage = `Error: Failed to create pod. Pod status is:${JSON.stringify(
+            const returnMessage = `Failed to create pod. Pod status is:${JSON.stringify(
                 returnResponse.body.status,
                 null,
                 2

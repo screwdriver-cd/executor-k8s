@@ -12,7 +12,6 @@ const yaml = require('js-yaml');
 const _ = require('lodash');
 const jwt = require('jsonwebtoken');
 const logger = require('screwdriver-logger');
-const sleep = require('sleep');
 
 const DEFAULT_BUILD_TIMEOUT = 90; // 90 minutes
 const MAX_BUILD_TIMEOUT = 120; // 120 minutes
@@ -280,23 +279,21 @@ class K8sExecutor extends Executor {
     /**
      * check build pod response
      * @method checkPodResponse
-     * @param  {Object}     resp    pod response object
-     * @return {Promise}
+     * @param {Object}      resp    pod response object
+     * @returns {null}
      */
     checkPodResponse(resp) {
-        logger.info('k8s pod response ', JSON.stringify(resp));
+        logger.debug('k8s pod response ', JSON.stringify(resp));
 
         if (resp.statusCode !== 200) {
-            return Promise.reject(new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`));
+            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`);
         }
 
         const status = resp.body.status.phase.toLowerCase();
         const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
 
         if (status === 'failed' || status === 'unknown') {
-            return Promise.reject(
-                new Error(`Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`)
-            );
+            throw new Error(`Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`);
         }
 
         if (
@@ -305,7 +302,7 @@ class K8sExecutor extends Executor {
             waitingReason === 'CreateContainerError' ||
             waitingReason === 'StartError'
         ) {
-            return Promise.reject(new Error('Build failed to start. Please reach out to your cluster admin for help.'));
+            throw new Error('Build failed to start. Please reach out to your cluster admin for help.');
         }
 
         if (
@@ -313,10 +310,8 @@ class K8sExecutor extends Executor {
             waitingReason === 'ImagePullBackOff' ||
             waitingReason === 'InvalidImageName'
         ) {
-            return Promise.reject(new Error('Build failed to start. Please check if your image is valid.'));
+            throw new Error('Build failed to start. Please check if your image is valid.');
         }
-
-        return Promise.resolve();
     }
 
     /**
@@ -541,31 +536,26 @@ class K8sExecutor extends Executor {
                 return this.breaker.runCommand(statusOptions);
             })
             .then(res => {
-                return this.checkPodResponse(res)
-                    .then(() => {
-                        const updateConfig = {
-                            apiUri: this.ecosystem.api,
-                            buildId,
-                            token
-                        };
+                this.checkPodResponse(res);
 
-                        if (res.body.spec && res.body.spec.nodeName) {
-                            updateConfig.stats = {
-                                hostname: res.body.spec.nodeName,
-                                imagePullStartTime: new Date().toISOString()
-                            };
-                        } else {
-                            updateConfig.statusMessage = 'Waiting for resources to be available.';
-                        }
+                const updateConfig = {
+                    apiUri: this.ecosystem.api,
+                    buildId,
+                    token
+                };
 
-                        return this.updateBuild(updateConfig).then(() => null);
-                    })
-                    .catch(err => {
-                        throw new Error(err);
-                    });
+                if (res.body.spec && res.body.spec.nodeName) {
+                    updateConfig.stats = {
+                        hostname: res.body.spec.nodeName,
+                        imagePullStartTime: new Date().toISOString()
+                    };
+                } else {
+                    updateConfig.statusMessage = 'Waiting for resources to be available.';
+                }
+
+                this.updateBuild(updateConfig).then(() => new Promise(r => setTimeout(r, this.podStatusQueryDelay)));
             })
             .then(() => {
-                sleep.msleep(this.podStatusQueryDelay);
                 const statusOptions = {
                     uri: `${this.podsUrl}/${podname}/status`,
                     method: 'GET',
@@ -579,13 +569,7 @@ class K8sExecutor extends Executor {
 
                 return this.breaker.runCommand(statusOptions);
             })
-            .then(res => {
-                return this.checkPodResponse(res)
-                    .then(() => null)
-                    .catch(err => {
-                        throw new Error(err);
-                    });
-            });
+            .then(res => this.checkPodResponse(res));
     }
 
     /**
