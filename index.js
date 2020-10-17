@@ -281,20 +281,24 @@ class K8sExecutor extends Executor {
      * check build pod response
      * @method checkPodResponse
      * @param  {Object}     resp    pod response object
-     * @return {String}
+     * @return {Promise}
      */
     checkPodResponse(resp) {
         logger.info('k8s pod response ', JSON.stringify(resp));
 
         if (resp.statusCode !== 200) {
-            return `Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`;
+            // return `Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`;
+            return Promise.reject(new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`));
         }
 
         const status = resp.body.status.phase.toLowerCase();
         const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
 
         if (status === 'failed' || status === 'unknown') {
-            return `Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`;
+            // return `Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`;
+            return Promise.reject(
+                new Error(`Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`)
+            );
         }
 
         if (
@@ -303,7 +307,8 @@ class K8sExecutor extends Executor {
             waitingReason === 'CreateContainerError' ||
             waitingReason === 'StartError'
         ) {
-            return 'Build failed to start. Please reach out to your cluster admin for help.';
+            // return 'Build failed to start. Please reach out to your cluster admin for help.';
+            return Promise.reject(new Error('Build failed to start. Please reach out to your cluster admin for help.'));
         }
 
         if (
@@ -311,10 +316,11 @@ class K8sExecutor extends Executor {
             waitingReason === 'ImagePullBackOff' ||
             waitingReason === 'InvalidImageName'
         ) {
-            return 'Build failed to start. Please check if your image is valid.';
+            // return 'Build failed to start. Please check if your image is valid.';
+            return Promise.reject(new Error('Build failed to start. Please check if your image is valid.'));
         }
 
-        return null;
+        return Promise.resolve();
     }
 
     /**
@@ -539,28 +545,28 @@ class K8sExecutor extends Executor {
                 return this.breaker.runCommand(statusOptions);
             })
             .then(res => {
-                const err = this.checkPodResponse(res);
-
-                if (err) {
-                    throw new Error(err);
-                } else {
-                    const updateConfig = {
-                        apiUri: this.ecosystem.api,
-                        buildId,
-                        token
-                    };
-
-                    if (res.body.spec && res.body.spec.nodeName) {
-                        updateConfig.stats = {
-                            hostname: res.body.spec.nodeName,
-                            imagePullStartTime: new Date().toISOString()
+                return this.checkPodResponse(res)
+                    .then(() => {
+                        const updateConfig = {
+                            apiUri: this.ecosystem.api,
+                            buildId,
+                            token
                         };
-                    } else {
-                        updateConfig.statusMessage = 'Waiting for resources to be available.';
-                    }
 
-                    return this.updateBuild(updateConfig).then(() => null);
-                }
+                        if (res.body.spec && res.body.spec.nodeName) {
+                            updateConfig.stats = {
+                                hostname: res.body.spec.nodeName,
+                                imagePullStartTime: new Date().toISOString()
+                            };
+                        } else {
+                            updateConfig.statusMessage = 'Waiting for resources to be available.';
+                        }
+
+                        return this.updateBuild(updateConfig).then(() => null);
+                    })
+                    .catch(err => {
+                        throw new Error(err);
+                    });
             })
             .then(() => {
                 sleep.msleep(this.podStatusQueryDelay);
@@ -578,13 +584,11 @@ class K8sExecutor extends Executor {
                 return this.breaker.runCommand(statusOptions);
             })
             .then(res => {
-                const err = this.checkPodResponse(res);
-
-                if (err) {
-                    throw new Error(err);
-                } else {
-                    return null;
-                }
+                return this.checkPodResponse(res)
+                    .then(() => null)
+                    .catch(err => {
+                        throw new Error(err);
+                    });
             });
     }
 
