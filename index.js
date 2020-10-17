@@ -12,6 +12,7 @@ const yaml = require('js-yaml');
 const _ = require('lodash');
 const jwt = require('jsonwebtoken');
 const logger = require('screwdriver-logger');
+const sleep = require('sleep');
 
 const DEFAULT_BUILD_TIMEOUT = 90; // 90 minutes
 const MAX_BUILD_TIMEOUT = 120; // 120 minutes
@@ -34,6 +35,7 @@ const DOCKER_CPU_RESOURCE = 'dockerCpu';
 const ANNOTATIONS_PATH = 'metadata.annotations';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
+const POD_STATUS_QUERY_RETRYDELAY_MS = 2000;
 
 /**
  * Parses annotations config and update intended annotations
@@ -559,6 +561,7 @@ class K8sExecutor extends Executor {
                 }
             })
             .then(() => {
+                sleep.msleep(POD_STATUS_QUERY_RETRYDELAY_MS);
                 const statusOptions = {
                     uri: `${this.podsUrl}/${podname}/status`,
                     method: 'GET',
