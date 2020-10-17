@@ -39,7 +39,7 @@ describe('index', function() {
     let Executor;
     let requestRetryMock;
     let fsMock;
-    let fsSleep;
+    let sleepMock;
     let executor;
     const testBuildId = 15;
     const testToken = 'abcdefg';
@@ -160,18 +160,18 @@ describe('index', function() {
 
         fsMock.existsSync.returns(true);
 
-        fsSleep = {
+        sleepMock = {
             msleep: sinon.stub()
         };
 
-        fsSleep.msleep.returns(1);
+        sleepMock.msleep.returns(0);
 
         fsMock.readFileSync.withArgs('/var/run/secrets/kubernetes.io/serviceaccount/token').returns('api_key');
         fsMock.readFileSync.withArgs(sinon.match(/config\/pod.yaml.hbs/)).returns(TEST_TIM_YAML);
 
         mockery.registerMock('fs', fsMock);
         mockery.registerMock('requestretry', requestRetryMock);
-        mockery.registerMock('sleep', fsSleep);
+        mockery.registerMock('sleep', sleepMock);
         /* eslint-disable global-require */
         Executor = require('../index');
         /* eslint-enable global-require */
