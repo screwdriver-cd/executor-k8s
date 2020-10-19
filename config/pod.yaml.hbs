@@ -12,6 +12,7 @@ spec:
   {{/if}}
   serviceAccountName: {{service_account}}
   automountServiceAccountToken: {{automount_service_account_token}}
+  terminationGracePeriodSeconds: {{termination_grace_period_seconds}}
   restartPolicy: Never
   dnsPolicy: {{dns_policy}}
   containers:

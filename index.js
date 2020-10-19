@@ -33,6 +33,7 @@ const DOCKER_CPU_RESOURCE = 'dockerCpu';
 const ANNOTATIONS_PATH = 'metadata.annotations';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
+const TERMINATION_GRACE_PERIOD_SECONDS = 'terminationGracePeriodSeconds';
 
 /**
  * Parses annotations config and update intended annotations
@@ -175,6 +176,7 @@ class K8sExecutor extends Executor {
      * @param  {Object}  [options.kubernetes.nodeSelectors]                      Object representing node label-value pairs
      * @param  {Object}  [options.kubernetes.lifecycleHooks]                     Object representing pod lifecycle hooks
      * @param  {Object}  [options.kubernetes.volumeMounts]                       Object representing pod volume mounts (e.g.: [ { "name": "kvm", "mountPath": "/dev/kvm", "path": "/dev/kvm/", "type": "File", "readOnly": true } ] )
+     * @param  {String}  [options.kubernetes.terminationGracePeriodSeconds]      TerminationGracePeriodSeconds setting for k8s pods
      * @param  {String}  [options.launchVersion=stable]                          Launcher container version to use
      * @param  {String}  [options.prefix='']                                     Prefix for job name
      * @param  {String}  [options.fusebox]                                       Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
@@ -213,6 +215,7 @@ class K8sExecutor extends Executor {
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
         this.dnsPolicy = this.kubernetes.dnsPolicy || 'ClusterFirst';
         this.automountServiceAccountToken = this.kubernetes.automountServiceAccountToken === 'true' || false;
+        this.terminationGracePeriodSeconds = this.kubernetes.terminationGracePeriodSeconds || 60;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
         this.breaker = new Fusebox(requestretry, options.fusebox);
         this.retryDelay = this.requestretryOptions.retryDelay || DEFAULT_RETRYDELAY;
@@ -326,6 +329,7 @@ class K8sExecutor extends Executor {
         const pipelineId = hoek.reach(config, 'pipeline.id', { default: '' });
         const jobName = hoek.reach(config, 'jobName', { default: '' });
         const annotations = this.parseAnnotations(hoek.reach(config, 'annotations', { default: {} }));
+
         const cpuValues = {
             MAX: this.maxCpu,
             TURBO: this.turboCpu,
@@ -399,6 +403,9 @@ class K8sExecutor extends Executor {
         }
 
         const buildContainerName = `${this.prefix}${buildId}`;
+        const terminationGracePeriod = annotations[TERMINATION_GRACE_PERIOD_SECONDS]
+            ? Math.max(annotations[TERMINATION_GRACE_PERIOD_SECONDS], this.terminationGracePeriodSeconds)
+            : this.terminationGracePeriodSeconds;
 
         const podTemplate = template({
             runtimeClass: this.runtimeClass,
@@ -434,6 +441,7 @@ class K8sExecutor extends Executor {
             },
             service_account: this.serviceAccount,
             automount_service_account_token: this.automountServiceAccountToken,
+            termination_grace_period_seconds: terminationGracePeriod,
             docker: {
                 enabled: DOCKER_ENABLED,
                 cpu: DOCKER_CPU,
