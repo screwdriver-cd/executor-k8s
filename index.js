@@ -35,7 +35,6 @@ const ANNOTATIONS_PATH = 'metadata.annotations';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
 const TERMINATION_GRACE_PERIOD_SECONDS = 'terminationGracePeriodSeconds';
-const POD_STATUSQUERY_RETRYDELAY_MS = 500;
 
 /**
  * Parses annotations config and update intended annotations
@@ -179,7 +178,6 @@ class K8sExecutor extends Executor {
      * @param  {Object}  [options.kubernetes.lifecycleHooks]                     Object representing pod lifecycle hooks
      * @param  {Object}  [options.kubernetes.volumeMounts]                       Object representing pod volume mounts (e.g.: [ { "name": "kvm", "mountPath": "/dev/kvm", "path": "/dev/kvm/", "type": "File", "readOnly": true } ] )
      * @param  {String}  [options.kubernetes.terminationGracePeriodSeconds]      TerminationGracePeriodSeconds setting for k8s pods
-     * @param  {Number}  [options.kubernetes.podStatusQueryDelay]                Number of milliseconds to wait before calling k8s pod query status for pending retry strategy
      * @param  {String}  [options.launchVersion=stable]                          Launcher container version to use
      * @param  {String}  [options.prefix='']                                     Prefix for job name
      * @param  {String}  [options.fusebox]                                       Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
@@ -218,7 +216,7 @@ class K8sExecutor extends Executor {
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
         this.dnsPolicy = this.kubernetes.dnsPolicy || 'ClusterFirst';
         this.automountServiceAccountToken = this.kubernetes.automountServiceAccountToken === 'true' || false;
-        this.terminationGracePeriodSeconds = this.kubernetes.terminationGracePeriodSeconds || 30;
+        this.terminationGracePeriodSeconds = this.kubernetes.terminationGracePeriodSeconds || 60;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
         this.breaker = new Fusebox(requestretry, options.fusebox);
         this.retryDelay = this.requestretryOptions.retryDelay || DEFAULT_RETRYDELAY;
