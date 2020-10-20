@@ -454,7 +454,7 @@ describe('index', function() {
         });
 
         it('successfully calls start', () => {
-            executor.start(fakeStartConfig).then(() => {
+            return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
                 assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
