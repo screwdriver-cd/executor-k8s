@@ -103,7 +103,7 @@ describe('index', function() {
         }
     };
     const testLifecycleHooksSpec = {
-        terminationGracePeriodSeconds: 60,
+        terminationGracePeriodSeconds: 30,
         containers: [
             {
                 name: 'beta_15',
@@ -240,7 +240,7 @@ describe('index', function() {
         executor = new Executor();
         assert.equal(executor.buildTimeout, DEFAULT_BUILD_TIMEOUT);
         assert.equal(executor.maxBuildTimeout, MAX_BUILD_TIMEOUT);
-        assert.equal(executor.terminationGracePeriodSeconds, 60);
+        assert.equal(executor.terminationGracePeriodSeconds, 30);
         assert.equal(executor.launchVersion, 'stable');
         assert.equal(executor.serviceAccount, 'default');
         assert.equal(executor.automountServiceAccountToken, false);
@@ -384,7 +384,7 @@ describe('index', function() {
                     },
                     spec: {
                         containers: [{ name: 'beta_15' }],
-                        terminationGracePeriodSeconds: 60
+                        terminationGracePeriodSeconds: 30
                     },
                     command: ['/opt/sd/launch http://api:8080 http://store:8080 abcdefg 90 15']
                 },
@@ -1231,7 +1231,7 @@ describe('index', function() {
         it('updates config with container lifecycle settings', () => {
             const updatedConfig = JSON.parse(JSON.stringify(fakeConfig));
 
-            fakeConfig.spec = { containers: [{ name: 'beta_15' }], terminationGracePeriodSeconds: 60 };
+            fakeConfig.spec = { containers: [{ name: 'beta_15' }], terminationGracePeriodSeconds: 30 };
             updatedConfig.spec = _.assign({}, updatedConfig.spec, testLifecycleHooksSpec);
 
             setLifecycleHooks(fakeConfig, lifecycleHooks, 'beta_15');
