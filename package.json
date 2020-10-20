@@ -54,10 +54,12 @@
     "js-yaml": "^3.11.0",
     "jsonwebtoken": "^8.5.1",
     "lodash": "^4.17.5",
+    "node-gyp": "^7.1.2",
     "randomstring": "^1.1.5",
     "request": "^2.88.0",
     "requestretry": "^4.0.0",
     "screwdriver-executor-base": "^8.0.0",
+    "screwdriver-logger": "^1.0.1",
     "tinytim": "^0.1.1"
   }
 }
