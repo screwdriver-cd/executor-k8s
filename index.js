@@ -215,7 +215,7 @@ class K8sExecutor extends Executor {
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
         this.dnsPolicy = this.kubernetes.dnsPolicy || 'ClusterFirst';
         this.automountServiceAccountToken = this.kubernetes.automountServiceAccountToken === 'true' || false;
-        this.terminationGracePeriodSeconds = this.kubernetes.terminationGracePeriodSeconds || 60;
+        this.terminationGracePeriodSeconds = this.kubernetes.terminationGracePeriodSeconds || 30;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
         this.breaker = new Fusebox(requestretry, options.fusebox);
         this.retryDelay = this.requestretryOptions.retryDelay || DEFAULT_RETRYDELAY;
