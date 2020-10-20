@@ -22,6 +22,7 @@ metadata:
   memory: {{memory}}
   dnsPolicy: {{dns_policy}}
 spec:
+  terminationGracePeriodSeconds: {{termination_grace_period_seconds}}
   containers:
   - name: beta_15
 command:
@@ -102,6 +103,7 @@ describe('index', function() {
         }
     };
     const testLifecycleHooksSpec = {
+        terminationGracePeriodSeconds: 30,
         containers: [
             {
                 name: 'beta_15',
@@ -193,6 +195,7 @@ describe('index', function() {
                 host: 'kubernetes2',
                 serviceAccount: 'foobar',
                 automountServiceAccountToken: 'true',
+                terminationGracePeriodSeconds: 30,
                 jobsNamespace: 'baz',
                 resources: {
                     cpu: {
@@ -229,6 +232,7 @@ describe('index', function() {
         assert.equal(executor.highMemory, 5);
         assert.equal(executor.lowMemory, 2);
         assert.equal(executor.microMemory, 1);
+        assert.equal(executor.terminationGracePeriodSeconds, 30);
     });
 
     it('allow empty options', () => {
@@ -236,6 +240,7 @@ describe('index', function() {
         executor = new Executor();
         assert.equal(executor.buildTimeout, DEFAULT_BUILD_TIMEOUT);
         assert.equal(executor.maxBuildTimeout, MAX_BUILD_TIMEOUT);
+        assert.equal(executor.terminationGracePeriodSeconds, 30);
         assert.equal(executor.launchVersion, 'stable');
         assert.equal(executor.serviceAccount, 'default');
         assert.equal(executor.automountServiceAccountToken, false);
@@ -378,7 +383,8 @@ describe('index', function() {
                         memory: 2
                     },
                     spec: {
-                        containers: [{ name: 'beta_15' }]
+                        containers: [{ name: 'beta_15' }],
+                        terminationGracePeriodSeconds: 30
                     },
                     command: ['/opt/sd/launch http://api:8080 http://store:8080 abcdefg 90 15']
                 },
@@ -581,6 +587,16 @@ describe('index', function() {
             postConfig.json.command = [
                 `/opt/sd/launch http://api:8080 http://store:8080 abcdefg ${MAX_BUILD_TIMEOUT} 15`
             ];
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+            });
+        });
+
+        it('sets the terminationGracePeriodSeconds appropriately when annotation is set', () => {
+            postConfig.json.spec.terminationGracePeriodSeconds = 90;
+            fakeStartConfig.annotations['screwdriver.cd/terminationGracePeriodSeconds'] = 90;
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
@@ -1215,7 +1231,7 @@ describe('index', function() {
         it('updates config with container lifecycle settings', () => {
             const updatedConfig = JSON.parse(JSON.stringify(fakeConfig));
 
-            fakeConfig.spec = { containers: [{ name: 'beta_15' }] };
+            fakeConfig.spec = { containers: [{ name: 'beta_15' }], terminationGracePeriodSeconds: 30 };
             updatedConfig.spec = _.assign({}, updatedConfig.spec, testLifecycleHooksSpec);
 
             setLifecycleHooks(fakeConfig, lifecycleHooks, 'beta_15');
