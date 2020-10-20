@@ -145,8 +145,7 @@ describe('index', function() {
             kubernetes: {
                 nodeSelectors: {},
                 preferredNodeSelectors: {},
-                lifecycleHooks: {},
-                podStatusQueryDelay: 1
+                lifecycleHooks: {}
             },
             fusebox: { retry: { minTimeout: 1 } },
             prefix: 'beta_'
