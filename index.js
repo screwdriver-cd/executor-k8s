@@ -11,6 +11,7 @@ const handlebars = require('handlebars');
 const yaml = require('js-yaml');
 const _ = require('lodash');
 const jwt = require('jsonwebtoken');
+const logger = require('screwdriver-logger');
 
 const DEFAULT_BUILD_TIMEOUT = 90; // 90 minutes
 const MAX_BUILD_TIMEOUT = 120; // 120 minutes
@@ -34,6 +35,7 @@ const ANNOTATIONS_PATH = 'metadata.annotations';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
 const TERMINATION_GRACE_PERIOD_SECONDS = 'terminationGracePeriodSeconds';
+const POD_STATUSQUERY_RETRYDELAY_MS = 500;
 
 /**
  * Parses annotations config and update intended annotations
@@ -177,6 +179,7 @@ class K8sExecutor extends Executor {
      * @param  {Object}  [options.kubernetes.lifecycleHooks]                     Object representing pod lifecycle hooks
      * @param  {Object}  [options.kubernetes.volumeMounts]                       Object representing pod volume mounts (e.g.: [ { "name": "kvm", "mountPath": "/dev/kvm", "path": "/dev/kvm/", "type": "File", "readOnly": true } ] )
      * @param  {String}  [options.kubernetes.terminationGracePeriodSeconds]      TerminationGracePeriodSeconds setting for k8s pods
+     * @param  {Number}  [options.kubernetes.podStatusQueryDelay]                Number of milliseconds to wait before calling k8s pod query status for pending retry strategy
      * @param  {String}  [options.launchVersion=stable]                          Launcher container version to use
      * @param  {String}  [options.prefix='']                                     Prefix for job name
      * @param  {String}  [options.fusebox]                                       Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
@@ -235,6 +238,7 @@ class K8sExecutor extends Executor {
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
         this.lifecycleHooks = hoek.reach(options, 'kubernetes.lifecycleHooks');
         this.volumeMounts = hoek.reach(options, 'kubernetes.volumeMounts', { default: {} });
+        this.podStatusQueryDelay = this.kubernetes.podStatusQueryDelay || POD_STATUSQUERY_RETRYDELAY_MS;
         this.cacheStrategy = hoek.reach(options, 'ecosystem.cache.strategy', { default: 's3' });
         this.cachePath = hoek.reach(options, 'ecosystem.cache.path', { default: '/' });
         this.cacheCompress = hoek.reach(options, 'ecosystem.cache.compress', { default: 'false' });
@@ -273,6 +277,44 @@ class K8sExecutor extends Executor {
                     waitingReason !== 'StartError')
             );
         };
+    }
+
+    /**
+     * check build pod response
+     * @method checkPodResponse
+     * @param {Object}      resp    pod response object
+     * @returns {null}
+     */
+    checkPodResponse(resp) {
+        logger.debug('k8s pod response ', JSON.stringify(resp));
+
+        if (resp.statusCode !== 200) {
+            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`);
+        }
+
+        const status = resp.body.status.phase.toLowerCase();
+        const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
+
+        if (status === 'failed' || status === 'unknown') {
+            throw new Error(`Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`);
+        }
+
+        if (
+            waitingReason === 'CrashLoopBackOff' ||
+            waitingReason === 'CreateContainerConfigError' ||
+            waitingReason === 'CreateContainerError' ||
+            waitingReason === 'StartError'
+        ) {
+            throw new Error('Build failed to start. Please reach out to your cluster admin for help.');
+        }
+
+        if (
+            waitingReason === 'ErrImagePull' ||
+            waitingReason === 'ImagePullBackOff' ||
+            waitingReason === 'InvalidImageName'
+        ) {
+            throw new Error('Build failed to start. Please check if your image is valid.');
+        }
     }
 
     /**
@@ -501,16 +543,8 @@ class K8sExecutor extends Executor {
 
                 return this.breaker.runCommand(statusOptions);
             })
-            .then(resp => {
-                if (resp.statusCode !== 200) {
-                    throw new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`);
-                }
-
-                const status = resp.body.status.phase.toLowerCase();
-
-                if (status === 'failed' || status === 'unknown') {
-                    throw new Error(`Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`);
-                }
+            .then(res => {
+                this.checkPodResponse(res);
 
                 const updateConfig = {
                     apiUri: this.ecosystem.api,
@@ -518,16 +552,18 @@ class K8sExecutor extends Executor {
                     token
                 };
 
-                if (resp.body.spec && resp.body.spec.nodeName) {
+                if (res.body.spec && res.body.spec.nodeName) {
                     updateConfig.stats = {
-                        hostname: resp.body.spec.nodeName,
+                        hostname: res.body.spec.nodeName,
                         imagePullStartTime: new Date().toISOString()
                     };
                 } else {
                     updateConfig.statusMessage = 'Waiting for resources to be available.';
                 }
 
-                return this.updateBuild(updateConfig).then(() => null);
+                return this.updateBuild(updateConfig).then(
+                    () => new Promise(r => setTimeout(r, this.podStatusQueryDelay))
+                );
             })
             .then(() => {
                 const statusOptions = {
@@ -543,28 +579,7 @@ class K8sExecutor extends Executor {
 
                 return this.breaker.runCommand(statusOptions);
             })
-            .then(res => {
-                const waitingReason = hoek.reach(res.body, CONTAINER_WAITING_REASON_PATH);
-
-                if (
-                    waitingReason === 'CrashLoopBackOff' ||
-                    waitingReason === 'CreateContainerConfigError' ||
-                    waitingReason === 'CreateContainerError' ||
-                    waitingReason === 'StartError'
-                ) {
-                    throw new Error('Build failed to start. Please reach out to your cluster admin for help.');
-                }
-
-                if (
-                    waitingReason === 'ErrImagePull' ||
-                    waitingReason === 'ImagePullBackOff' ||
-                    waitingReason === 'InvalidImageName'
-                ) {
-                    throw new Error('Build failed to start. Please check if your image is valid.');
-                }
-
-                return null;
-            });
+            .then(res => this.checkPodResponse(res));
     }
 
     /**

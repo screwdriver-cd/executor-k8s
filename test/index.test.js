@@ -1,6 +1,6 @@
 'use strict';
 
-const assert = require('chai').assert;
+const { assert } = require('chai');
 const sinon = require('sinon');
 const mockery = require('mockery');
 const yaml = require('js-yaml');
@@ -166,7 +166,6 @@ describe('index', function() {
 
         mockery.registerMock('fs', fsMock);
         mockery.registerMock('requestretry', requestRetryMock);
-
         /* eslint-disable global-require */
         Executor = require('../index');
         /* eslint-enable global-require */
@@ -461,7 +460,7 @@ describe('index', function() {
         });
 
         it('successfully calls start', () => {
-            executor.start(fakeStartConfig).then(() => {
+            return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
                 assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
@@ -470,11 +469,11 @@ describe('index', function() {
         it('successfully calls start and update hostname and imagePullStartTime', () => {
             const dateNow = Date.now();
             const isoTime = new Date(dateNow).toISOString();
-            const sandbox = sinon.createSandbox({
-                useFakeTimers: false
+            const clock = sinon.useFakeTimers({
+                now: dateNow,
+                shouldAdvanceTime: true
             });
 
-            sandbox.useFakeTimers(dateNow);
             putConfig.body.stats = {
                 hostname: 'node1.my.k8s.cluster.com',
                 imagePullStartTime: isoTime
@@ -487,7 +486,7 @@ describe('index', function() {
                 assert.calledWith(requestRetryMock.thirdCall, putConfig);
                 getConfig.retryStrategy = executor.pendingStatusRetryStrategy;
                 assert.calledWith(requestRetryMock.lastCall, sinon.match(getConfig));
-                sandbox.restore();
+                clock.restore();
             });
         });
 
@@ -1005,6 +1004,43 @@ describe('index', function() {
             };
 
             const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
+
+            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
+
+            return executor.start(fakeStartConfig).then(
+                () => {
+                    throw new Error('did not fail');
+                },
+                err => {
+                    assert.equal(err.message, returnMessage);
+                }
+            );
+        });
+
+        it('returns error when pod terminated and status is failed', () => {
+            const returnResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'failed',
+                        containerStatuses: [
+                            {
+                                state: {
+                                    terminated: {
+                                        reason: 'Error'
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                }
+            };
+
+            const returnMessage = `Failed to create pod. Pod status is:${JSON.stringify(
+                returnResponse.body.status,
+                null,
+                2
+            )}`;
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
