@@ -553,7 +553,9 @@ class K8sExecutor extends Executor {
                     updateConfig.statusMessage = 'Waiting for resources to be available.';
                 }
 
-                this.updateBuild(updateConfig).then(() => new Promise(r => setTimeout(r, this.podStatusQueryDelay)));
+                return this.updateBuild(updateConfig).then(
+                    () => new Promise(r => setTimeout(r, this.podStatusQueryDelay))
+                );
             })
             .then(() => {
                 const statusOptions = {
