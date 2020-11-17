@@ -14,7 +14,7 @@ spec:
   containers:
   - name: "{{build_id_with_prefix}}"
     image: {{container}}
-    imagePullPolicy: Always
+    imagePullPolicy: {{image_pull_policy}}
     securityContext:
       privileged: {{privileged}}
     resources:

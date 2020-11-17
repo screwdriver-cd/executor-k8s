@@ -178,6 +178,7 @@ class K8sExecutor extends Executor {
      * @param  {Number}  [options.kubernetes.maxBuildTimeout=120]                Max timeout user can configure up to
      * @param  {String}  [options.kubernetes.serviceAccount=default]             Service Account for builds
      * @param  {String}  [options.kubernetes.dnsPolicy=ClusterFirst]             DNS Policy for build pod
+     * @param  {String}  [options.kubernetes.imagePullPolicy=Always]             Image Pull Policy for build pod
      * @param  {String}  [options.kubernetes.resources.cpu.max=12]               Upper bound for custom CPU value (in cores)
      * @param  {String}  [options.kubernetes.resources.cpu.turbo=12]             Value for TURBO CPU (in cores)
      * @param  {String}  [options.kubernetes.resources.cpu.high=6]               Value for HIGH CPU (in cores)
@@ -236,6 +237,7 @@ class K8sExecutor extends Executor {
         this.maxBuildTimeout = this.kubernetes.maxBuildTimeout || MAX_BUILD_TIMEOUT;
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
         this.dnsPolicy = this.kubernetes.dnsPolicy || 'ClusterFirst';
+        this.imagePullPolicy = this.kubernetes.imagePullPolicy || 'Always';
         this.automountServiceAccountToken = this.kubernetes.automountServiceAccountToken === 'true' || false;
         this.terminationGracePeriodSeconds = this.kubernetes.terminationGracePeriodSeconds || 30;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
@@ -510,6 +512,7 @@ class K8sExecutor extends Executor {
                 memory: DOCKER_RAM
             },
             dns_policy: this.dnsPolicy,
+            image_pull_policy: this.imagePullPolicy,
             volume_mounts: this.volumeMounts
         });
         const podConfig = yaml.safeLoad(podTemplate);
