@@ -32,6 +32,7 @@ const DOCKER_ENABLED_KEY = 'dockerEnabled';
 const DOCKER_MEMORY_RESOURCE = 'dockerRam';
 const DOCKER_CPU_RESOURCE = 'dockerCpu';
 const ANNOTATIONS_PATH = 'metadata.annotations';
+const LABELS_PATH = 'metadata.labels';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
 const TERMINATION_GRACE_PERIOD_SECONDS = 'terminationGracePeriodSeconds';
@@ -48,6 +49,23 @@ function setAnnotations(podConfig, annotations) {
     }
 
     _.set(podConfig, ANNOTATIONS_PATH, annotations);
+}
+
+/**
+ * Sets default and custom pod labels
+ * @param {Object} podConfig          k8s pod config
+ * @param {Object} podLabels          key-value pairs of labels
+ * @param {String} buildContainerName build container name
+ */
+function setLabels(podConfig, podLabels, buildContainerName) {
+    const defaultLabels = { app: 'screwdriver', tier: 'builds', sdbuild: buildContainerName };
+    let labels = defaultLabels;
+
+    if (podLabels && typeof podLabels === 'object' && Object.keys(podLabels).length > 0) {
+        labels = Object.assign(defaultLabels, podLabels);
+    }
+
+    _.set(podConfig, LABELS_PATH, labels);
 }
 
 /**
@@ -175,6 +193,7 @@ class K8sExecutor extends Executor {
      * @param  {Boolean} [options.kubernetes.dockerFeatureEnabled=false]         Whether to enable docker in docker on the executor k8 container
      * @param  {Boolean} [options.kubernetes.privileged=false]                   Privileged mode, default restricted, set to true for DIND use-case
      * @param  {Boolean} [options.kubernetes.automountServiceAccountToken=false] opt-in/out for service account token automount
+     * @param  {Object}  [options.kubernetes.podLabels]                          Object representing additional labels to add to a pod
      * @param  {Object}  [options.kubernetes.nodeSelectors]                      Object representing node label-value pairs
      * @param  {Object}  [options.kubernetes.lifecycleHooks]                     Object representing pod lifecycle hooks
      * @param  {Object}  [options.kubernetes.volumeMounts]                       Object representing pod volume mounts (e.g.: [ { "name": "kvm", "mountPath": "/dev/kvm", "path": "/dev/kvm/", "type": "File", "readOnly": true } ] )
@@ -234,6 +253,7 @@ class K8sExecutor extends Executor {
         this.lowMemory = hoek.reach(options, 'kubernetes.resources.memory.low', { default: 2 });
         this.microMemory = hoek.reach(options, 'kubernetes.resources.memory.micro', { default: 1 });
         this.diskSpeedLabel = hoek.reach(options, 'kubernetes.resources.disk.speed', { default: '' });
+        this.podLabels = hoek.reach(options, 'kubernetes.podLabels');
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
         this.lifecycleHooks = hoek.reach(options, 'kubernetes.lifecycleHooks');
@@ -506,6 +526,7 @@ class K8sExecutor extends Executor {
         setNodeSelector(podConfig, nodeSelectors);
         setPreferredNodeSelector(podConfig, this.preferredNodeSelectors);
         setAnnotations(podConfig, this.annotations);
+        setLabels(podConfig, this.podLabels, buildContainerName);
         setLifecycleHooks(podConfig, this.lifecycleHooks, buildContainerName);
 
         const options = {

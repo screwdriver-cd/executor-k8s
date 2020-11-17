@@ -26,6 +26,9 @@ The class provides a couple options that are configurable in the instantiation o
 | config.launchVersion | String | 'stable' | Launcher container version to use (stable) |
 | config.prefix | String | '' | Prefix to container names ("") |
 | config.kubernetes.jobsNamespace | String | 'default' | Kubernetes namespace where builds are running on |
+| config.kubernetes.nodeSelectors | Object | {} | Object representing node label-value pairs |
+| config.kubernetes.preferredNodeSelectors | Object | {} | Object representing preferred node label-value pairs |
+| config.kubernetes.podLabels | Object | { app: 'screwdriver', tier: 'builds', sdbuild: buildContainerName } | Object representing custom pod label key-value pairs |
 | config.kubernetes.resources.memory.turbo | Number | 16 | Value for TURBO memory (in GB) |
 | config.kubernetes.resources.memory.high | Number | 12 | Value for HIGH memory (in GB) |
 | config.kubernetes.resources.memory.low | Number | 2 | Value for LOW memory (in GB) |
