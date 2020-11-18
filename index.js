@@ -200,6 +200,8 @@ class K8sExecutor extends Executor {
      * @param  {Object}  [options.kubernetes.volumeMounts]                       Object representing pod volume mounts (e.g.: [ { "name": "kvm", "mountPath": "/dev/kvm", "path": "/dev/kvm/", "type": "File", "readOnly": true } ] )
      * @param  {String}  [options.kubernetes.terminationGracePeriodSeconds]      TerminationGracePeriodSeconds setting for k8s pods
      * @param  {Number}  [options.kubernetes.podStatusQueryDelay]                Number of milliseconds to wait before calling k8s pod query status for pending retry strategy
+     * @param  {String}  [options.kubernetes.runtimeClass='']                    Runtime class
+     * @param  {String}  [options.kubernetes.imagePullSecretName='']             Name of image pull secret
      * @param  {String}  [options.launchVersion=stable]                          Launcher container version to use
      * @param  {String}  [options.prefix='']                                     Prefix for job name
      * @param  {String}  [options.fusebox]                                       Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
@@ -228,6 +230,7 @@ class K8sExecutor extends Executor {
         }
         this.host = this.kubernetes.host || 'kubernetes.default';
         this.runtimeClass = this.kubernetes.runtimeClass || '';
+        this.imagePullSecretName = this.kubernetes.imagePullSecretName || '';
         this.launchImage = options.launchImage || 'screwdrivercd/launcher';
         this.launchVersion = options.launchVersion || 'stable';
         this.prefix = options.prefix || '';
@@ -473,6 +476,7 @@ class K8sExecutor extends Executor {
 
         const podTemplate = template({
             runtimeClass: this.runtimeClass,
+            imagePullSecretName: this.imagePullSecretName,
             cpu,
             memory,
             pod_name: `${buildContainerName}-${random}`,

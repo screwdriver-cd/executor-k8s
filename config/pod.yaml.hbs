@@ -11,6 +11,10 @@ spec:
   terminationGracePeriodSeconds: {{termination_grace_period_seconds}}
   restartPolicy: Never
   dnsPolicy: {{dns_policy}}
+  {{#if imagePullSecretName}}
+  imagePullSecrets:
+  - name: {{imagePullSecretName}}
+  {{/if}}
   containers:
   - name: "{{build_id_with_prefix}}"
     image: {{container}}
