@@ -25,13 +25,7 @@ The class provides a couple options that are configurable in the instantiation o
 | config.launchImage | String | 'screwdrivercd/launcher' | Launcher image to use |
 | config.launchVersion | String | 'stable' | Launcher container version to use (stable) |
 | config.prefix | String | '' | Prefix to container names ("") |
-| config.kubernetes.dnsPolicy | String | 'ClusterFirst' | DNS Policy for build pod |
-| config.kubernetes.imagePullPolicy | String | 'Always' | Image Pull Policy for build pod |
-} config.kubernetes.imagePullSecretName | String | '' | Name of image pull secret |
 | config.kubernetes.jobsNamespace | String | 'default' | Kubernetes namespace where builds are running on |
-| config.kubernetes.nodeSelectors | Object | {} | Object representing node label-value pairs |
-| config.kubernetes.preferredNodeSelectors | Object | {} | Object representing preferred node label-value pairs |
-| config.kubernetes.podLabels | Object | { app: 'screwdriver', tier: 'builds', sdbuild: buildContainerName } | Object representing custom pod label key-value pairs |
 | config.kubernetes.resources.memory.turbo | Number | 16 | Value for TURBO memory (in GB) |
 | config.kubernetes.resources.memory.high | Number | 12 | Value for HIGH memory (in GB) |
 | config.kubernetes.resources.memory.low | Number | 2 | Value for LOW memory (in GB) |
@@ -40,7 +34,6 @@ The class provides a couple options that are configurable in the instantiation o
 | config.kubernetes.resources.cpu.high | Number | 6 | Value for HIGH CPU (in cores) |
 | config.kubernetes.resources.cpu.low | Number | 2 | Value for LOW CPU (in cores) |
 | config.kubernetes.resources.cpu.micro | Number | 0.5 | Value for MICRO CPU (in cores) |
-| config.kubernetes.runtimeClass | String | '' | Runtime class |
 
 
 ### Methods
