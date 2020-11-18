@@ -21,7 +21,6 @@ metadata:
   cpu: {{cpu}}
   memory: {{memory}}
   dnsPolicy: {{dns_policy}}
-  imagePullPolicy: {{image_pull_policy}}
 spec:
   terminationGracePeriodSeconds: {{termination_grace_period_seconds}}
   containers:
@@ -129,13 +128,6 @@ describe('index', function() {
             key: 'value',
             key2: 'value2'
         }
-    };
-    const testLabels = {
-        'network-egress': 'restricted',
-        testEnv: true,
-        app: 'screwdriver',
-        sdbuild: 'beta_15',
-        tier: 'builds'
     };
     let executorOptions;
 
@@ -388,9 +380,7 @@ describe('index', function() {
                         serviceAccount: testServiceAccount,
                         cpu: 2000,
                         dnsPolicy: 'ClusterFirst',
-                        imagePullPolicy: 'Always',
-                        memory: 2,
-                        labels: { app: 'screwdriver', sdbuild: 'beta_15', tier: 'builds' }
+                        memory: 2
                     },
                     spec: {
                         containers: [{ name: 'beta_15' }],
@@ -515,20 +505,6 @@ describe('index', function() {
             postConfig.json.metadata.dnsPolicy = 'Default';
 
             executorOptions.kubernetes.dnsPolicy = 'Default';
-
-            executor = new Executor(executorOptions);
-
-            return executor.start(fakeStartConfig).then(() => {
-                assert.calledWith(requestRetryMock.firstCall, postConfig);
-                delete getConfig.retryStrategy;
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
-            });
-        });
-
-        it('sets proper Image Pull policy required by cluster admin', () => {
-            postConfig.json.metadata.imagePullPolicy = 'IfNotPresent';
-
-            executorOptions.kubernetes.imagePullPolicy = 'IfNotPresent';
 
             executor = new Executor(executorOptions);
 
@@ -666,23 +642,6 @@ describe('index', function() {
 
             executor = new Executor(options);
             postConfig.json.spec = _.assign({}, postConfig.json.spec, testLifecycleHooksSpec);
-            getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
-
-            return executor.start(fakeStartConfig).then(() => {
-                assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
-            });
-        });
-
-        it('sets tolerations and pod labels appropriately', () => {
-            const options = _.assign({}, executorOptions, {
-                kubernetes: {
-                    podLabels: { 'network-egress': 'restricted', testEnv: true }
-                }
-            });
-
-            executor = new Executor(options);
-            postConfig.json.metadata.labels = testLabels;
             getConfig.retryStrategy = executor.scheduleStatusRetryStrategy;
 
             return executor.start(fakeStartConfig).then(() => {
