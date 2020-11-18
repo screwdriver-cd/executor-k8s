@@ -32,6 +32,7 @@ const DOCKER_ENABLED_KEY = 'dockerEnabled';
 const DOCKER_MEMORY_RESOURCE = 'dockerRam';
 const DOCKER_CPU_RESOURCE = 'dockerCpu';
 const ANNOTATIONS_PATH = 'metadata.annotations';
+const LABELS_PATH = 'metadata.labels';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
 const TERMINATION_GRACE_PERIOD_SECONDS = 'terminationGracePeriodSeconds';
@@ -48,6 +49,23 @@ function setAnnotations(podConfig, annotations) {
     }
 
     _.set(podConfig, ANNOTATIONS_PATH, annotations);
+}
+
+/**
+ * Sets default and custom pod labels
+ * @param {Object} podConfig          k8s pod config
+ * @param {Object} podLabels          key-value pairs of labels
+ * @param {String} buildContainerName build container name
+ */
+function setLabels(podConfig, podLabels, buildContainerName) {
+    const defaultLabels = { app: 'screwdriver', tier: 'builds', sdbuild: buildContainerName };
+    let labels = defaultLabels;
+
+    if (podLabels && typeof podLabels === 'object' && Object.keys(podLabels).length > 0) {
+        labels = Object.assign(defaultLabels, podLabels);
+    }
+
+    _.set(podConfig, LABELS_PATH, labels);
 }
 
 /**
@@ -160,6 +178,7 @@ class K8sExecutor extends Executor {
      * @param  {Number}  [options.kubernetes.maxBuildTimeout=120]                Max timeout user can configure up to
      * @param  {String}  [options.kubernetes.serviceAccount=default]             Service Account for builds
      * @param  {String}  [options.kubernetes.dnsPolicy=ClusterFirst]             DNS Policy for build pod
+     * @param  {String}  [options.kubernetes.imagePullPolicy=Always]             Image Pull Policy for build pod
      * @param  {String}  [options.kubernetes.resources.cpu.max=12]               Upper bound for custom CPU value (in cores)
      * @param  {String}  [options.kubernetes.resources.cpu.turbo=12]             Value for TURBO CPU (in cores)
      * @param  {String}  [options.kubernetes.resources.cpu.high=6]               Value for HIGH CPU (in cores)
@@ -175,11 +194,14 @@ class K8sExecutor extends Executor {
      * @param  {Boolean} [options.kubernetes.dockerFeatureEnabled=false]         Whether to enable docker in docker on the executor k8 container
      * @param  {Boolean} [options.kubernetes.privileged=false]                   Privileged mode, default restricted, set to true for DIND use-case
      * @param  {Boolean} [options.kubernetes.automountServiceAccountToken=false] opt-in/out for service account token automount
+     * @param  {Object}  [options.kubernetes.podLabels]                          Object representing additional labels to add to a pod
      * @param  {Object}  [options.kubernetes.nodeSelectors]                      Object representing node label-value pairs
      * @param  {Object}  [options.kubernetes.lifecycleHooks]                     Object representing pod lifecycle hooks
      * @param  {Object}  [options.kubernetes.volumeMounts]                       Object representing pod volume mounts (e.g.: [ { "name": "kvm", "mountPath": "/dev/kvm", "path": "/dev/kvm/", "type": "File", "readOnly": true } ] )
      * @param  {String}  [options.kubernetes.terminationGracePeriodSeconds]      TerminationGracePeriodSeconds setting for k8s pods
      * @param  {Number}  [options.kubernetes.podStatusQueryDelay]                Number of milliseconds to wait before calling k8s pod query status for pending retry strategy
+     * @param  {String}  [options.kubernetes.runtimeClass='']                    Runtime class
+     * @param  {String}  [options.kubernetes.imagePullSecretName='']             Name of image pull secret
      * @param  {String}  [options.launchVersion=stable]                          Launcher container version to use
      * @param  {String}  [options.prefix='']                                     Prefix for job name
      * @param  {String}  [options.fusebox]                                       Options for the circuit breaker (https://github.com/screwdriver-cd/circuit-fuses)
@@ -208,6 +230,7 @@ class K8sExecutor extends Executor {
         }
         this.host = this.kubernetes.host || 'kubernetes.default';
         this.runtimeClass = this.kubernetes.runtimeClass || '';
+        this.imagePullSecretName = this.kubernetes.imagePullSecretName || '';
         this.launchImage = options.launchImage || 'screwdrivercd/launcher';
         this.launchVersion = options.launchVersion || 'stable';
         this.prefix = options.prefix || '';
@@ -217,6 +240,7 @@ class K8sExecutor extends Executor {
         this.maxBuildTimeout = this.kubernetes.maxBuildTimeout || MAX_BUILD_TIMEOUT;
         this.serviceAccount = this.kubernetes.serviceAccount || 'default';
         this.dnsPolicy = this.kubernetes.dnsPolicy || 'ClusterFirst';
+        this.imagePullPolicy = this.kubernetes.imagePullPolicy || 'Always';
         this.automountServiceAccountToken = this.kubernetes.automountServiceAccountToken === 'true' || false;
         this.terminationGracePeriodSeconds = this.kubernetes.terminationGracePeriodSeconds || 30;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
@@ -234,6 +258,7 @@ class K8sExecutor extends Executor {
         this.lowMemory = hoek.reach(options, 'kubernetes.resources.memory.low', { default: 2 });
         this.microMemory = hoek.reach(options, 'kubernetes.resources.memory.micro', { default: 1 });
         this.diskSpeedLabel = hoek.reach(options, 'kubernetes.resources.disk.speed', { default: '' });
+        this.podLabels = hoek.reach(options, 'kubernetes.podLabels');
         this.nodeSelectors = hoek.reach(options, 'kubernetes.nodeSelectors');
         this.preferredNodeSelectors = hoek.reach(options, 'kubernetes.preferredNodeSelectors');
         this.lifecycleHooks = hoek.reach(options, 'kubernetes.lifecycleHooks');
@@ -451,6 +476,7 @@ class K8sExecutor extends Executor {
 
         const podTemplate = template({
             runtimeClass: this.runtimeClass,
+            imagePullSecretName: this.imagePullSecretName,
             cpu,
             memory,
             pod_name: `${buildContainerName}-${random}`,
@@ -490,6 +516,7 @@ class K8sExecutor extends Executor {
                 memory: DOCKER_RAM
             },
             dns_policy: this.dnsPolicy,
+            image_pull_policy: this.imagePullPolicy,
             volume_mounts: this.volumeMounts
         });
         const podConfig = yaml.safeLoad(podTemplate);
@@ -506,6 +533,7 @@ class K8sExecutor extends Executor {
         setNodeSelector(podConfig, nodeSelectors);
         setPreferredNodeSelector(podConfig, this.preferredNodeSelectors);
         setAnnotations(podConfig, this.annotations);
+        setLabels(podConfig, this.podLabels, buildContainerName);
         setLifecycleHooks(podConfig, this.lifecycleHooks, buildContainerName);
 
         const options = {
