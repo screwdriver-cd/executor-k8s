@@ -311,7 +311,7 @@ class K8sExecutor extends Executor {
      * @returns {null}
      */
     checkPodResponse(resp) {
-        logger.debug('k8s pod response ', JSON.stringify(resp));
+        logger.debug(`Build pod response: ${JSON.stringify(resp, null, 2)}`);
 
         if (resp.statusCode !== 200) {
             throw new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`);
@@ -320,8 +320,11 @@ class K8sExecutor extends Executor {
         const status = resp.body.status.phase.toLowerCase();
         const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
 
+        logger.debug(`Build pod status: ${status}`);
+        logger.debug(`Build container waiting reason: ${waitingReason}`);
+
         if (status === 'failed' || status === 'unknown') {
-            throw new Error(`Failed to create pod. Pod status is:${JSON.stringify(resp.body.status, null, 2)}`);
+            throw new Error(`Failed to create pod. Pod status is: ${status}`);
         }
 
         if (

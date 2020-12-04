@@ -802,11 +802,7 @@ describe('index', function() {
                     }
                 }
             };
-            const returnMessage = `Failed to create pod. Pod status is:${JSON.stringify(
-                returnResponse.body.status,
-                null,
-                2
-            )}`;
+            const returnMessage = 'Failed to create pod. Pod status is: failed';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -1077,11 +1073,7 @@ describe('index', function() {
                 }
             };
 
-            const returnMessage = `Failed to create pod. Pod status is:${JSON.stringify(
-                returnResponse.body.status,
-                null,
-                2
-            )}`;
+            const returnMessage = 'Failed to create pod. Pod status is: failed';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -1104,11 +1096,7 @@ describe('index', function() {
                     }
                 }
             };
-            const returnMessage = `Failed to create pod. Pod status is:${JSON.stringify(
-                returnResponse.body.status,
-                null,
-                2
-            )}`;
+            const returnMessage = 'Failed to create pod. Pod status is: failed';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
