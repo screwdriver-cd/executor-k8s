@@ -117,6 +117,10 @@ spec:
     - mountPath: /opt/sdeventcache
       name: sd-event-cache
     {{/if}}
+    {{#if cache.dlcEnabled}}
+    - mountPath: {{cache.dlc_mount_path}}
+      name: sd-docker-cache
+    {{/if}}
   volumes:
     - name: screwdriver
       type: DirectoryOrCreate
@@ -145,6 +149,12 @@ spec:
       type: DirectoryOrCreate
       hostPath:
         path: {{cache.path}}/events/{{pipeline_id}}/{{event_id}}
+    {{/if}}
+    {{#if cache.dlcEnabled}}
+     - name: sd-docker-cache
+      type: DirectoryOrCreate
+      hostPath:
+        path: {{cache.dlc_path}}/pipelines/{{pipeline_id}}/{{cache.dlc_mount_path}}
     {{/if}}
     {{#each volume_mounts}}
     - name: {{this.name}}
