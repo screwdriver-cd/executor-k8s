@@ -303,8 +303,8 @@ class K8sExecutor extends Executor {
             );
         };
         this.dlcEnabled = hoek.reach(options, 'kubernetes.dlcEnabled', { default: false });
-        this.dlcPath = hoek.reach(options, 'kubernetes.dlcPath');
-        this.dlcMountPath = hoek.reach(options, 'kubernetes.dlcMountPath');
+        this.dlcPath = hoek.reach(options, 'kubernetes.dlcPath', { default: '/' });
+        this.dlcMountPath = hoek.reach(options, 'kubernetes.dlcMountPath', { default: '/' });
     }
 
     /**
