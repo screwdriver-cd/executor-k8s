@@ -154,7 +154,7 @@ spec:
      - name: sd-docker-cache
       type: DirectoryOrCreate
       hostPath:
-        path: {{cache.dlc_path}}/pipelines/{{pipeline_id}}/{{cache.dlc_mount_path}}
+        path: {{cache.dlc_path}}/pipelines/{{pipeline_id}}{{cache.dlc_mount_path}}
     {{/if}}
     {{#each volume_mounts}}
     - name: {{this.name}}
