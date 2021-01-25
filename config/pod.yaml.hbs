@@ -151,7 +151,7 @@ spec:
         path: {{cache.path}}/events/{{pipeline_id}}/{{event_id}}
     {{/if}}
     {{#if cache.dlc_enabled}}
-     - name: sd-docker-cache
+    - name: sd-docker-cache
       type: DirectoryOrCreate
       hostPath:
         path: {{cache.dlc_path}}/pipelines/{{pipeline_id}}{{cache.dlc_mount_path}}
