@@ -78,6 +78,10 @@ spec:
     - mountPath: /sdeventcache
       name: sd-event-cache
     {{/if}}
+    {{#if cache.dlc_enabled}}
+    - mountPath: {{cache.dlc_mount_path}}
+      name: sd-docker-cache
+    {{/if}}
     {{#each volume_mounts}}
     - mountPath: {{this.mountPath}}
       name: {{this.name}}
@@ -116,10 +120,6 @@ spec:
       name: sd-job-cache
     - mountPath: /opt/sdeventcache
       name: sd-event-cache
-    {{/if}}
-    {{#if cache.dlc_enabled}}
-    - mountPath: {{cache.dlc_mount_path}}
-      name: sd-docker-cache
     {{/if}}
   volumes:
     - name: screwdriver
