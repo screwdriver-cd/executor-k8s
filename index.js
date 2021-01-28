@@ -302,9 +302,6 @@ class K8sExecutor extends Executor {
                     waitingReason !== 'StartError')
             );
         };
-        this.dlcEnabled = hoek.reach(options, 'kubernetes.dlcEnabled', { default: false });
-        this.dlcPath = hoek.reach(options, 'kubernetes.dlcPath', { default: '/' });
-        this.dlcMountPath = hoek.reach(options, 'kubernetes.dlcMountPath', { default: '/' });
     }
 
     /**
@@ -511,10 +508,7 @@ class K8sExecutor extends Executor {
                 md5check: this.cacheMd5Check,
                 max_size_mb: this.cacheMaxSizeInMB,
                 max_go_threads: this.cacheMaxGoThreads,
-                volumeReadOnly,
-                dlc_enabled: this.dlcEnabled || config.dlc,
-                dlc_path: this.dlcPath,
-                dlc_mount_path: this.dlcMountPath
+                volumeReadOnly
             },
             service_account: this.serviceAccount,
             automount_service_account_token: this.automountServiceAccountToken,
