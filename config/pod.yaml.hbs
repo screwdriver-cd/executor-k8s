@@ -78,10 +78,6 @@ spec:
     - mountPath: /sdeventcache
       name: sd-event-cache
     {{/if}}
-    {{#if cache.dlc_enabled}}
-    - mountPath: {{cache.dlc_mount_path}}
-      name: sd-docker-cache
-    {{/if}}
     {{#each volume_mounts}}
     - mountPath: {{this.mountPath}}
       name: {{this.name}}
@@ -149,12 +145,6 @@ spec:
       type: DirectoryOrCreate
       hostPath:
         path: {{cache.path}}/events/{{pipeline_id}}/{{event_id}}
-    {{/if}}
-    {{#if cache.dlc_enabled}}
-    - name: sd-docker-cache
-      type: DirectoryOrCreate
-      hostPath:
-        path: {{cache.dlc_path}}/pipelines/{{pipeline_id}}{{cache.dlc_mount_path}}
     {{/if}}
     {{#each volume_mounts}}
     - name: {{this.name}}
