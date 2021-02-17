@@ -63,6 +63,7 @@ spec:
     volumeMounts:
     - name: podinfo
       mountPath: /etc/podinfo
+      readOnly: true
     - mountPath: /opt/sd
       name: screwdriver
       readOnly: true
