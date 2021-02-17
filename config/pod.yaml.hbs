@@ -61,6 +61,9 @@ spec:
       /opt/sd/run.sh "{{token}}" "{{api_uri}}" "{{store_uri}}" "{{build_timeout}}" "{{build_id}}" "{{ui_uri}}"
     {{/if}}
     volumeMounts:
+    - name: podinfo
+      mountPath: /etc/podinfo
+      readOnly: true
     - mountPath: /opt/sd
       name: screwdriver
       readOnly: true
@@ -118,6 +121,15 @@ spec:
       name: sd-event-cache
     {{/if}}
   volumes:
+    - name: podinfo
+      downwardAPI:
+        items:
+          - path: "labels"
+            fieldRef:
+              fieldPath: metadata.labels
+          - path: "annotations"
+            fieldRef:
+              fieldPath: metadata.annotations
     - name: screwdriver
       type: DirectoryOrCreate
       hostPath:
