@@ -47,6 +47,8 @@ spec:
       - name: SD_TEMP
         value: "/opt/sd_tmp"
     {{#if docker.enabled}}
+      - name: SD_DIND_SHARE_PATH
+        value: "/opt/sd_dind_share"
       - name: DOCKER_HOST
         value: tcp://localhost:2375
     {{/if}}
