@@ -308,41 +308,46 @@ class K8sExecutor extends Executor {
      * check build pod response
      * @method checkPodResponse
      * @param {Object}      resp    pod response object
-     * @returns {null}
+     * @param {String}      buidlId  buildId
+     * @returns {Promise}
      */
-    checkPodResponse(resp) {
-        logger.debug(`Build pod response: ${JSON.stringify(resp, null, 2)}`);
+    checkPodResponse(resp, buidlId) {
+        return new Promise((resolve, reject) => {
+            logger.debug(`Build ${buidlId} pod response: ${JSON.stringify(resp, null, 2)}`);
 
-        if (resp.statusCode !== 200) {
-            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`);
-        }
+            if (resp.statusCode !== 200) {
+                reject(new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`));
+            }
 
-        const status = resp.body.status.phase.toLowerCase();
-        const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
+            const status = resp.body.status.phase.toLowerCase();
+            const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
 
-        logger.debug(`Build pod status: ${status}`);
-        logger.debug(`Build container waiting reason: ${waitingReason}`);
+            logger.info(`Build ${buidlId} pod status: ${status}`);
+            logger.info(`Build ${buidlId} container waiting reason: ${waitingReason}`);
 
-        if (status === 'failed' || status === 'unknown') {
-            throw new Error(`Failed to create pod. Pod status is: ${status}`);
-        }
+            if (status === 'failed' || status === 'unknown') {
+                reject(new Error(`Failed to create pod. Pod status is: ${status}`));
+            }
 
-        if (
-            waitingReason === 'CrashLoopBackOff' ||
-            waitingReason === 'CreateContainerConfigError' ||
-            waitingReason === 'CreateContainerError' ||
-            waitingReason === 'StartError'
-        ) {
-            throw new Error('Build failed to start. Please reach out to your cluster admin for help.');
-        }
+            if (
+                waitingReason === 'CrashLoopBackOff' ||
+                waitingReason === 'CreateContainerConfigError' ||
+                waitingReason === 'CreateContainerError' ||
+                waitingReason === 'StartError'
+            ) {
+                reject(new Error('Build failed to start. Please reach out to your cluster admin for help.'));
+            }
 
-        if (
-            waitingReason === 'ErrImagePull' ||
-            waitingReason === 'ImagePullBackOff' ||
-            waitingReason === 'InvalidImageName'
-        ) {
-            throw new Error('Build failed to start. Please check if your image is valid.');
-        }
+            if (
+                waitingReason === 'ErrImagePull' ||
+                waitingReason === 'ImagePullBackOff' ||
+                waitingReason === 'InvalidImageName'
+            ) {
+                reject(new Error('Build failed to start. Please check if your image is valid.'));
+            }
+
+            resolve();
+        });
     }
 
     /**
@@ -393,7 +398,86 @@ class K8sExecutor extends Executor {
      * @param  {String}   [config.jobName]        jobName for the build
      * @return {Promise}
      */
-    _start(config) {
+    async _start(config) {
+        const { buildId, token } = config;
+        const podConfig = this.createPodConfig(config);
+        const options = {
+            uri: this.podsUrl,
+            method: 'POST',
+            json: podConfig,
+            headers: {
+                Authorization: `Bearer ${this.token}`
+            },
+            strictSSL: false
+        };
+
+        try {
+            const resp = await this.breaker.runCommand(options);
+
+            if (resp.statusCode !== 201) {
+                throw new Error(`Failed to create pod:${JSON.stringify(resp.body)}`);
+            }
+            const podName = resp.body.metadata.name;
+            let statusOptions = {
+                uri: `${this.podsUrl}/${podName}/status`,
+                method: 'GET',
+                headers: { Authorization: `Bearer ${this.token}` },
+                strictSSL: false,
+                maxAttempts: this.maxAttempts,
+                retryDelay: this.retryDelay,
+                retryStrategy: this.scheduleStatusRetryStrategy,
+                json: true
+            };
+            let res = await this.breaker.runCommand(statusOptions);
+
+            await this.checkPodResponse(res, buildId);
+            const updateConfig = {
+                apiUri: this.ecosystem.api,
+                buildId,
+                token
+            };
+
+            if (res.body.spec && res.body.spec.nodeName) {
+                updateConfig.stats = {
+                    hostname: res.body.spec.nodeName,
+                    imagePullStartTime: new Date().toISOString()
+                };
+            } else {
+                updateConfig.statusMessage = 'Waiting for resources to be available.';
+            }
+            await this.updateBuild(updateConfig);
+            await new Promise(r => setTimeout(r, this.podStatusQueryDelay));
+            statusOptions = {
+                uri: `${this.podsUrl}/${podName}/status`,
+                method: 'GET',
+                headers: { Authorization: `Bearer ${this.token}` },
+                strictSSL: false,
+                maxAttempts: this.maxAttempts,
+                retryDelay: this.retryDelay,
+                retryStrategy: this.pendingStatusRetryStrategy,
+                json: true
+            };
+            res = await this.breaker.runCommand(statusOptions);
+            await this.checkPodResponse(res, buildId);
+        } catch (err) {
+            logger.error(`Failed to run pod for build id:${buildId}: ${err.message}`);
+            throw err;
+        }
+    }
+
+    /**
+     * creates the pod config
+     * @method createPodConfig
+     * @param  {Object}   config                A configuration object
+     * @param  {Integer}  [config.pipeline.id]    pipelineId for the build
+     * @param  {Integer}  [config.jobId]          jobId for the build
+     * @param  {Integer}  config.eventId        eventId for the build
+     * @param  {String}   config.container      Container for the build to run in
+     * @param  {String}   config.token          JWT for the Build
+     * @param  {String}   [config.jobName]        jobName for the build
+     * @return {Object}   podConfig the pod config object
+     */
+    createPodConfig(config) {
         const { buildId, eventId, container, token } = config;
         let jobId = hoek.reach(config, 'jobId', { default: '' });
         const pipelineId = hoek.reach(config, 'pipeline.id', { default: '' });
@@ -539,78 +623,7 @@ class K8sExecutor extends Executor {
         setLabels(podConfig, this.podLabels, buildContainerName);
         setLifecycleHooks(podConfig, this.lifecycleHooks, buildContainerName);
 
-        const options = {
-            uri: this.podsUrl,
-            method: 'POST',
-            json: podConfig,
-            headers: {
-                Authorization: `Bearer ${this.token}`
-            },
-            strictSSL: false
-        };
-        let podname;
-
-        return this.breaker
-            .runCommand(options)
-            .then(resp => {
-                if (resp.statusCode !== 201) {
-                    throw new Error(`Failed to create pod:${JSON.stringify(resp.body)}`);
-                }
-
-                return resp.body.metadata.name;
-            })
-            .then(generatedPodName => {
-                podname = generatedPodName;
-                const statusOptions = {
-                    uri: `${this.podsUrl}/${podname}/status`,
-                    method: 'GET',
-                    headers: { Authorization: `Bearer ${this.token}` },
-                    strictSSL: false,
-                    maxAttempts: this.maxAttempts,
-                    retryDelay: this.retryDelay,
-                    retryStrategy: this.scheduleStatusRetryStrategy,
-                    json: true
-                };
-
-                return this.breaker.runCommand(statusOptions);
-            })
-            .then(res => {
-                this.checkPodResponse(res);
-
-                const updateConfig = {
-                    apiUri: this.ecosystem.api,
-                    buildId,
-                    token
-                };
-
-                if (res.body.spec && res.body.spec.nodeName) {
-                    updateConfig.stats = {
-                        hostname: res.body.spec.nodeName,
-                        imagePullStartTime: new Date().toISOString()
-                    };
-                } else {
-                    updateConfig.statusMessage = 'Waiting for resources to be available.';
-                }
-
-                return this.updateBuild(updateConfig).then(
-                    () => new Promise(r => setTimeout(r, this.podStatusQueryDelay))
-                );
-            })
-            .then(() => {
-                const statusOptions = {
-                    uri: `${this.podsUrl}/${podname}/status`,
-                    method: 'GET',
-                    headers: { Authorization: `Bearer ${this.token}` },
-                    strictSSL: false,
-                    maxAttempts: this.maxAttempts,
-                    retryDelay: this.retryDelay,
-                    retryStrategy: this.pendingStatusRetryStrategy,
-                    json: true
-                };
-
-                return this.breaker.runCommand(statusOptions);
-            })
-            .then(res => this.checkPodResponse(res));
+        return podConfig;
     }
 
     /**
@@ -620,7 +633,7 @@ class K8sExecutor extends Executor {
      * @param  {Integer}  config.buildId    ID for the build
      * @return {Promise}
      */
-    _stop(config) {
+    async _stop(config) {
         const options = {
             uri: this.podsUrl,
             method: 'DELETE',
@@ -633,13 +646,19 @@ class K8sExecutor extends Executor {
             strictSSL: false
         };
 
-        return this.breaker.runCommand(options).then(resp => {
+        try {
+            const resp = await this.breaker.runCommand(options);
+
             if (resp.statusCode !== 200) {
                 throw new Error(`Failed to delete pod:${JSON.stringify(resp.body)}`);
             }
 
             return null;
-        });
+        } catch (err) {
+            logger.error(`Pod deletion failed for buildId: ${config.buildId} : ${err.message}`);
+
+            throw err;
+        }
     }
 
     /**
