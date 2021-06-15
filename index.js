@@ -320,8 +320,8 @@ class K8sExecutor extends Executor {
         const status = resp.body.status.phase.toLowerCase();
         const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
 
-        logger.info(`Build ${buidlId} pod status: ${status}`);
-        logger.info(`Build ${buidlId} container waiting reason: ${waitingReason}`);
+        logger.info(`Build ${buildId} pod status: ${status}`);
+        logger.info(`Build ${buildId} container waiting reason: ${waitingReason}`);
 
         if (status === 'failed' || status === 'unknown') {
             throw new Error(`Failed to create pod. Pod status is: ${status}`);
