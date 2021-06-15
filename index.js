@@ -308,10 +308,10 @@ class K8sExecutor extends Executor {
      * check build pod response
      * @method checkPodResponse
      * @param {Object}      resp    pod response object
-     * @param {String}      buidlId  buildId
+     * @param {String}      buildId  buildId
      */
-    checkPodResponse(resp, buidlId) {
-        logger.debug(`Build ${buidlId} pod response: ${JSON.stringify(resp, null, 2)}`);
+    checkPodResponse(resp, buildId) {
+        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp, null, 2)}`);
 
         if (resp.statusCode !== 200) {
             throw new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`);
