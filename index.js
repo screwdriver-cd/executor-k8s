@@ -309,45 +309,35 @@ class K8sExecutor extends Executor {
      * @method checkPodResponse
      * @param {Object}      resp    pod response object
      * @param {String}      buidlId  buildId
-     * @returns {Promise}
      */
     checkPodResponse(resp, buidlId) {
-        return new Promise((resolve, reject) => {
-            logger.debug(`Build ${buidlId} pod response: ${JSON.stringify(resp, null, 2)}`);
+        logger.debug(`Build ${buidlId} pod response: ${JSON.stringify(resp, null, 2)}`);
 
-            if (resp.statusCode !== 200) {
-                reject(new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`));
-            }
+        if (resp.statusCode !== 200) {
+            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`);
+        }
 
-            const status = resp.body.status.phase.toLowerCase();
-            const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
+        const status = resp.body.status.phase.toLowerCase();
+        const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
 
-            logger.info(`Build ${buidlId} pod status: ${status}`);
-            logger.info(`Build ${buidlId} container waiting reason: ${waitingReason}`);
+        logger.info(`Build ${buidlId} pod status: ${status}`);
+        logger.info(`Build ${buidlId} container waiting reason: ${waitingReason}`);
 
-            if (status === 'failed' || status === 'unknown') {
-                reject(new Error(`Failed to create pod. Pod status is: ${status}`));
-            }
+        if (status === 'failed' || status === 'unknown') {
+            throw new Error(`Failed to create pod. Pod status is: ${status}`);
+        }
 
-            if (
-                waitingReason === 'CrashLoopBackOff' ||
-                waitingReason === 'CreateContainerConfigError' ||
-                waitingReason === 'CreateContainerError' ||
-                waitingReason === 'StartError'
-            ) {
-                reject(new Error('Build failed to start. Please reach out to your cluster admin for help.'));
-            }
+        if (
+            ['CrashLoopBackOff', 'CreateContainerConfigError', 'CreateContainerError', 'StartError'].includes(
+                waitingReason
+            )
+        ) {
+            throw new Error('Build failed to start. Please reach out to your cluster admin for help.');
+        }
 
-            if (
-                waitingReason === 'ErrImagePull' ||
-                waitingReason === 'ImagePullBackOff' ||
-                waitingReason === 'InvalidImageName'
-            ) {
-                reject(new Error('Build failed to start. Please check if your image is valid.'));
-            }
-
-            resolve();
-        });
+        if (['ErrImagePull', 'ImagePullBackOff', 'InvalidImageName'].includes(waitingReason)) {
+            throw new Error('Build failed to start. Please check if your image is valid.');
+        }
     }
 
     /**
@@ -430,7 +420,7 @@ class K8sExecutor extends Executor {
             };
             let res = await this.breaker.runCommand(statusOptions);
 
-            await this.checkPodResponse(res, buildId);
+            this.checkPodResponse(res, buildId);
             const updateConfig = {
                 apiUri: this.ecosystem.api,
                 buildId,
@@ -458,7 +448,9 @@ class K8sExecutor extends Executor {
                 json: true
             };
             res = await this.breaker.runCommand(statusOptions);
-            await this.checkPodResponse(res, buildId);
+            this.checkPodResponse(res, buildId);
+
+            return null;
         } catch (err) {
             logger.error(`Failed to run pod for build id:${buildId}: ${err.message}`);
             throw err;
