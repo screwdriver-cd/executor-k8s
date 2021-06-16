@@ -311,12 +311,13 @@ class K8sExecutor extends Executor {
      * @method checkPodResponse
      * @param {String}      config.status    the pod status
      * @param {String}      config.waitingReason    the pod waitigng reason
-     * @param {String}      config.buildId  buildId
+     * @param {String}      config.buildId  buildId the build id
+     * @param {String}      config.podName  podName the name of the pod
      * @return {Boolean}   isPodInitializing
      */
-    checkPodResponse({ status, waitingReason, buildId }) {
-        logger.info(`Build ${buildId} pod status: ${status}`);
-        logger.info(`Build ${buildId} container waiting reason: ${waitingReason}`);
+    checkPodResponse({ status, waitingReason, buildId, podName }) {
+        logger.info(`Build ${buildId}, podName: ${podName} and status: ${status} `);
+        logger.info(`Build ${buildId}, podName: ${podName} and container waiting reason: ${waitingReason}`);
 
         if (status === 'failed' || status === 'unknown') {
             throw new Error(`Failed to create pod. Pod status is: ${status}`);
@@ -409,7 +410,7 @@ class K8sExecutor extends Executor {
                 buildId,
                 retryStrategyFn: this.scheduleStatusRetryStrategy
             });
-            const isPodInitializing = this.checkPodResponse({ status, waitingReason, buildId });
+            const isPodInitializing = this.checkPodResponse({ status, waitingReason, buildId, podName });
             const updateConfig = {
                 apiUri: this.ecosystem.api,
                 buildId,
@@ -471,7 +472,7 @@ class K8sExecutor extends Executor {
      *
      * @param {String} config.podName the pod name
      * @param {String} config.buildId the build id
-     * @param {Function} config.retryStrategyFn
+     * @param {Function} config.retryStrategyFn fn to define retry logic
      * @returns {Object} the status and pod waiting reason
      */
     async getPodStatus({ podName, buildId, retryStrategyFn }) {
