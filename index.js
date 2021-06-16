@@ -298,8 +298,7 @@ class K8sExecutor extends Executor {
                 'ErrImagePull',
                 'ImagePullBackOff',
                 'InvalidImageName',
-                'StartErr',
-                'StartErr'
+                'StartError'
             ];
 
             return err || !status || (status.toLowerCase() === 'pending' && !errorStatusList.includes(waitingReason));
