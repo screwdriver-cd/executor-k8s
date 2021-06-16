@@ -37,6 +37,7 @@ const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
 const TERMINATION_GRACE_PERIOD_SECONDS = 'terminationGracePeriodSeconds';
 const POD_STATUSQUERY_RETRYDELAY_MS = 500;
+const POD_STATUS_STATUSQUERY_RETRY_LIMIT = 3;
 
 /**
  * Parses annotations config and update intended annotations
@@ -200,6 +201,7 @@ class K8sExecutor extends Executor {
      * @param  {Object}  [options.kubernetes.volumeMounts]                       Object representing pod volume mounts (e.g.: [ { "name": "kvm", "mountPath": "/dev/kvm", "path": "/dev/kvm/", "type": "File", "readOnly": true } ] )
      * @param  {String}  [options.kubernetes.terminationGracePeriodSeconds]      TerminationGracePeriodSeconds setting for k8s pods
      * @param  {Number}  [options.kubernetes.podStatusQueryDelay]                Number of milliseconds to wait before calling k8s pod query status for pending retry strategy
+     * @param  {Number}  [options.kubernetes.podStatusQueryRetryLimit]           Number of retries to query k8s pod status for pending retry strategy
      * @param  {String}  [options.kubernetes.runtimeClass='']                    Runtime class
      * @param  {String}  [options.kubernetes.imagePullSecretName='']             Name of image pull secret
      * @param  {String}  [options.launchVersion=stable]                          Launcher container version to use
@@ -264,6 +266,7 @@ class K8sExecutor extends Executor {
         this.lifecycleHooks = hoek.reach(options, 'kubernetes.lifecycleHooks');
         this.volumeMounts = hoek.reach(options, 'kubernetes.volumeMounts', { default: {} });
         this.podStatusQueryDelay = this.kubernetes.podStatusQueryDelay || POD_STATUSQUERY_RETRYDELAY_MS;
+        this.podStatusQueryRetryLimit = this.kubernetes.podStatusQueryRetryLimit || POD_STATUS_STATUSQUERY_RETRY_LIMIT;
         this.cacheStrategy = hoek.reach(options, 'ecosystem.cache.strategy', { default: 's3' });
         this.cachePath = hoek.reach(options, 'ecosystem.cache.path', { default: '/' });
         this.cacheCompress = hoek.reach(options, 'ecosystem.cache.compress', { default: 'false' });
@@ -288,38 +291,30 @@ class K8sExecutor extends Executor {
         this.pendingStatusRetryStrategy = (err, response, body) => {
             const waitingReason = hoek.reach(body, CONTAINER_WAITING_REASON_PATH);
             const status = hoek.reach(body, 'status.phase');
+            const errorStatusList = [
+                'CrashLoopBackOff',
+                'CreateContainerConfigError',
+                'CreateContainerError',
+                'ErrImagePull',
+                'ImagePullBackOff',
+                'InvalidImageName',
+                'StartErr',
+                'StartErr'
+            ];
 
-            return (
-                err ||
-                !status ||
-                (status.toLowerCase() === 'pending' &&
-                    waitingReason !== 'CrashLoopBackOff' &&
-                    waitingReason !== 'CreateContainerConfigError' &&
-                    waitingReason !== 'CreateContainerError' &&
-                    waitingReason !== 'ErrImagePull' &&
-                    waitingReason !== 'ImagePullBackOff' &&
-                    waitingReason !== 'InvalidImageName' &&
-                    waitingReason !== 'StartError')
-            );
+            return err || !status || (status.toLowerCase() === 'pending' && !errorStatusList.includes(waitingReason));
         };
     }
 
     /**
      * check build pod response
      * @method checkPodResponse
-     * @param {Object}      resp    pod response object
-     * @param {String}      buildId  buildId
+     * @param {String}      config.status    the pod status
+     * @param {String}      config.waitingReason    the pod waitigng reason
+     * @param {String}      config.buildId  buildId
+     * @return {Boolean}   isPodInitializing
      */
-    checkPodResponse(resp, buildId) {
-        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp, null, 2)}`);
-
-        if (resp.statusCode !== 200) {
-            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`);
-        }
-
-        const status = resp.body.status.phase.toLowerCase();
-        const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
-
+    checkPodResponse({ status, waitingReason, buildId }) {
         logger.info(`Build ${buildId} pod status: ${status}`);
         logger.info(`Build ${buildId} container waiting reason: ${waitingReason}`);
 
@@ -338,6 +333,8 @@ class K8sExecutor extends Executor {
         if (['ErrImagePull', 'ImagePullBackOff', 'InvalidImageName'].includes(waitingReason)) {
             throw new Error('Build failed to start. Please check if your image is valid.');
         }
+
+        return status === 'pending' && waitingReason === 'PodInitializing';
     }
 
     /**
@@ -407,54 +404,104 @@ class K8sExecutor extends Executor {
             if (resp.statusCode !== 201) {
                 throw new Error(`Failed to create pod:${JSON.stringify(resp.body)}`);
             }
-            const podName = resp.body.metadata.name;
-            let statusOptions = {
-                uri: `${this.podsUrl}/${podName}/status`,
-                method: 'GET',
-                headers: { Authorization: `Bearer ${this.token}` },
-                strictSSL: false,
-                maxAttempts: this.maxAttempts,
-                retryDelay: this.retryDelay,
-                retryStrategy: this.scheduleStatusRetryStrategy,
-                json: true
-            };
-            let res = await this.breaker.runCommand(statusOptions);
-
-            this.checkPodResponse(res, buildId);
+            const { status, nodeName, podName, waitingReason } = await this.getPodStatus({
+                podName: resp.body.metadata.name,
+                buildId,
+                retryStrategyFn: this.scheduleStatusRetryStrategy
+            });
+            const isPodInitializing = this.checkPodResponse({ status, waitingReason, buildId });
             const updateConfig = {
                 apiUri: this.ecosystem.api,
                 buildId,
                 token
             };
 
-            if (res.body.spec && res.body.spec.nodeName) {
-                updateConfig.stats = {
-                    hostname: res.body.spec.nodeName,
-                    imagePullStartTime: new Date().toISOString()
-                };
+            if (nodeName) {
+                Object.assign(updateConfig, {
+                    stats: {
+                        hostname: nodeName,
+                        imagePullStartTime: new Date().toISOString()
+                    }
+                });
             } else {
-                updateConfig.statusMessage = 'Waiting for resources to be available.';
+                Object.assign(updateConfig, { statusMessage: 'Waiting for resources to be available.' });
             }
-            await this.updateBuild(updateConfig);
-            await new Promise(r => setTimeout(r, this.podStatusQueryDelay));
-            statusOptions = {
-                uri: `${this.podsUrl}/${podName}/status`,
-                method: 'GET',
-                headers: { Authorization: `Bearer ${this.token}` },
-                strictSSL: false,
-                maxAttempts: this.maxAttempts,
-                retryDelay: this.retryDelay,
-                retryStrategy: this.pendingStatusRetryStrategy,
-                json: true
-            };
-            res = await this.breaker.runCommand(statusOptions);
-            this.checkPodResponse(res, buildId);
 
-            return null;
+            await this.updateBuild(updateConfig);
+
+            return (
+                isPodInitializing &&
+                (await this.callWithRetry(
+                    async args => {
+                        const data = await this.getPodStatus(args);
+
+                        return this.checkPodResponse(data);
+                    },
+                    { podName, buildId, retryStrategyFn: this.pendingStatusRetryStrategy }
+                ))
+            );
         } catch (err) {
             logger.error(`Failed to run pod for build id:${buildId}: ${err.message}`);
             throw err;
         }
+    }
+
+    /**
+     *
+     * @param {Function} fn the fn to execute
+     * @param {Object} args  the args of the fn
+     * @param {Number} limit max limit of retries
+     * @returns {Promise} resolves to null or error
+     */
+    async callWithRetry(fn, args, limit = 0) {
+        const result = await fn(args);
+
+        if (!result) {
+            return result;
+        }
+        if (limit > this.podStatusQueryRetryLimit) {
+            throw new Error('Failed to create pod after several retries');
+        }
+        await new Promise(r => setTimeout(r, this.podStatusQueryDelay));
+
+        return this.callWithRetry(fn, args, limit + 1);
+    }
+
+    /**
+     *
+     * @param {String} config.podName the pod name
+     * @param {String} config.buildId the build id
+     * @param {Function} config.retryStrategyFn
+     * @returns {Object} the status and pod waiting reason
+     */
+    async getPodStatus({ podName, buildId, retryStrategyFn }) {
+        logger.info(`Get pod status for ${podName} and buildId: ${buildId}`);
+
+        const statusOptions = {
+            uri: `${this.podsUrl}/${podName}/status`,
+            method: 'GET',
+            headers: { Authorization: `Bearer ${this.token}` },
+            strictSSL: false,
+            maxAttempts: this.maxAttempts,
+            retryDelay: this.retryDelay,
+            retryStrategy: retryStrategyFn,
+            json: true
+        };
+        const resp = await this.breaker.runCommand(statusOptions);
+
+        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
+        if (resp.statusCode !== 200) {
+            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+        }
+
+        const nodeName = resp.body.spec && resp.body.spec.nodeName;
+        const responsePodName = resp.body.metadata.name;
+        const status = resp.body.status.phase.toLowerCase();
+        const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
+
+        logger.info(`Fetched status ${status} for ${responsePodName} and buildId: ${buildId}`);
+
+        return { status, nodeName, podName: responsePodName, waitingReason, buildId };
     }
 
     /**

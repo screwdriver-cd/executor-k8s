@@ -454,6 +454,9 @@ describe('index', function() {
                     },
                     spec: {
                         nodeName: 'node1.my.k8s.cluster.com'
+                    },
+                    metadata: {
+                        name: 'beta_15'
                     }
                 }
             };
@@ -490,14 +493,39 @@ describe('index', function() {
             };
 
             return executor.start(fakeStartConfig).then(() => {
-                assert.equal(requestRetryMock.callCount, 4);
+                assert.equal(requestRetryMock.callCount, 3);
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
                 assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
                 assert.calledWith(requestRetryMock.thirdCall, putConfig);
-                getConfig.retryStrategy = executor.pendingStatusRetryStrategy;
-                assert.calledWith(requestRetryMock.lastCall, sinon.match(getConfig));
                 clock.restore();
             });
+        });
+
+        it('errors with maximum retries when pod status is podinitializing', () => {
+            const dateNow = Date.now();
+            const isoTime = new Date(dateNow).toISOString();
+
+            putConfig.body.stats = {
+                hostname: 'node1.my.k8s.cluster.com',
+                imagePullStartTime: isoTime
+            };
+            fakeGetResponse.body.status.phase = 'pending';
+            fakeGetResponse.body.status.containerStatuses = [
+                {
+                    state: {
+                        waiting: { reason: 'PodInitializing' }
+                    }
+                }
+            ];
+
+            return executor
+                .start(fakeStartConfig)
+                .then(() => {
+                    throw new Error('did not fail');
+                })
+                .catch(err => {
+                    assert.deepEqual(err.message, 'Failed to create pod after several retries');
+                });
         });
 
         it('sets the memory appropriately when ram is set to HIGH', () => {
@@ -779,7 +807,7 @@ describe('index', function() {
                     message: 'cannot get pod status'
                 }
             };
-            const returnMessage = `Failed to get pod status:${JSON.stringify(returnResponse.body, null, 2)}`;
+            const returnMessage = `Failed to get pod status:${JSON.stringify(returnResponse.body)}`;
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -799,6 +827,9 @@ describe('index', function() {
                 body: {
                     status: {
                         phase: 'failed'
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -832,6 +863,9 @@ describe('index', function() {
                                 }
                             }
                         ]
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -866,6 +900,9 @@ describe('index', function() {
                                 }
                             }
                         ]
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -900,6 +937,9 @@ describe('index', function() {
                                 }
                             }
                         ]
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -934,6 +974,9 @@ describe('index', function() {
                                 }
                             }
                         ]
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -968,6 +1011,9 @@ describe('index', function() {
                                 }
                             }
                         ]
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -1002,6 +1048,9 @@ describe('index', function() {
                                 }
                             }
                         ]
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -1036,6 +1085,9 @@ describe('index', function() {
                                 }
                             }
                         ]
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -1069,6 +1121,9 @@ describe('index', function() {
                                 }
                             }
                         ]
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -1093,6 +1148,9 @@ describe('index', function() {
                 body: {
                     status: {
                         phase: 'failed'
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -1116,6 +1174,9 @@ describe('index', function() {
                 body: {
                     statusCode: 500,
                     message: 'lol'
+                },
+                metadata: {
+                    name: 'pod1'
                 }
             };
             const returnMessage = `Failed to create pod:${JSON.stringify(returnResponse.body)}`;
