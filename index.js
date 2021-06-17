@@ -12,6 +12,7 @@ const yaml = require('js-yaml');
 const _ = require('lodash');
 const jwt = require('jsonwebtoken');
 const logger = require('screwdriver-logger');
+const amqp = require('amqp-connection-manager');
 
 const DEFAULT_BUILD_TIMEOUT = 90; // 90 minutes
 const MAX_BUILD_TIMEOUT = 120; // 120 minutes
@@ -33,7 +34,6 @@ const DOCKER_MEMORY_RESOURCE = 'dockerRam';
 const DOCKER_CPU_RESOURCE = 'dockerCpu';
 const ANNOTATIONS_PATH = 'metadata.annotations';
 const LABELS_PATH = 'metadata.labels';
-const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
 const TERMINATION_GRACE_PERIOD_SECONDS = 'terminationGracePeriodSeconds';
 const POD_STATUSQUERY_RETRYDELAY_MS = 500;
@@ -214,6 +214,10 @@ class K8sExecutor extends Executor {
      * @param  {String}  [options.ecosystem.cache.md5check=false]                Value for build cache md5check - true / false; used only when cache.strategy is disk
      * @param  {String}  [options.ecosystem.cache.max_size_mb=0]                 Value for build cache max size in mb; used only when cache.strategy is disk
      * @param  {String}  [options.ecosystem.cache.max_go_threads=10000]          Value for build cache max go threads; used only when cache.strategy is disk
+     * @param  {String}  [options.retryQueue.enabled=true]                       Value for retry queue enable status - true / false;
+     * @param  {String}  [options.retryQueue.amqpUri='']                         Value for retry queue uri
+     * @param  {String}  [options.retryQueue.exchange='']                        Value for build retryQueue exchange; used only when retryQueue.enabled is true
+     * @param  {String}  [options.retryQueue.connectOptions='']                  Value for build retryQueue connect options; used only when retryQueue.enabled is true
      */
     constructor(options = {}) {
         super();
@@ -285,58 +289,9 @@ class K8sExecutor extends Executor {
 
             return err || !scheduled;
         };
-        this.pendingStatusRetryStrategy = (err, response, body) => {
-            const waitingReason = hoek.reach(body, CONTAINER_WAITING_REASON_PATH);
-            const status = hoek.reach(body, 'status.phase');
-
-            return (
-                err ||
-                !status ||
-                (status.toLowerCase() === 'pending' &&
-                    waitingReason !== 'CrashLoopBackOff' &&
-                    waitingReason !== 'CreateContainerConfigError' &&
-                    waitingReason !== 'CreateContainerError' &&
-                    waitingReason !== 'ErrImagePull' &&
-                    waitingReason !== 'ImagePullBackOff' &&
-                    waitingReason !== 'InvalidImageName' &&
-                    waitingReason !== 'StartError')
-            );
-        };
-    }
-
-    /**
-     * check build pod response
-     * @method checkPodResponse
-     * @param {Object}      resp    pod response object
-     * @param {String}      buildId  buildId
-     */
-    checkPodResponse(resp, buildId) {
-        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp, null, 2)}`);
-
-        if (resp.statusCode !== 200) {
-            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`);
-        }
-
-        const status = resp.body.status.phase.toLowerCase();
-        const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
-
-        logger.info(`Build ${buildId} pod status: ${status}`);
-        logger.info(`Build ${buildId} container waiting reason: ${waitingReason}`);
-
-        if (status === 'failed' || status === 'unknown') {
-            throw new Error(`Failed to create pod. Pod status is: ${status}`);
-        }
-
-        if (
-            ['CrashLoopBackOff', 'CreateContainerConfigError', 'CreateContainerError', 'StartError'].includes(
-                waitingReason
-            )
-        ) {
-            throw new Error('Build failed to start. Please reach out to your cluster admin for help.');
-        }
-
-        if (['ErrImagePull', 'ImagePullBackOff', 'InvalidImageName'].includes(waitingReason)) {
-            throw new Error('Build failed to start. Please check if your image is valid.');
+        if (options.retryQueue) {
+            this.retryQueue = options.retryQueue;
+            this.retryQueueConn = undefined;
         }
     }
 
@@ -408,53 +363,131 @@ class K8sExecutor extends Executor {
                 throw new Error(`Failed to create pod:${JSON.stringify(resp.body)}`);
             }
             const podName = resp.body.metadata.name;
-            let statusOptions = {
-                uri: `${this.podsUrl}/${podName}/status`,
-                method: 'GET',
-                headers: { Authorization: `Bearer ${this.token}` },
-                strictSSL: false,
-                maxAttempts: this.maxAttempts,
-                retryDelay: this.retryDelay,
-                retryStrategy: this.scheduleStatusRetryStrategy,
-                json: true
-            };
-            let res = await this.breaker.runCommand(statusOptions);
+            const { status, nodeName } = await this.getPodStatus(podName, buildId, this.scheduleStatusRetryStrategy);
 
-            this.checkPodResponse(res, buildId);
+            if (status === 'pending') {
+                this.pushToRetryQueue(config, buildId);
+            }
+
             const updateConfig = {
                 apiUri: this.ecosystem.api,
                 buildId,
                 token
             };
 
-            if (res.body.spec && res.body.spec.nodeName) {
+            if (nodeName) {
                 updateConfig.stats = {
-                    hostname: res.body.spec.nodeName,
+                    hostname: nodeName,
                     imagePullStartTime: new Date().toISOString()
                 };
             } else {
                 updateConfig.statusMessage = 'Waiting for resources to be available.';
             }
             await this.updateBuild(updateConfig);
-            await new Promise(r => setTimeout(r, this.podStatusQueryDelay));
-            statusOptions = {
-                uri: `${this.podsUrl}/${podName}/status`,
-                method: 'GET',
-                headers: { Authorization: `Bearer ${this.token}` },
-                strictSSL: false,
-                maxAttempts: this.maxAttempts,
-                retryDelay: this.retryDelay,
-                retryStrategy: this.pendingStatusRetryStrategy,
-                json: true
-            };
-            res = await this.breaker.runCommand(statusOptions);
-            this.checkPodResponse(res, buildId);
-
-            return null;
         } catch (err) {
             logger.error(`Failed to run pod for build id:${buildId}: ${err.message}`);
             throw err;
         }
+    }
+
+    /**
+     * Get the retry queue connection, if it exists reuse it, otherwise create it
+     * @method getRetryQueueConn
+     * @return {Promise}
+     */
+    getRetryQueueConn() {
+        logger.info('Getting retry queue connection.');
+
+        if (this.retryQueueConn) {
+            return this.retryQueueConn;
+        }
+
+        const { amqpUri, connectOptions } = this.retryQueue;
+
+        this.retryQueueConn = amqp.connect([amqpUri], connectOptions);
+        logger.info('Creating new retry queue connection.');
+
+        this.retryQueueConn.on('connect', () => logger.info('Connected to retry queue!'));
+        this.retryQueueConn.on('disconnect', params => logger.info('Disconnected from retry queue.', params.err.stack));
+
+        return this.retryQueueConn;
+    }
+
+    /**
+     * Pushes a message to the retry queue
+     * @param {message} message to be pushed to queue
+     * @param {messageId} messageId id of the message queue
+     * @returns {Promise} resolves to null or error
+     */
+    async pushToRetryQueue(message, messageId) {
+        const { queue, exchange, enabled } = this.retryQueue;
+
+        if (!enabled) {
+            return Promise.resolve();
+        }
+        const channelWrapper = this.getRetryQueueConn().createChannel({
+            json: true,
+            setup: channel => channel.checkExchange(exchange)
+        });
+
+        logger.info('publishing msg to retry queue: %s', messageId);
+
+        return channelWrapper
+            .publish(exchange, queue, message, {
+                contentType: 'application/json',
+                persistent: true
+            })
+            .then(() => {
+                logger.info('successfully publishing msg id %s -> queue %s', messageId, queue);
+
+                return channelWrapper.close();
+            })
+            .catch(err => {
+                logger.error('publishing failed to retry queue: %s', err.message);
+                channelWrapper.close();
+
+                throw err;
+            });
+    }
+
+    /**
+     *
+     * @param {String} podName the pod name
+     * @param {String} buildId the build id
+     * @param {Function} retryStrategyFn fn to define retry logic
+     * @returns {Object} the status and node name
+     */
+    async getPodStatus(podName, buildId, retryStrategyFn) {
+        logger.info(`Get pod status for ${podName} and buildId: ${buildId}`);
+
+        const statusOptions = {
+            uri: `${this.podsUrl}/${podName}/status`,
+            method: 'GET',
+            headers: { Authorization: `Bearer ${this.token}` },
+            strictSSL: false,
+            maxAttempts: this.maxAttempts,
+            retryDelay: this.retryDelay,
+            retryStrategy: retryStrategyFn,
+            json: true
+        };
+        const resp = await this.breaker.runCommand(statusOptions);
+
+        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
+        if (resp.statusCode !== 200) {
+            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+        }
+
+        const nodeName = resp.body.spec && resp.body.spec.nodeName;
+        const responsePodName = resp.body.metadata.name;
+        const status = resp.body.status.phase.toLowerCase();
+
+        logger.info(`BuilId:${buildId}, status:${status}, podName:${responsePodName}`);
+
+        if (status === 'failed' || status === 'unknown') {
+            throw new Error(`Failed to create pod. Pod status is: ${status}`);
+        }
+
+        return { status, nodeName };
     }
 
     /**

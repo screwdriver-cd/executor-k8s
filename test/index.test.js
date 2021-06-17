@@ -42,6 +42,7 @@ describe('index', function() {
     let requestRetryMock;
     let fsMock;
     let executor;
+    let ampqConnMock;
     const testBuildId = 15;
     const testToken = 'abcdefg';
     const testApiUri = 'http://api:8080';
@@ -158,7 +159,13 @@ describe('index', function() {
                 lifecycleHooks: {}
             },
             fusebox: { retry: { minTimeout: 1 } },
-            prefix: 'beta_'
+            prefix: 'beta_',
+            retryQueue: {
+                enabled: true,
+                amqpUri: 'amqpuri',
+                exchange: 'foo',
+                connectOptions: '{bar:1}'
+            }
         };
         requestRetryMock = sinon.stub();
 
@@ -171,9 +178,26 @@ describe('index', function() {
 
         fsMock.readFileSync.withArgs('/var/run/secrets/kubernetes.io/serviceaccount/token').returns('api_key');
         fsMock.readFileSync.withArgs(sinon.match(/config\/pod.yaml.hbs/)).returns(TEST_TIM_YAML);
+        class AmqpConnectionMock {
+            constructor() {
+                this.wrapper = {
+                    publish: sinon.stub()
+                };
+            }
 
+            connect() {
+                return {
+                    on: sinon.stub(),
+                    createChannel: () => {
+                        return this.wrapper;
+                    }
+                };
+            }
+        }
+        ampqConnMock = new AmqpConnectionMock();
         mockery.registerMock('fs', fsMock);
         mockery.registerMock('requestretry', requestRetryMock);
+        mockery.registerMock('amqp-connection-manager', ampqConnMock);
         /* eslint-disable global-require */
         Executor = require('../index');
         /* eslint-enable global-require */
@@ -454,6 +478,9 @@ describe('index', function() {
                     },
                     spec: {
                         nodeName: 'node1.my.k8s.cluster.com'
+                    },
+                    metadata: {
+                        name: 'beta_15'
                     }
                 }
             };
@@ -490,14 +517,31 @@ describe('index', function() {
             };
 
             return executor.start(fakeStartConfig).then(() => {
-                assert.equal(requestRetryMock.callCount, 4);
+                assert.equal(requestRetryMock.callCount, 3);
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
                 assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
                 assert.calledWith(requestRetryMock.thirdCall, putConfig);
-                getConfig.retryStrategy = executor.pendingStatusRetryStrategy;
-                assert.calledWith(requestRetryMock.lastCall, sinon.match(getConfig));
                 clock.restore();
             });
+        });
+
+        it('does not push to retry queue if status is not pending', () => {
+            fakeGetResponse.body.status.phase = 'running';
+
+            return executor
+                .start(fakeStartConfig)
+                .then(() => {
+                    assert.equal(requestRetryMock.callCount, 3);
+                    assert.calledWith(requestRetryMock.firstCall, postConfig);
+                    assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+                    assert.notCalled(ampqConnMock.connect().on);
+                    assert.notCalled(ampqConnMock.connect().createChannel().publish);
+                })
+                .catch(err => {
+                    console.log(err);
+
+                    throw new Error('should not fail');
+                });
         });
 
         it('sets the memory appropriately when ram is set to HIGH', () => {
@@ -779,7 +823,7 @@ describe('index', function() {
                     message: 'cannot get pod status'
                 }
             };
-            const returnMessage = `Failed to get pod status:${JSON.stringify(returnResponse.body, null, 2)}`;
+            const returnMessage = `Failed to get pod status:${JSON.stringify(returnResponse.body)}`;
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
@@ -799,6 +843,9 @@ describe('index', function() {
                 body: {
                     status: {
                         phase: 'failed'
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -816,7 +863,7 @@ describe('index', function() {
             );
         });
 
-        it('returns error when pod waiting reason is CrashLoopBackOff', () => {
+        it('pushes to retry queue when pod status is pending', () => {
             const returnResponse = {
                 statusCode: 200,
                 body: {
@@ -826,31 +873,32 @@ describe('index', function() {
                             {
                                 state: {
                                     waiting: {
-                                        reason: 'CrashLoopBackOff',
-                                        message: 'crash loop backoff'
+                                        reason: 'PodInitializing'
                                     }
                                 }
                             }
                         ]
+                    },
+                    metadata: {
+                        name: 'pod1'
+                    },
+                    spec: {
+                        nodeName: 'node1.my.k8s.cluster.com'
                     }
                 }
             };
 
-            const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
-
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
-            return executor.start(fakeStartConfig).then(
-                () => {
-                    throw new Error('did not fail');
-                },
-                err => {
-                    assert.equal(err.message, returnMessage);
-                }
-            );
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+                assert.calledOnce(ampqConnMock.connect().createChannel().publish);
+                assert.calledWith(requestRetryMock.lastCall, sinon.match(putConfig));
+            });
         });
 
-        it('returns error when pod waiting reason is CreateContainerConfigError', () => {
+        it('pushes to retry queue and does not error when pod is pending', () => {
             const returnResponse = {
                 statusCode: 200,
                 body: {
@@ -866,190 +914,21 @@ describe('index', function() {
                                 }
                             }
                         ]
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
-
-            const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
             return executor.start(fakeStartConfig).then(
                 () => {
-                    throw new Error('did not fail');
+                    assert.calledOnce(ampqConnMock.connect().createChannel().publish);
                 },
-                err => {
-                    assert.equal(err.message, returnMessage);
-                }
-            );
-        });
-
-        it('returns error when pod waiting reason is CreateContainerError', () => {
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    status: {
-                        phase: 'pending',
-                        containerStatuses: [
-                            {
-                                state: {
-                                    waiting: {
-                                        reason: 'CreateContainerError',
-                                        message: 'create container error'
-                                    }
-                                }
-                            }
-                        ]
-                    }
-                }
-            };
-
-            const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
-
-            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
-
-            return executor.start(fakeStartConfig).then(
                 () => {
-                    throw new Error('did not fail');
-                },
-                err => {
-                    assert.equal(err.message, returnMessage);
-                }
-            );
-        });
-
-        it('returns error when pod waiting reason is ErrImagePull', () => {
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    status: {
-                        phase: 'pending',
-                        containerStatuses: [
-                            {
-                                state: {
-                                    waiting: {
-                                        reason: 'ErrImagePull',
-                                        message: 'can not pull image'
-                                    }
-                                }
-                            }
-                        ]
-                    }
-                }
-            };
-
-            const returnMessage = 'Build failed to start. Please check if your image is valid.';
-
-            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
-
-            return executor.start(fakeStartConfig).then(
-                () => {
-                    throw new Error('did not fail');
-                },
-                err => {
-                    assert.equal(err.message, returnMessage);
-                }
-            );
-        });
-
-        it('returns error when pod waiting reason is ImagePullBackOff', () => {
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    status: {
-                        phase: 'pending',
-                        containerStatuses: [
-                            {
-                                state: {
-                                    waiting: {
-                                        reason: 'ImagePullBackOff',
-                                        message: 'can not pull image'
-                                    }
-                                }
-                            }
-                        ]
-                    }
-                }
-            };
-
-            const returnMessage = 'Build failed to start. Please check if your image is valid.';
-
-            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
-
-            return executor.start(fakeStartConfig).then(
-                () => {
-                    throw new Error('did not fail');
-                },
-                err => {
-                    assert.equal(err.message, returnMessage);
-                }
-            );
-        });
-
-        it('returns error when pod waiting reason is InvalidImageName', () => {
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    status: {
-                        phase: 'pending',
-                        containerStatuses: [
-                            {
-                                state: {
-                                    waiting: {
-                                        reason: 'InvalidImageName',
-                                        message: 'invalid reference format'
-                                    }
-                                }
-                            }
-                        ]
-                    }
-                }
-            };
-
-            const returnMessage = 'Build failed to start. Please check if your image is valid.';
-
-            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
-
-            return executor.start(fakeStartConfig).then(
-                () => {
-                    throw new Error('did not fail');
-                },
-                err => {
-                    assert.equal(err.message, returnMessage);
-                }
-            );
-        });
-
-        it('returns error when pod waiting reason is StartError', () => {
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    status: {
-                        phase: 'pending',
-                        containerStatuses: [
-                            {
-                                state: {
-                                    waiting: {
-                                        reason: 'StartError',
-                                        message: 'mount path errors'
-                                    }
-                                }
-                            }
-                        ]
-                    }
-                }
-            };
-
-            const returnMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
-
-            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
-
-            return executor.start(fakeStartConfig).then(
-                () => {
-                    throw new Error('did not fail');
-                },
-                err => {
-                    assert.equal(err.message, returnMessage);
+                    throw new Error('should not fail');
                 }
             );
         });
@@ -1069,6 +948,9 @@ describe('index', function() {
                                 }
                             }
                         ]
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -1093,6 +975,9 @@ describe('index', function() {
                 body: {
                     status: {
                         phase: 'failed'
+                    },
+                    metadata: {
+                        name: 'pod1'
                     }
                 }
             };
@@ -1116,6 +1001,9 @@ describe('index', function() {
                 body: {
                     statusCode: 500,
                     message: 'lol'
+                },
+                metadata: {
+                    name: 'pod1'
                 }
             };
             const returnMessage = `Failed to create pod:${JSON.stringify(returnResponse.body)}`;

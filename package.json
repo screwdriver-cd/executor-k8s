@@ -52,6 +52,8 @@
   },
   "dependencies": {
     "@hapi/hoek": "^9.0.4",
+    "amqp-connection-manager": "^3.2.2",
+    "amqplib": "^0.8.0",
     "circuit-fuses": "^4.0.3",
     "handlebars": "^4.7.6",
     "js-yaml": "^3.11.0",
