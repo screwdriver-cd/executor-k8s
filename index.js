@@ -12,7 +12,6 @@ const yaml = require('js-yaml');
 const _ = require('lodash');
 const jwt = require('jsonwebtoken');
 const logger = require('screwdriver-logger');
-const amqp = require('amqp-connection-manager');
 
 const DEFAULT_BUILD_TIMEOUT = 90; // 90 minutes
 const MAX_BUILD_TIMEOUT = 120; // 120 minutes
@@ -34,6 +33,7 @@ const DOCKER_MEMORY_RESOURCE = 'dockerRam';
 const DOCKER_CPU_RESOURCE = 'dockerCpu';
 const ANNOTATIONS_PATH = 'metadata.annotations';
 const LABELS_PATH = 'metadata.labels';
+const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
 const TERMINATION_GRACE_PERIOD_SECONDS = 'terminationGracePeriodSeconds';
 const POD_STATUSQUERY_RETRYDELAY_MS = 500;
@@ -214,10 +214,6 @@ class K8sExecutor extends Executor {
      * @param  {String}  [options.ecosystem.cache.md5check=false]                Value for build cache md5check - true / false; used only when cache.strategy is disk
      * @param  {String}  [options.ecosystem.cache.max_size_mb=0]                 Value for build cache max size in mb; used only when cache.strategy is disk
      * @param  {String}  [options.ecosystem.cache.max_go_threads=10000]          Value for build cache max go threads; used only when cache.strategy is disk
-     * @param  {String}  [options.retryQueue.enabled=true]                       Value for retry queue enable status - true / false;
-     * @param  {String}  [options.retryQueue.amqpUri='']                         Value for retry queue uri
-     * @param  {String}  [options.retryQueue.exchange='']                        Value for build retryQueue exchange; used only when retryQueue.enabled is true
-     * @param  {String}  [options.retryQueue.connectOptions='']                  Value for build retryQueue connect options; used only when retryQueue.enabled is true
      */
     constructor(options = {}) {
         super();
@@ -289,10 +285,11 @@ class K8sExecutor extends Executor {
 
             return err || !scheduled;
         };
-        if (options.retryQueue) {
-            this.retryQueue = options.retryQueue;
-            this.retryQueueConn = undefined;
-        }
+        this.pendingStatusRetryStrategy = (err, response, body) => {
+            const status = hoek.reach(body, 'status.phase');
+
+            return err || !status || status.toLowerCase() === 'pending';
+        };
     }
 
     /**
@@ -363,11 +360,7 @@ class K8sExecutor extends Executor {
                 throw new Error(`Failed to create pod:${JSON.stringify(resp.body)}`);
             }
             const podName = resp.body.metadata.name;
-            const { status, nodeName } = await this.getPodStatus(podName, buildId, this.scheduleStatusRetryStrategy);
-
-            if (status === 'pending') {
-                this.pushToRetryQueue(config, buildId);
-            }
+            const { isPending, nodeName } = await this.getPodStatus(podName, buildId);
 
             const updateConfig = {
                 apiUri: this.ecosystem.api,
@@ -384,6 +377,8 @@ class K8sExecutor extends Executor {
                 updateConfig.statusMessage = 'Waiting for resources to be available.';
             }
             await this.updateBuild(updateConfig);
+
+            return !isPending;
         } catch (err) {
             logger.error(`Failed to run pod for build id:${buildId}: ${err.message}`);
             throw err;
@@ -391,73 +386,12 @@ class K8sExecutor extends Executor {
     }
 
     /**
-     * Get the retry queue connection, if it exists reuse it, otherwise create it
-     * @method getRetryQueueConn
-     * @return {Promise}
-     */
-    getRetryQueueConn() {
-        logger.info('Getting retry queue connection.');
-
-        if (this.retryQueueConn) {
-            return this.retryQueueConn;
-        }
-
-        const { amqpUri, connectOptions } = this.retryQueue;
-
-        this.retryQueueConn = amqp.connect([amqpUri], connectOptions);
-        logger.info('Creating new retry queue connection.');
-
-        this.retryQueueConn.on('connect', () => logger.info('Connected to retry queue!'));
-        this.retryQueueConn.on('disconnect', params => logger.info('Disconnected from retry queue.', params.err.stack));
-
-        return this.retryQueueConn;
-    }
-
-    /**
-     * Pushes a message to the retry queue
-     * @param {message} message to be pushed to queue
-     * @param {messageId} messageId id of the message queue
-     * @returns {Promise} resolves to null or error
-     */
-    async pushToRetryQueue(message, messageId) {
-        const { queue, exchange, enabled } = this.retryQueue;
-
-        if (!enabled) {
-            return Promise.resolve();
-        }
-        const channelWrapper = this.getRetryQueueConn().createChannel({
-            json: true,
-            setup: channel => channel.checkExchange(exchange)
-        });
-
-        logger.info('publishing msg to retry queue: %s', messageId);
-
-        return channelWrapper
-            .publish(exchange, queue, message, {
-                contentType: 'application/json',
-                persistent: true
-            })
-            .then(() => {
-                logger.info('successfully publishing msg id %s -> queue %s', messageId, queue);
-
-                return channelWrapper.close();
-            })
-            .catch(err => {
-                logger.error('publishing failed to retry queue: %s', err.message);
-                channelWrapper.close();
-
-                throw err;
-            });
-    }
-
-    /**
      *
      * @param {String} podName the pod name
      * @param {String} buildId the build id
-     * @param {Function} retryStrategyFn fn to define retry logic
      * @returns {Object} the status and node name
      */
-    async getPodStatus(podName, buildId, retryStrategyFn) {
+    async getPodStatus(podName, buildId) {
         logger.info(`Get pod status for ${podName} and buildId: ${buildId}`);
 
         const statusOptions = {
@@ -467,7 +401,7 @@ class K8sExecutor extends Executor {
             strictSSL: false,
             maxAttempts: this.maxAttempts,
             retryDelay: this.retryDelay,
-            retryStrategy: retryStrategyFn,
+            retryStrategy: this.scheduleStatusRetryStrategy,
             json: true
         };
         const resp = await this.breaker.runCommand(statusOptions);
@@ -487,7 +421,7 @@ class K8sExecutor extends Executor {
             throw new Error(`Failed to create pod. Pod status is: ${status}`);
         }
 
-        return { status, nodeName };
+        return { isPending: status === 'pending', nodeName };
     }
 
     /**
@@ -684,6 +618,95 @@ class K8sExecutor extends Executor {
 
             throw err;
         }
+    }
+
+    /**
+     * async method _verify
+     * @param {Object} config
+     * @returns {Object} the failure message
+     */
+    async _verify(config) {
+        const { buildId } = config;
+        const pods = await this.getPods(buildId);
+
+        logger.info(`Fetched pod list for:${buildId}, count:${pods.length}`);
+
+        let message;
+        let waitingReason;
+
+        pods.find(p => {
+            const status = p.status.phase.toLowerCase();
+
+            waitingReason = hoek.reach(p, CONTAINER_WAITING_REASON_PATH);
+
+            if (status === 'failed' || status === 'unknown') {
+                message = `Failed to create pod. Pod status is: ${status}`;
+
+                return true;
+            }
+
+            if (
+                ['CrashLoopBackOff', 'CreateContainerConfigError', 'CreateContainerError', 'StartError'].includes(
+                    waitingReason
+                )
+            ) {
+                message = 'Build failed to start. Please reach out to your cluster admin for help.';
+
+                return true;
+            }
+
+            if (['ErrImagePull', 'ImagePullBackOff', 'InvalidImageName'].includes(waitingReason)) {
+                message = 'Build failed to start. Please check if your image is valid.';
+
+                return true;
+            }
+
+            if (waitingReason === 'PodInitializing') {
+                return false;
+            }
+
+            return message !== undefined;
+        });
+
+        logger.info(`BuilId:${buildId}, status:${message}`);
+
+        if (waitingReason === 'PodInitializing') {
+            throw new Error('Build failed to start. Pod is still intializing.');
+        }
+
+        return message;
+    }
+
+    /**
+     *
+     * @param {String} buildId the build id
+     * @param {String} token the jwt token
+     * @returns {Array} array of pods
+     */
+    async getPods(buildId) {
+        logger.info(`Get pod status for and buildId: ${buildId}`);
+
+        const statusOptions = {
+            uri: this.podsUrl,
+            method: 'GET',
+            headers: { Authorization: `Bearer ${this.token}` },
+            strictSSL: false,
+            maxAttempts: this.maxAttempts,
+            retryDelay: this.retryDelay,
+            retryStrategy: this.pendingStatusRetryStrategy,
+            json: true,
+            qs: {
+                labelSelector: `sdbuild=${this.prefix}${buildId}`
+            }
+        };
+        const resp = await this.breaker.runCommand(statusOptions); // list of pods
+
+        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
+        if (resp.statusCode !== 200) {
+            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+        }
+
+        return resp.body.items;
     }
 
     /**

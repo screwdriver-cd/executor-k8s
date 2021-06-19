@@ -42,7 +42,6 @@ describe('index', function() {
     let requestRetryMock;
     let fsMock;
     let executor;
-    let ampqConnMock;
     const testBuildId = 15;
     const testToken = 'abcdefg';
     const testApiUri = 'http://api:8080';
@@ -159,13 +158,7 @@ describe('index', function() {
                 lifecycleHooks: {}
             },
             fusebox: { retry: { minTimeout: 1 } },
-            prefix: 'beta_',
-            retryQueue: {
-                enabled: true,
-                amqpUri: 'amqpuri',
-                exchange: 'foo',
-                connectOptions: '{bar:1}'
-            }
+            prefix: 'beta_'
         };
         requestRetryMock = sinon.stub();
 
@@ -178,26 +171,9 @@ describe('index', function() {
 
         fsMock.readFileSync.withArgs('/var/run/secrets/kubernetes.io/serviceaccount/token').returns('api_key');
         fsMock.readFileSync.withArgs(sinon.match(/config\/pod.yaml.hbs/)).returns(TEST_TIM_YAML);
-        class AmqpConnectionMock {
-            constructor() {
-                this.wrapper = {
-                    publish: sinon.stub()
-                };
-            }
 
-            connect() {
-                return {
-                    on: sinon.stub(),
-                    createChannel: () => {
-                        return this.wrapper;
-                    }
-                };
-            }
-        }
-        ampqConnMock = new AmqpConnectionMock();
         mockery.registerMock('fs', fsMock);
         mockery.registerMock('requestretry', requestRetryMock);
-        mockery.registerMock('amqp-connection-manager', ampqConnMock);
         /* eslint-disable global-require */
         Executor = require('../index');
         /* eslint-enable global-require */
@@ -534,12 +510,8 @@ describe('index', function() {
                     assert.equal(requestRetryMock.callCount, 3);
                     assert.calledWith(requestRetryMock.firstCall, postConfig);
                     assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
-                    assert.notCalled(ampqConnMock.connect().on);
-                    assert.notCalled(ampqConnMock.connect().createChannel().publish);
                 })
-                .catch(err => {
-                    console.log(err);
-
+                .catch(() => {
                     throw new Error('should not fail');
                 });
         });
@@ -893,7 +865,7 @@ describe('index', function() {
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
                 assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
-                assert.calledOnce(ampqConnMock.connect().createChannel().publish);
+
                 assert.calledWith(requestRetryMock.lastCall, sinon.match(putConfig));
             });
         });
@@ -924,9 +896,7 @@ describe('index', function() {
             requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse, returnResponse.body);
 
             return executor.start(fakeStartConfig).then(
-                () => {
-                    assert.calledOnce(ampqConnMock.connect().createChannel().publish);
-                },
+                () => {},
                 () => {
                     throw new Error('should not fail');
                 }
@@ -1153,6 +1123,387 @@ describe('index', function() {
 
             setLifecycleHooks(fakeConfig, lifecycleHooks, 'beta_15');
             assert.deepEqual(fakeConfig, updatedConfig);
+        });
+    });
+
+    describe.only('verify', async () => {
+        let fakeVerifyConfig;
+        let getPodsConfig;
+        let fakeGetPodsResponse;
+
+        beforeEach(() => {
+            fakeVerifyConfig = {
+                annotations: {},
+                buildId: testBuildId,
+                container: testContainer,
+                token: testToken,
+                apiUri: testApiUri
+            };
+            getPodsConfig = {
+                uri: `${podsUrl}`,
+                method: 'GET',
+                headers: {
+                    Authorization: 'Bearer api_key'
+                },
+                strictSSL: false,
+                maxAttempts: MAXATTEMPTS,
+                retryDelay: RETRYDELAY,
+                retryStrategy: executor.pendingStatusRetryStrategy,
+                qs: {
+                    labelSelector: `sdbuild=beta_${testBuildId}`
+                }
+            };
+            fakeGetPodsResponse = {
+                statusCode: 200,
+                body: {
+                    items: [
+                        {
+                            status: {
+                                phase: 'pending'
+                            },
+                            spec: {
+                                nodeName: 'node1.my.k8s.cluster.com'
+                            },
+                            metadata: {
+                                name: 'beta_15-achb'
+                            }
+                        }
+                    ]
+                }
+            };
+            requestRetryMock
+                .withArgs(sinon.match({ method: 'GET' }))
+                .yieldsAsync(null, fakeGetPodsResponse, fakeGetPodsResponse.body);
+        });
+        it('gets all pods for given buildid', async () => {
+            await executor.verify(fakeVerifyConfig);
+            assert.calledOnce(requestRetryMock);
+            assert.calledWith(requestRetryMock, sinon.match(getPodsConfig));
+        });
+
+        it('return message when pod waiting reason is CrashLoopBackOff', async () => {
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'CrashLoopBackOff',
+                                    message: 'crash loop backoff'
+                                }
+                            }
+                        }
+                    ]
+                }
+            };
+
+            fakeGetPodsResponse.body.items.push(pod);
+
+            const expectedMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
+
+            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse, fakeGetPodsResponse.body);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal(expectedMessage, actualMessage);
+        });
+
+        it('return message when pod waiting reason is CreateContainerConfigError', async () => {
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'CreateContainerConfigError',
+                                    message: 'create container config error'
+                                }
+                            }
+                        }
+                    ]
+                }
+            };
+
+            fakeGetPodsResponse.body.items.push(pod);
+
+            const expectedMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
+
+            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse, fakeGetPodsResponse.body);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal(expectedMessage, actualMessage);
+        });
+
+        it('return message when pod waiting reason is CreateContainerError', async () => {
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'CreateContainerError',
+                                    message: 'create container error'
+                                }
+                            }
+                        }
+                    ]
+                }
+            };
+
+            fakeGetPodsResponse.body.items.push(pod);
+
+            const expectedMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
+
+            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse, fakeGetPodsResponse.body);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal(expectedMessage, actualMessage);
+        });
+
+        it('return message when pod waiting reason is ErrImagePull', async () => {
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'ErrImagePull',
+                                    message: 'can not pull image'
+                                }
+                            }
+                        }
+                    ]
+                }
+            };
+
+            fakeGetPodsResponse.body.items.push(pod);
+
+            const expectedMessage = 'Build failed to start. Please check if your image is valid.';
+
+            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse, fakeGetPodsResponse.body);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal(expectedMessage, actualMessage);
+        });
+
+        it('return message when pod waiting reason is ImagePullBackOff', async () => {
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'ImagePullBackOff',
+                                    message: 'can not pull image'
+                                }
+                            }
+                        }
+                    ]
+                }
+            };
+
+            fakeGetPodsResponse.body.items.push(pod);
+
+            const expectedMessage = 'Build failed to start. Please check if your image is valid.';
+
+            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse, fakeGetPodsResponse.body);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal(expectedMessage, actualMessage);
+        });
+
+        it('return message when pod waiting reason is InvalidImageName', async () => {
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'InvalidImageName',
+                                    message: 'invalid reference format'
+                                }
+                            }
+                        }
+                    ]
+                }
+            };
+
+            fakeGetPodsResponse.body.items.push(pod);
+
+            const expectedMessage = 'Build failed to start. Please check if your image is valid.';
+
+            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse, fakeGetPodsResponse.body);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal(expectedMessage, actualMessage);
+        });
+
+        it('return message when pod waiting reason is StartError', async () => {
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'StartError',
+                                    message: 'mount path errors'
+                                }
+                            }
+                        }
+                    ]
+                }
+            };
+
+            fakeGetPodsResponse.body.items.push(pod);
+
+            const expectedMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
+
+            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse, fakeGetPodsResponse.body);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal(expectedMessage, actualMessage);
+        });
+
+        it('return message when pod terminated and status is failed', async () => {
+            const pod = {
+                status: {
+                    phase: 'failed',
+                    containerStatuses: [
+                        {
+                            state: {
+                                terminated: {
+                                    reason: 'Error'
+                                }
+                            }
+                        }
+                    ]
+                }
+            };
+
+            fakeGetPodsResponse.body.items.push(pod);
+
+            const expectedMessage = 'Failed to create pod. Pod status is: failed';
+
+            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse, fakeGetPodsResponse.body);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal(expectedMessage, actualMessage);
+        });
+
+        it('return message when pod status is failed', async () => {
+            const pod = {
+                status: {
+                    phase: 'failed'
+                }
+            };
+
+            fakeGetPodsResponse.body.items.push(pod);
+            const expectedMessage = 'Failed to create pod. Pod status is: failed';
+
+            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse, fakeGetPodsResponse.body);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal(expectedMessage, actualMessage);
+        });
+
+        it('returns error when pod is still initializing', async () => {
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'PodIntializing',
+                                    message: 'pod is initializing'
+                                }
+                            }
+                        }
+                    ]
+                }
+            };
+            const expectedMessage = 'Build failed to start. Pod is still intializing.';
+
+            fakeGetPodsResponse.body.items.push(pod);
+            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse, fakeGetPodsResponse.body);
+
+            try {
+                await executor.verify(fakeVerifyConfig);
+            } catch (error) {
+                assert.equal(expectedMessage, error);
+            }
+        });
+
+        it('checks all pods for waiting reason', async () => {
+            const pod1 = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'PodInitializing',
+                                    message: 'pod is initializing'
+                                }
+                            }
+                        }
+                    ],
+                    metadata: {
+                        name: 'beta_15-dsvds'
+                    }
+                }
+            };
+
+            fakeGetPodsResponse.body.items.push(pod1);
+            const pod2 = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'ErrImagePull',
+                                    message: 'can not pull image'
+                                }
+                            }
+                        }
+                    ],
+                    metadata: {
+                        name: 'beta_15-degg'
+                    }
+                }
+            };
+
+            fakeGetPodsResponse.body.items.push(pod2);
+
+            const expectedMessage = 'Build failed to start. Please check if your image is valid.';
+
+            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse, fakeGetPodsResponse.body);
+
+            try {
+                const actualMessage = await executor.verify(fakeVerifyConfig);
+
+                assert.equal(expectedMessage, actualMessage);
+            } catch (error) {
+                console.log(error);
+
+                throw new Error('should not fail');
+            }
         });
     });
 });
