@@ -27,7 +27,7 @@ The class provides a couple options that are configurable in the instantiation o
 | config.prefix | String | '' | Prefix to container names ("") |
 | config.kubernetes.dnsPolicy | String | 'ClusterFirst' | DNS Policy for build pod |
 | config.kubernetes.imagePullPolicy | String | 'Always' | Image Pull Policy for build pod |
-} config.kubernetes.imagePullSecretName | String | '' | Name of image pull secret |
+| config.kubernetes.imagePullSecretName | String | '' | Name of image pull secret |
 | config.kubernetes.jobsNamespace | String | 'default' | Kubernetes namespace where builds are running on |
 | config.kubernetes.nodeSelectors | Object | {} | Object representing node label-value pairs |
 | config.kubernetes.preferredNodeSelectors | Object | {} | Object representing preferred node label-value pairs |
