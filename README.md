@@ -45,7 +45,7 @@ The class provides a couple options that are configurable in the instantiation o
 
 ### Methods
 
-For more information on `start`, `stop`, and `stats` please see the [executor-base-class].
+For more information on `start`, `stop`, `verify` and `stats` please see the [executor-base-class].
 
 ## Testing
 
