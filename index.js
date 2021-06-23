@@ -411,9 +411,9 @@ class K8sExecutor extends Executor {
             throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
         }
 
-        const nodeName = resp.body.spec && resp.body.spec.nodeName;
-        const responsePodName = resp.body.metadata.name;
-        const status = resp.body.status.phase.toLowerCase();
+        const nodeName = hoek.reach(resp, 'body.spec.nodeName');
+        const responsePodName = hoek.reach(resp, 'metadata.name');
+        const status = hoek.reach(resp, 'body.status.phase').toLowerCase();
 
         logger.info(`BuilId:${buildId}, status:${status}, podName:${responsePodName}`);
 
