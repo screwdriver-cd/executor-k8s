@@ -286,58 +286,10 @@ class K8sExecutor extends Executor {
             return err || !scheduled;
         };
         this.pendingStatusRetryStrategy = (err, response, body) => {
-            const waitingReason = hoek.reach(body, CONTAINER_WAITING_REASON_PATH);
             const status = hoek.reach(body, 'status.phase');
 
-            return (
-                err ||
-                !status ||
-                (status.toLowerCase() === 'pending' &&
-                    waitingReason !== 'CrashLoopBackOff' &&
-                    waitingReason !== 'CreateContainerConfigError' &&
-                    waitingReason !== 'CreateContainerError' &&
-                    waitingReason !== 'ErrImagePull' &&
-                    waitingReason !== 'ImagePullBackOff' &&
-                    waitingReason !== 'InvalidImageName' &&
-                    waitingReason !== 'StartError')
-            );
+            return err || !status || status.toLowerCase() === 'pending';
         };
-    }
-
-    /**
-     * check build pod response
-     * @method checkPodResponse
-     * @param {Object}      resp    pod response object
-     * @param {String}      buildId  buildId
-     */
-    checkPodResponse(resp, buildId) {
-        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp, null, 2)}`);
-
-        if (resp.statusCode !== 200) {
-            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body, null, 2)}`);
-        }
-
-        const status = resp.body.status.phase.toLowerCase();
-        const waitingReason = hoek.reach(resp.body, CONTAINER_WAITING_REASON_PATH);
-
-        logger.info(`Build ${buildId} pod status: ${status}`);
-        logger.info(`Build ${buildId} container waiting reason: ${waitingReason}`);
-
-        if (status === 'failed' || status === 'unknown') {
-            throw new Error(`Failed to create pod. Pod status is: ${status}`);
-        }
-
-        if (
-            ['CrashLoopBackOff', 'CreateContainerConfigError', 'CreateContainerError', 'StartError'].includes(
-                waitingReason
-            )
-        ) {
-            throw new Error('Build failed to start. Please reach out to your cluster admin for help.');
-        }
-
-        if (['ErrImagePull', 'ImagePullBackOff', 'InvalidImageName'].includes(waitingReason)) {
-            throw new Error('Build failed to start. Please check if your image is valid.');
-        }
     }
 
     /**
@@ -386,7 +338,7 @@ class K8sExecutor extends Executor {
      * @param  {String}   config.container      Container for the build to run in
      * @param  {String}   config.token          JWT for the Build
      * @param  {String}   [config.jobName]        jobName for the build
-     * @return {Promise}
+     * @return {Promise}  resoves to a boolean value if pod is still pending
      */
     async _start(config) {
         const { buildId, token } = config;
@@ -408,53 +360,68 @@ class K8sExecutor extends Executor {
                 throw new Error(`Failed to create pod:${JSON.stringify(resp.body)}`);
             }
             const podName = resp.body.metadata.name;
-            let statusOptions = {
-                uri: `${this.podsUrl}/${podName}/status`,
-                method: 'GET',
-                headers: { Authorization: `Bearer ${this.token}` },
-                strictSSL: false,
-                maxAttempts: this.maxAttempts,
-                retryDelay: this.retryDelay,
-                retryStrategy: this.scheduleStatusRetryStrategy,
-                json: true
-            };
-            let res = await this.breaker.runCommand(statusOptions);
+            const { isPending, nodeName } = await this.getPodStatus(podName, buildId);
 
-            this.checkPodResponse(res, buildId);
             const updateConfig = {
                 apiUri: this.ecosystem.api,
                 buildId,
                 token
             };
 
-            if (res.body.spec && res.body.spec.nodeName) {
+            if (nodeName) {
                 updateConfig.stats = {
-                    hostname: res.body.spec.nodeName,
+                    hostname: nodeName,
                     imagePullStartTime: new Date().toISOString()
                 };
             } else {
                 updateConfig.statusMessage = 'Waiting for resources to be available.';
             }
             await this.updateBuild(updateConfig);
-            await new Promise(r => setTimeout(r, this.podStatusQueryDelay));
-            statusOptions = {
-                uri: `${this.podsUrl}/${podName}/status`,
-                method: 'GET',
-                headers: { Authorization: `Bearer ${this.token}` },
-                strictSSL: false,
-                maxAttempts: this.maxAttempts,
-                retryDelay: this.retryDelay,
-                retryStrategy: this.pendingStatusRetryStrategy,
-                json: true
-            };
-            res = await this.breaker.runCommand(statusOptions);
-            this.checkPodResponse(res, buildId);
 
-            return null;
+            return !isPending;
         } catch (err) {
             logger.error(`Failed to run pod for build id:${buildId}: ${err.message}`);
             throw err;
         }
+    }
+
+    /**
+     *
+     * @param {String} podName the pod name
+     * @param {String} buildId the build id
+     * @returns {Object} the status and node name
+     */
+    async getPodStatus(podName, buildId) {
+        logger.info(`Get pod status for ${podName} and buildId: ${buildId}`);
+
+        const statusOptions = {
+            uri: `${this.podsUrl}/${podName}/status`,
+            method: 'GET',
+            headers: { Authorization: `Bearer ${this.token}` },
+            strictSSL: false,
+            maxAttempts: this.maxAttempts,
+            retryDelay: this.retryDelay,
+            retryStrategy: this.scheduleStatusRetryStrategy,
+            json: true
+        };
+        const resp = await this.breaker.runCommand(statusOptions);
+
+        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
+        if (resp.statusCode !== 200) {
+            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+        }
+
+        const nodeName = hoek.reach(resp, 'body.spec.nodeName');
+        const responsePodName = hoek.reach(resp, 'metadata.name');
+        const status = hoek.reach(resp, 'body.status.phase').toLowerCase();
+
+        logger.info(`BuildId:${buildId}, status:${status}, podName:${responsePodName}`);
+
+        if (status === 'failed' || status === 'unknown') {
+            throw new Error(`Failed to create pod. Pod status is: ${status}`);
+        }
+
+        return { isPending: status === 'pending', nodeName };
     }
 
     /**
@@ -651,6 +618,97 @@ class K8sExecutor extends Executor {
 
             throw err;
         }
+    }
+
+    /**
+     * checks for pod status and waiting reason
+     * and returns error message
+     * @method verify
+     * @param {Object} config
+     * @returns {Object} the failure message
+     */
+    async _verify(config) {
+        const { buildId } = config;
+        const pods = await this.getPods(buildId);
+
+        logger.info(`Fetched pod list for:${buildId}, count:${pods.length}`);
+
+        let message;
+        let waitingReason;
+
+        pods.find(p => {
+            const status = hoek.reach(p, 'status.phase').toLowerCase();
+
+            waitingReason = hoek.reach(p, CONTAINER_WAITING_REASON_PATH);
+
+            if (status === 'failed' || status === 'unknown') {
+                message = `Failed to create pod. Pod status is: ${status}`;
+
+                return true;
+            }
+
+            if (
+                ['CrashLoopBackOff', 'CreateContainerConfigError', 'CreateContainerError', 'StartError'].includes(
+                    waitingReason
+                )
+            ) {
+                message = 'Build failed to start. Please reach out to your cluster admin for help.';
+
+                return true;
+            }
+
+            if (['ErrImagePull', 'ImagePullBackOff', 'InvalidImageName'].includes(waitingReason)) {
+                message = 'Build failed to start. Please check if your image is valid.';
+
+                return true;
+            }
+
+            if (waitingReason === 'PodInitializing') {
+                return false;
+            }
+
+            return message !== undefined;
+        });
+
+        logger.info(`BuildId:${buildId}, status:${message}`);
+
+        if (waitingReason === 'PodInitializing') {
+            throw new Error('Build failed to start. Pod is still intializing.');
+        }
+
+        return message;
+    }
+
+    /**
+     *
+     * @param {String} buildId the build id
+     * @param {String} token the jwt token
+     * @returns {Array} array of pods
+     */
+    async getPods(buildId) {
+        logger.info(`Get pod status for and buildId: ${buildId}`);
+
+        const statusOptions = {
+            uri: this.podsUrl,
+            method: 'GET',
+            headers: { Authorization: `Bearer ${this.token}` },
+            strictSSL: false,
+            maxAttempts: this.maxAttempts,
+            retryDelay: this.retryDelay,
+            retryStrategy: this.pendingStatusRetryStrategy,
+            json: true,
+            qs: {
+                labelSelector: `sdbuild=${this.prefix}${buildId}`
+            }
+        };
+        const resp = await this.breaker.runCommand(statusOptions); // list of pods
+
+        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
+        if (resp.statusCode !== 200) {
+            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+        }
+
+        return resp.body.items;
     }
 
     /**
