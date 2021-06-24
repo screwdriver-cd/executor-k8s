@@ -338,7 +338,7 @@ class K8sExecutor extends Executor {
      * @param  {String}   config.container      Container for the build to run in
      * @param  {String}   config.token          JWT for the Build
      * @param  {String}   [config.jobName]        jobName for the build
-     * @return {Promise}
+     * @return {Promise}  resoves to a boolean value if pod is still pending
      */
     async _start(config) {
         const { buildId, token } = config;
@@ -415,7 +415,7 @@ class K8sExecutor extends Executor {
         const responsePodName = hoek.reach(resp, 'metadata.name');
         const status = hoek.reach(resp, 'body.status.phase').toLowerCase();
 
-        logger.info(`BuilId:${buildId}, status:${status}, podName:${responsePodName}`);
+        logger.info(`BuildId:${buildId}, status:${status}, podName:${responsePodName}`);
 
         if (status === 'failed' || status === 'unknown') {
             throw new Error(`Failed to create pod. Pod status is: ${status}`);
@@ -621,7 +621,9 @@ class K8sExecutor extends Executor {
     }
 
     /**
-     * async method _verify
+     * checks for pod status and waiting reason
+     * and returns error message
+     * @method verify
      * @param {Object} config
      * @returns {Object} the failure message
      */
@@ -635,7 +637,7 @@ class K8sExecutor extends Executor {
         let waitingReason;
 
         pods.find(p => {
-            const status = p.status.phase.toLowerCase();
+            const status = hoek.reach(p, 'status.phase').toLowerCase();
 
             waitingReason = hoek.reach(p, CONTAINER_WAITING_REASON_PATH);
 
@@ -668,7 +670,7 @@ class K8sExecutor extends Executor {
             return message !== undefined;
         });
 
-        logger.info(`BuilId:${buildId}, status:${message}`);
+        logger.info(`BuildId:${buildId}, status:${message}`);
 
         if (waitingReason === 'PodInitializing') {
             throw new Error('Build failed to start. Pod is still intializing.');
