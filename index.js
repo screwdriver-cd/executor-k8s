@@ -412,7 +412,7 @@ class K8sExecutor extends Executor {
         }
 
         const nodeName = hoek.reach(resp, 'body.spec.nodeName');
-        const responsePodName = hoek.reach(resp, 'metadata.name');
+        const responsePodName = hoek.reach(resp, 'body.metadata.name');
         const status = hoek.reach(resp, 'body.status.phase').toLowerCase();
 
         logger.info(`BuildId:${buildId}, status:${status}, podName:${responsePodName}`);
