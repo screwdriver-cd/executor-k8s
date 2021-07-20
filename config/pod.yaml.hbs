@@ -128,6 +128,16 @@ spec:
     - mountPath: /opt/sdeventcache
       name: sd-event-cache
     {{/if}}
+  env:
+    {{#if secret_entity}}
+      {{#each volume_mounts}}
+      - name: {{this.env_name}}
+        valueFrom:
+          secretKeyRef:
+            name: {{this.key_name}}
+            key: {{this.key}}
+      {{/each}}
+    {{/if}}
   volumes:
     - name: podinfo
       downwardAPI:
