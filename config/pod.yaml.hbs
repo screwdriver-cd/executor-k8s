@@ -52,6 +52,15 @@ spec:
       - name: DOCKER_HOST
         value: tcp://localhost:2375
     {{/if}}
+    {{#if secret_entity}}
+      {{#each volume_mounts}}
+      - name: {{this.env_name}}
+        valueFrom:
+          secretKeyRef:
+            name: {{this.key_name}}
+            key: {{this.key}}
+      {{/each}}
+    {{/if}}
     command:
     - "/opt/sd/launcher_entrypoint.sh"
     args:
