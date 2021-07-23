@@ -275,7 +275,7 @@ class K8sExecutor extends Executor {
         this.dockerFeatureEnabled = hoek.reach(options, 'kubernetes.dockerFeatureEnabled', { default: false });
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
-        this.secrets = hoek.reach(options, 'kubernetes.secrets', { default: {} });
+        this.secrets = hoek.reach(options, 'kubernetes.userSecrets', { default: {} });
         this.scheduleStatusRetryStrategy = (err, response, body) => {
             const conditions = hoek.reach(body, 'status.conditions');
             let scheduled = false;
@@ -523,6 +523,8 @@ class K8sExecutor extends Executor {
             ? Math.max(annotations[TERMINATION_GRACE_PERIOD_SECONDS], this.terminationGracePeriodSeconds)
             : this.terminationGracePeriodSeconds;
 
+        const secretsDisabled = this.secrets.length == 1 && Object.keys(this.secrets[0]).length === 0;
+
         const podTemplate = template({
             runtimeClass: this.runtimeClass,
             imagePullSecretName: this.imagePullSecretName,
@@ -567,7 +569,10 @@ class K8sExecutor extends Executor {
             dns_policy: this.dnsPolicy,
             image_pull_policy: this.imagePullPolicy,
             volume_mounts: this.volumeMounts,
-            secret_entity: this.secrets
+            secret_entity: {
+                isSecretDisabled: secretsDisabled,
+                secrets: this.secrets
+            }
         });
         const podConfig = yaml.safeLoad(podTemplate);
         const nodeSelectors = {};
