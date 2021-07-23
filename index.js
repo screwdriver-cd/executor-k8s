@@ -214,7 +214,7 @@ class K8sExecutor extends Executor {
      * @param  {String}  [options.ecosystem.cache.md5check=false]                Value for build cache md5check - true / false; used only when cache.strategy is disk
      * @param  {String}  [options.ecosystem.cache.max_size_mb=0]                 Value for build cache max size in mb; used only when cache.strategy is disk
      * @param  {String}  [options.ecosystem.cache.max_go_threads=10000]          Value for build cache max go threads; used only when cache.strategy is disk
-     * @param  {Object}  [options.kubernetes.secrets]                            Object representing secrets (e.g.: [ { "key_name": "sshca-secret", "key", "private" } ] )
+     * @param  {Object}  [options.kubernetes.secrets]                            Object representing secrets (e.g.: [ { "secret_name": "sshca", "key_name": "sshca-secret", "key", "private" } ] )
 
      */
     constructor(options = {}) {
@@ -523,7 +523,7 @@ class K8sExecutor extends Executor {
             ? Math.max(annotations[TERMINATION_GRACE_PERIOD_SECONDS], this.terminationGracePeriodSeconds)
             : this.terminationGracePeriodSeconds;
 
-        const secretsDisabled = this.secrets.length == 1 && Object.keys(this.secrets[0]).length === 0;
+        const secretsDisabled = this.secrets.length === 1 && Object.keys(this.secrets[0]).length === 0;
 
         const podTemplate = template({
             runtimeClass: this.runtimeClass,
@@ -570,7 +570,7 @@ class K8sExecutor extends Executor {
             image_pull_policy: this.imagePullPolicy,
             volume_mounts: this.volumeMounts,
             secret_entity: {
-                isSecretDisabled: secretsDisabled,
+                disabled: secretsDisabled,
                 secrets: this.secrets
             }
         });
