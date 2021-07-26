@@ -130,7 +130,7 @@ spec:
     {{/if}}
     env:
     {{#unless secret_entity.disabled}}
-      {{#each secret_entity}}
+      {{#each secret_entity.secrets}}
       - name: SD_KUBERNETES_{{this.secret_name}}
         valueFrom:
           secretKeyRef:
