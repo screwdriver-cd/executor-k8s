@@ -128,6 +128,16 @@ spec:
     - mountPath: /opt/sdeventcache
       name: sd-event-cache
     {{/if}}
+    env:
+    {{#unless secret_entity.disabled}}
+      {{#each secret_entity.secrets}}
+      - name: SD_KUBERNETES_{{this.secret_env}}
+        valueFrom:
+          secretKeyRef:
+            name: {{this.secret_name}}
+            key: {{this.secret_key}}
+      {{/each}}
+    {{/unless}}
   volumes:
     - name: podinfo
       downwardAPI:
@@ -175,3 +185,4 @@ spec:
         type: {{this.type}}
     {{/each}}
 
+    
