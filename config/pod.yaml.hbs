@@ -131,11 +131,11 @@ spec:
     env:
     {{#unless secret_entity.disabled}}
       {{#each secret_entity.secrets}}
-      - name: SD_KUBERNETES_{{this.secret_name}}
+      - name: SD_KUBERNETES_{{this.secret_env}}
         valueFrom:
           secretKeyRef:
-            name: {{this.key_name}}
-            key: {{this.key}}
+            name: {{this.secret_name}}
+            key: {{this.secret_key}}
       {{/each}}
     {{/unless}}
   volumes:

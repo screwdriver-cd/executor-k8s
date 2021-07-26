@@ -214,7 +214,7 @@ class K8sExecutor extends Executor {
      * @param  {String}  [options.ecosystem.cache.md5check=false]                Value for build cache md5check - true / false; used only when cache.strategy is disk
      * @param  {String}  [options.ecosystem.cache.max_size_mb=0]                 Value for build cache max size in mb; used only when cache.strategy is disk
      * @param  {String}  [options.ecosystem.cache.max_go_threads=10000]          Value for build cache max go threads; used only when cache.strategy is disk
-     * @param  {Object}  [options.kubernetes.secrets]                            Object representing secrets (e.g.: [ { "secret_name": "SSHCA", "key_name": "sd-secret", "key", "private" } ] )
+     * @param  {Object}  [options.kubernetes.secrets]                            Object representing secrets (e.g.: [ { "secret_env": "SSHCA", "secret_name": "sd-secret", "secret_key", "private" } ] )
 
      */
     constructor(options = {}) {
@@ -275,7 +275,7 @@ class K8sExecutor extends Executor {
         this.dockerFeatureEnabled = hoek.reach(options, 'kubernetes.dockerFeatureEnabled', { default: false });
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
-        this.secrets = hoek.reach(options, 'kubernetes.userSecrets', { default: {} });
+        this.secrets = hoek.reach(options, 'kubernetes.buildSecrets', { default: {} });
         this.scheduleStatusRetryStrategy = (err, response, body) => {
             const conditions = hoek.reach(body, 'status.conditions');
             let scheduled = false;
