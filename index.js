@@ -320,7 +320,7 @@ class K8sExecutor extends Executor {
             method: 'PUT',
             url: `${apiUri}/v4/builds/${buildId}`,
             headers: { Authorization: `Bearer ${token}` },
-            rejectUnauthorized: false,
+            https: { rejectUnauthorized: false },
             retry: {
                 limit: this.maxAttempts,
                 calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
@@ -365,7 +365,7 @@ class K8sExecutor extends Executor {
             headers: {
                 Authorization: `Bearer ${this.token}`
             },
-            rejectUnauthorized: false,
+            https: { rejectUnauthorized: false },
             context: {
                 caller: '_start'
             }
@@ -416,7 +416,7 @@ class K8sExecutor extends Executor {
             url: `${this.podsUrl}/${podName}/status`,
             method: 'GET',
             headers: { Authorization: `Bearer ${this.token}` },
-            rejectUnauthorized: false,
+            https: { rejectUnauthorized: false },
             retry: {
                 limit: this.maxAttempts,
                 calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
@@ -633,7 +633,7 @@ class K8sExecutor extends Executor {
             headers: {
                 Authorization: `Bearer ${this.token}`
             },
-            rejectUnauthorized: false,
+            https: { rejectUnauthorized: false },
             context: {
                 caller: '_stop'
             }
@@ -726,7 +726,7 @@ class K8sExecutor extends Executor {
             url: this.podsUrl,
             method: 'GET',
             headers: { Authorization: `Bearer ${this.token}` },
-            rejectUnauthorized: false,
+            https: { rejectUnauthorized: false },
             retry: {
                 limit: this.maxAttempts,
                 calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)

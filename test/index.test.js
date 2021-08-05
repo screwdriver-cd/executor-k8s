@@ -302,7 +302,7 @@ describe('index', function() {
             headers: {
                 Authorization: 'Bearer api_key'
             },
-            rejectUnauthorized: false,
+            https: { rejectUnauthorized: false },
             context: {
                 caller: '_stop'
             }
@@ -317,8 +317,7 @@ describe('index', function() {
                 .stop({
                     buildId: testBuildId
                 })
-                .then(res => {
-                    console.log('res: ', res);
+                .then(() => {
                     assert.calledWith(requestRetryMock, deleteConfig);
                     assert.calledOnce(requestRetryMock);
                 }));
@@ -404,7 +403,7 @@ describe('index', function() {
                 headers: {
                     Authorization: 'Bearer api_key'
                 },
-                rejectUnauthorized: false,
+                https: { rejectUnauthorized: false },
                 context: {
                     caller: '_start'
                 }
@@ -415,7 +414,7 @@ describe('index', function() {
                 headers: {
                     Authorization: 'Bearer api_key'
                 },
-                rejectUnauthorized: false,
+                https: { rejectUnauthorized: false },
                 context: {
                     caller: 'getPodStatus'
                 },
@@ -431,7 +430,7 @@ describe('index', function() {
                     Authorization: `Bearer ${testToken}`
                 },
                 json: {},
-                rejectUnauthorized: false,
+                https: { rejectUnauthorized: false },
                 context: {
                     caller: 'updateBuild'
                 },
@@ -1147,7 +1146,7 @@ describe('index', function() {
                 headers: {
                     Authorization: 'Bearer api_key'
                 },
-                rejectUnauthorized: false,
+                https: { rejectUnauthorized: false },
                 hooks: { afterResponse: [executor.pendingStatusRetryStrategy] },
                 retry: { limit: MAXATTEMPTS },
                 searchParams: {
@@ -1499,8 +1498,6 @@ describe('index', function() {
 
                 assert.equal(expectedMessage, actualMessage);
             } catch (error) {
-                console.log(error);
-
                 throw new Error('should not fail');
             }
         });
