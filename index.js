@@ -325,10 +325,7 @@ class K8sExecutor extends Executor {
                 limit: this.maxAttempts,
                 calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
             },
-            json: {},
-            context: {
-                caller: 'updateBuild'
-            }
+            json: {}
         };
 
         if (statusMessage) {
@@ -365,10 +362,7 @@ class K8sExecutor extends Executor {
             headers: {
                 Authorization: `Bearer ${this.token}`
             },
-            https: { rejectUnauthorized: false },
-            context: {
-                caller: '_start'
-            }
+            https: { rejectUnauthorized: false }
         };
 
         try {
@@ -423,9 +417,6 @@ class K8sExecutor extends Executor {
             },
             hooks: {
                 afterResponse: [this.scheduleStatusRetryStrategy]
-            },
-            context: {
-                caller: 'getPodStatus'
             }
         };
 
@@ -633,10 +624,7 @@ class K8sExecutor extends Executor {
             headers: {
                 Authorization: `Bearer ${this.token}`
             },
-            https: { rejectUnauthorized: false },
-            context: {
-                caller: '_stop'
-            }
+            https: { rejectUnauthorized: false }
         };
 
         try {
@@ -736,9 +724,6 @@ class K8sExecutor extends Executor {
             },
             searchParams: {
                 labelSelector: `sdbuild=${this.prefix}${buildId}`
-            },
-            context: {
-                caller: 'getPods'
             }
         };
         const resp = await this.breaker.runCommand(statusOptions); // list of pods

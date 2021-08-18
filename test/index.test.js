@@ -302,10 +302,7 @@ describe('index', function() {
             headers: {
                 Authorization: 'Bearer api_key'
             },
-            https: { rejectUnauthorized: false },
-            context: {
-                caller: '_stop'
-            }
+            https: { rejectUnauthorized: false }
         };
 
         beforeEach(() => {
@@ -403,10 +400,7 @@ describe('index', function() {
                 headers: {
                     Authorization: 'Bearer api_key'
                 },
-                https: { rejectUnauthorized: false },
-                context: {
-                    caller: '_start'
-                }
+                https: { rejectUnauthorized: false }
             };
             getConfig = {
                 url: `${podsUrl}/testpod/status`,
@@ -415,9 +409,6 @@ describe('index', function() {
                     Authorization: 'Bearer api_key'
                 },
                 https: { rejectUnauthorized: false },
-                context: {
-                    caller: 'getPodStatus'
-                },
                 retry: {
                     limit: MAXATTEMPTS
                 },
@@ -431,9 +422,6 @@ describe('index', function() {
                 },
                 json: {},
                 https: { rejectUnauthorized: false },
-                context: {
-                    caller: 'updateBuild'
-                },
                 retry: {
                     limit: MAXATTEMPTS
                 }
