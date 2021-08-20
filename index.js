@@ -6,7 +6,7 @@ const fs = require('fs');
 const hoek = require('@hapi/hoek');
 const path = require('path');
 const randomstring = require('randomstring');
-const requestretry = require('requestretry');
+const request = require('screwdriver-request');
 const handlebars = require('handlebars');
 const yaml = require('js-yaml');
 const _ = require('lodash');
@@ -246,7 +246,7 @@ class K8sExecutor extends Executor {
         this.automountServiceAccountToken = this.kubernetes.automountServiceAccountToken === 'true' || false;
         this.terminationGracePeriodSeconds = this.kubernetes.terminationGracePeriodSeconds || 30;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
-        this.breaker = new Fusebox(requestretry, options.fusebox);
+        this.breaker = new Fusebox(request, options.fusebox);
         this.retryDelay = this.requestretryOptions.retryDelay || DEFAULT_RETRYDELAY;
         this.maxAttempts = this.requestretryOptions.maxAttempts || DEFAULT_MAXATTEMPTS;
         this.maxCpu = hoek.reach(options, 'kubernetes.resources.cpu.max', { default: 12 });
@@ -276,8 +276,8 @@ class K8sExecutor extends Executor {
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
         this.secrets = hoek.reach(options, 'kubernetes.buildSecrets', { default: {} });
-        this.scheduleStatusRetryStrategy = (err, response, body) => {
-            const conditions = hoek.reach(body, 'status.conditions');
+        this.scheduleStatusRetryStrategy = (response, retryWithMergedOptions) => {
+            const conditions = hoek.reach(response, 'body.status.conditions');
             let scheduled = false;
 
             if (conditions) {
@@ -286,12 +286,20 @@ class K8sExecutor extends Executor {
                 scheduled = String(scheduledStatus) === 'True';
             }
 
-            return err || !scheduled;
-        };
-        this.pendingStatusRetryStrategy = (err, response, body) => {
-            const status = hoek.reach(body, 'status.phase');
+            if (!scheduled) {
+                retryWithMergedOptions({});
+            }
 
-            return err || !status || status.toLowerCase() === 'pending';
+            return response;
+        };
+        this.pendingStatusRetryStrategy = (response, retryWithMergedOptions) => {
+            const status = hoek.reach(response, 'body.status.phase');
+
+            if (!status || status.toLowerCase() === 'pending') {
+                retryWithMergedOptions({});
+            }
+
+            return response;
         };
     }
 
@@ -309,22 +317,23 @@ class K8sExecutor extends Executor {
     updateBuild(config) {
         const { apiUri, buildId, statusMessage, token, stats } = config;
         const options = {
-            json: true,
             method: 'PUT',
-            uri: `${apiUri}/v4/builds/${buildId}`,
+            url: `${apiUri}/v4/builds/${buildId}`,
             headers: { Authorization: `Bearer ${token}` },
-            strictSSL: false,
-            maxAttempts: this.maxAttempts,
-            retryDelay: this.retryDelay,
-            body: {}
+            https: { rejectUnauthorized: false },
+            retry: {
+                limit: this.maxAttempts,
+                calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
+            },
+            json: {}
         };
 
         if (statusMessage) {
-            options.body.statusMessage = statusMessage;
+            options.json.statusMessage = statusMessage;
         }
 
         if (stats) {
-            options.body.stats = stats;
+            options.json.stats = stats;
         }
 
         return this.breaker.runCommand(options);
@@ -347,13 +356,13 @@ class K8sExecutor extends Executor {
         const { buildId, token } = config;
         const podConfig = this.createPodConfig(config);
         const options = {
-            uri: this.podsUrl,
+            url: this.podsUrl,
             method: 'POST',
             json: podConfig,
             headers: {
                 Authorization: `Bearer ${this.token}`
             },
-            strictSSL: false
+            https: { rejectUnauthorized: false }
         };
 
         try {
@@ -398,15 +407,19 @@ class K8sExecutor extends Executor {
         logger.info(`Get pod status for ${podName} and buildId: ${buildId}`);
 
         const statusOptions = {
-            uri: `${this.podsUrl}/${podName}/status`,
+            url: `${this.podsUrl}/${podName}/status`,
             method: 'GET',
             headers: { Authorization: `Bearer ${this.token}` },
-            strictSSL: false,
-            maxAttempts: this.maxAttempts,
-            retryDelay: this.retryDelay,
-            retryStrategy: this.scheduleStatusRetryStrategy,
-            json: true
+            https: { rejectUnauthorized: false },
+            retry: {
+                limit: this.maxAttempts,
+                calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
+            },
+            hooks: {
+                afterResponse: [this.scheduleStatusRetryStrategy]
+            }
         };
+
         const resp = await this.breaker.runCommand(statusOptions);
 
         logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
@@ -603,15 +616,15 @@ class K8sExecutor extends Executor {
      */
     async _stop(config) {
         const options = {
-            uri: this.podsUrl,
+            url: this.podsUrl,
             method: 'DELETE',
-            qs: {
+            searchParams: {
                 labelSelector: `sdbuild=${this.prefix}${config.buildId}`
             },
             headers: {
                 Authorization: `Bearer ${this.token}`
             },
-            strictSSL: false
+            https: { rejectUnauthorized: false }
         };
 
         try {
@@ -698,15 +711,18 @@ class K8sExecutor extends Executor {
         logger.info(`Get pod status for and buildId: ${buildId}`);
 
         const statusOptions = {
-            uri: this.podsUrl,
+            url: this.podsUrl,
             method: 'GET',
             headers: { Authorization: `Bearer ${this.token}` },
-            strictSSL: false,
-            maxAttempts: this.maxAttempts,
-            retryDelay: this.retryDelay,
-            retryStrategy: this.pendingStatusRetryStrategy,
-            json: true,
-            qs: {
+            https: { rejectUnauthorized: false },
+            retry: {
+                limit: this.maxAttempts,
+                calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
+            },
+            hooks: {
+                afterResponse: [this.pendingStatusRetryStrategy]
+            },
+            searchParams: {
                 labelSelector: `sdbuild=${this.prefix}${buildId}`
             }
         };
