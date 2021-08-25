@@ -161,6 +161,21 @@ function setPreferredNodeSelector(podConfig, preferredNodeSelectors) {
 
 class K8sExecutor extends Executor {
     /**
+     * K8s command to run
+     * @method _k8sCommand
+     * @param  {Object}      options              An object that tells what command & params to run
+     * @param  {Function}    callback             Callback function from K8s API
+     */
+    _k8sCommand(options, callback) {
+        return request(options)
+            .then(function cb() {
+                // Use "function" (not "arrow function") for getting "arguments"
+                callback(null, ...arguments);
+            })
+            .catch(err => callback(err));
+    }
+
+    /**
      * Constructor
      * @method constructor
      * @param  {Object}  options                                                 Configuration options
@@ -246,7 +261,7 @@ class K8sExecutor extends Executor {
         this.automountServiceAccountToken = this.kubernetes.automountServiceAccountToken === 'true' || false;
         this.terminationGracePeriodSeconds = this.kubernetes.terminationGracePeriodSeconds || 30;
         this.podsUrl = `https://${this.host}/api/v1/namespaces/${this.jobsNamespace}/pods`;
-        this.breaker = new Fusebox(request, options.fusebox);
+        this.breaker = new Fusebox(this._k8sCommand.bind(this), options.fusebox);
         this.retryDelay = this.requestretryOptions.retryDelay || DEFAULT_RETRYDELAY;
         this.maxAttempts = this.requestretryOptions.maxAttempts || DEFAULT_MAXATTEMPTS;
         this.maxCpu = hoek.reach(options, 'kubernetes.resources.cpu.max', { default: 12 });
