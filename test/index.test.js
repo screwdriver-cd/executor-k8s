@@ -159,7 +159,7 @@ describe('index', function() {
             fusebox: { retry: { minTimeout: 1 } },
             prefix: 'beta_'
         };
-        requestRetryMock = sinon.stub().yieldsAsync(null);
+        requestRetryMock = sinon.stub().resolves({ statusCode: 200, body: {} });
 
         fsMock = {
             existsSync: sinon.stub(),
@@ -306,7 +306,7 @@ describe('index', function() {
         };
 
         beforeEach(() => {
-            requestRetryMock.yieldsAsync(null, fakeStopResponse);
+            requestRetryMock.resolves(fakeStopResponse);
         });
 
         it('calls breaker with correct config', () =>
@@ -322,7 +322,7 @@ describe('index', function() {
         it('returns error when breaker does', () => {
             const error = new Error('error');
 
-            requestRetryMock.yieldsAsync(error);
+            requestRetryMock.rejects(error);
 
             return executor
                 .stop({
@@ -349,7 +349,7 @@ describe('index', function() {
 
             const returnMessage = `Failed to delete pod:${JSON.stringify(fakeStopErrorResponse.body)}`;
 
-            requestRetryMock.yieldsAsync(null, fakeStopErrorResponse);
+            requestRetryMock.resolves(fakeStopErrorResponse);
 
             return executor
                 .stop({
@@ -460,9 +460,9 @@ describe('index', function() {
                 }
             };
 
-            requestRetryMock.withArgs(sinon.match({ method: 'POST' })).yieldsAsync(null, fakeStartResponse);
-            requestRetryMock.withArgs(sinon.match({ method: 'GET' })).yieldsAsync(null, fakeGetResponse);
-            requestRetryMock.withArgs(sinon.match({ method: 'PUT' })).yieldsAsync(null, fakePutResponse);
+            requestRetryMock.withArgs(sinon.match({ method: 'POST' })).resolves(fakeStartResponse);
+            requestRetryMock.withArgs(sinon.match({ method: 'GET' })).resolves(fakeGetResponse);
+            requestRetryMock.withArgs(sinon.match({ method: 'PUT' })).resolves(fakePutResponse);
         });
 
         it('successfully calls start', () => {
@@ -788,7 +788,7 @@ describe('index', function() {
             };
             const returnMessage = `Failed to get pod status:${JSON.stringify(returnResponse.body)}`;
 
-            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse);
+            requestRetryMock.withArgs(getConfig).resolves(returnResponse);
 
             return executor.start(fakeStartConfig).then(
                 () => {
@@ -814,7 +814,7 @@ describe('index', function() {
             };
             const returnMessage = 'Failed to create pod. Pod status is: failed';
 
-            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse);
+            requestRetryMock.withArgs(getConfig).resolves(returnResponse);
 
             return executor.start(fakeStartConfig).then(
                 () => {
@@ -851,7 +851,7 @@ describe('index', function() {
                 }
             };
 
-            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse);
+            requestRetryMock.withArgs(getConfig).resolves(returnResponse);
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
@@ -883,7 +883,7 @@ describe('index', function() {
                 }
             };
 
-            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse);
+            requestRetryMock.withArgs(getConfig).resolves(returnResponse);
 
             return executor.start(fakeStartConfig).then(
                 () => {},
@@ -917,7 +917,7 @@ describe('index', function() {
 
             const returnMessage = 'Failed to create pod. Pod status is: failed';
 
-            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse);
+            requestRetryMock.withArgs(getConfig).resolves(returnResponse);
 
             return executor.start(fakeStartConfig).then(
                 () => {
@@ -943,7 +943,7 @@ describe('index', function() {
             };
             const returnMessage = 'Failed to create pod. Pod status is: failed';
 
-            requestRetryMock.withArgs(getConfig).yieldsAsync(null, returnResponse);
+            requestRetryMock.withArgs(getConfig).resolves(returnResponse);
 
             return executor.start(fakeStartConfig).then(
                 () => {
@@ -968,7 +968,7 @@ describe('index', function() {
             };
             const returnMessage = `Failed to create pod:${JSON.stringify(returnResponse.body)}`;
 
-            requestRetryMock.withArgs(postConfig).yieldsAsync(null, returnResponse);
+            requestRetryMock.withArgs(postConfig).resolves(returnResponse);
 
             return executor.start(fakeStartConfig).then(
                 () => {
@@ -1159,7 +1159,7 @@ describe('index', function() {
                     ]
                 }
             };
-            requestRetryMock.withArgs(sinon.match({ method: 'GET' })).yieldsAsync(null, fakeGetPodsResponse);
+            requestRetryMock.withArgs(sinon.match({ method: 'GET' })).resolves(fakeGetPodsResponse);
         });
         it('gets all pods for given buildid', async () => {
             await executor.verify(fakeVerifyConfig);
@@ -1188,7 +1188,7 @@ describe('index', function() {
 
             const expectedMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
-            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse);
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
             const actualMessage = await executor.verify(fakeVerifyConfig);
 
@@ -1216,7 +1216,7 @@ describe('index', function() {
 
             const expectedMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
-            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse);
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
             const actualMessage = await executor.verify(fakeVerifyConfig);
 
@@ -1244,7 +1244,7 @@ describe('index', function() {
 
             const expectedMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
-            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse);
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
             const actualMessage = await executor.verify(fakeVerifyConfig);
 
@@ -1272,7 +1272,7 @@ describe('index', function() {
 
             const expectedMessage = 'Build failed to start. Please check if your image is valid.';
 
-            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse);
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
             const actualMessage = await executor.verify(fakeVerifyConfig);
 
@@ -1300,7 +1300,7 @@ describe('index', function() {
 
             const expectedMessage = 'Build failed to start. Please check if your image is valid.';
 
-            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse);
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
             const actualMessage = await executor.verify(fakeVerifyConfig);
 
@@ -1328,7 +1328,7 @@ describe('index', function() {
 
             const expectedMessage = 'Build failed to start. Please check if your image is valid.';
 
-            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse);
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
             const actualMessage = await executor.verify(fakeVerifyConfig);
 
@@ -1356,7 +1356,7 @@ describe('index', function() {
 
             const expectedMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
-            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse);
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
             const actualMessage = await executor.verify(fakeVerifyConfig);
 
@@ -1383,7 +1383,7 @@ describe('index', function() {
 
             const expectedMessage = 'Failed to create pod. Pod status is: failed';
 
-            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse);
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
             const actualMessage = await executor.verify(fakeVerifyConfig);
 
@@ -1400,7 +1400,7 @@ describe('index', function() {
             fakeGetPodsResponse.body.items.push(pod);
             const expectedMessage = 'Failed to create pod. Pod status is: failed';
 
-            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse);
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
             const actualMessage = await executor.verify(fakeVerifyConfig);
 
@@ -1426,7 +1426,7 @@ describe('index', function() {
             const expectedMessage = 'Build failed to start. Pod is still intializing.';
 
             fakeGetPodsResponse.body.items.push(pod);
-            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse);
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
             try {
                 await executor.verify(fakeVerifyConfig);
@@ -1479,7 +1479,7 @@ describe('index', function() {
 
             const expectedMessage = 'Build failed to start. Please check if your image is valid.';
 
-            requestRetryMock.withArgs(getPodsConfig).yieldsAsync(null, fakeGetPodsResponse);
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
             try {
                 const actualMessage = await executor.verify(fakeVerifyConfig);
