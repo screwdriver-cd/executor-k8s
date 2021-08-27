@@ -50,7 +50,11 @@ spec:
       - name: SD_DIND_SHARE_PATH
         value: "/opt/sd_dind_share"
       - name: DOCKER_HOST
-        value: tcp://localhost:2375
+        value: tcp://localhost:2376
+      - name: DOCKER_CERT_PATH
+        value: /certs/client
+      - name: DOCKER_TLS_VERIFY
+        value: "1"
     {{/if}}
     command:
     - "/opt/sd/launcher_entrypoint.sh"
@@ -76,6 +80,8 @@ spec:
     {{#if docker.enabled}}
     - name: dind-share
       mountPath: /opt/sd_dind_share
+    - name: dind-client-certs
+      mountPath: /certs/client
     {{/if}}
     {{#if cache.diskEnabled}}
     - mountPath: /sdpipelinecache
@@ -106,6 +112,8 @@ spec:
         mountPath: /var/lib/docker
       - name: dind-share
         mountPath: /opt/sd_dind_share
+      - name: dind-client-certs
+        mountPath: /certs/client
   {{/if}}
   initContainers:
   - name: "launcher-{{build_id_with_prefix}}"
@@ -163,6 +171,8 @@ spec:
       emptyDir: {}
     - name: dind-share
       emptyDir: {}
+    - name: dind-client-certs
+      emptyDir: {}
     {{/if}}
     {{#if cache.diskEnabled}}
     - name: sd-pipeline-cache
@@ -184,5 +194,3 @@ spec:
         path: {{this.path}}
         type: {{this.type}}
     {{/each}}
-
-    
