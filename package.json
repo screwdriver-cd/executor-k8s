@@ -59,8 +59,6 @@
     "lodash": "^4.17.21",
     "node-gyp": "^7.1.2",
     "randomstring": "^1.2.1",
-    "request": "^2.88.0",
-    "requestretry": "^4.0.0",
     "screwdriver-executor-base": "^8.4.0",
     "screwdriver-logger": "^1.1.0",
     "screwdriver-request": "^1.0.2",
