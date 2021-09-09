@@ -169,10 +169,16 @@ class K8sExecutor extends Executor {
     _k8sCommand(options, callback) {
         return request(options)
             .then(function cb() {
+                logger.info(`_k8sCommand success for options: ${JSON.stringify(options)}`);
+
                 // Use "function" (not "arrow function") for getting "arguments"
                 callback(null, ...arguments);
             })
-            .catch(err => callback(err));
+            .catch(err => {
+                logger.debug(`_k8sCommand failing: ${JSON.stringify(err)}`);
+
+                return callback(err);
+            });
     }
 
     /**
