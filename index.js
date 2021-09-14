@@ -291,7 +291,7 @@ class K8sExecutor extends Executor {
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
         this.secrets = hoek.reach(options, 'kubernetes.buildSecrets', { default: {} });
-        this.scheduleStatusRetryStrategy = (response, retryWithMergedOptions) => {
+        this.scheduleStatusRetryStrategy = response => {
             const conditions = hoek.reach(response, 'body.status.conditions');
             let scheduled = false;
 
@@ -302,16 +302,16 @@ class K8sExecutor extends Executor {
             }
 
             if (!scheduled) {
-                retryWithMergedOptions({});
+                throw new Error('Retry limit reached');
             }
 
             return response;
         };
-        this.pendingStatusRetryStrategy = (response, retryWithMergedOptions) => {
+        this.pendingStatusRetryStrategy = response => {
             const status = hoek.reach(response, 'body.status.phase');
 
             if (!status || status.toLowerCase() === 'pending') {
-                retryWithMergedOptions({});
+                throw new Error('Retry limit reached');
             }
 
             return response;
@@ -427,6 +427,7 @@ class K8sExecutor extends Executor {
             headers: { Authorization: `Bearer ${this.token}` },
             https: { rejectUnauthorized: false },
             retry: {
+                statusCodes: [200],
                 limit: this.maxAttempts,
                 calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
             },
@@ -731,6 +732,7 @@ class K8sExecutor extends Executor {
             headers: { Authorization: `Bearer ${this.token}` },
             https: { rejectUnauthorized: false },
             retry: {
+                statusCodes: [200],
                 limit: this.maxAttempts,
                 calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
             },
