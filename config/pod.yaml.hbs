@@ -56,6 +56,15 @@ spec:
       - name: DOCKER_TLS_VERIFY
         value: "1"
     {{/if}}
+    {{#unless secret_entity.disabled}}
+      {{#each secret_entity.secrets}}
+      - name: {{this.secret_env}}
+        valueFrom:
+          secretKeyRef:
+            name: {{this.secret_name}}
+            key: {{this.secret_key}}
+      {{/each}}
+    {{/unless}}
     command:
     - "/opt/sd/launcher_entrypoint.sh"
     args:
@@ -136,16 +145,6 @@ spec:
     - mountPath: /opt/sdeventcache
       name: sd-event-cache
     {{/if}}
-    env:
-    {{#unless secret_entity.disabled}}
-      {{#each secret_entity.secrets}}
-      - name: SD_KUBERNETES_{{this.secret_env}}
-        valueFrom:
-          secretKeyRef:
-            name: {{this.secret_name}}
-            key: {{this.secret_key}}
-      {{/each}}
-    {{/unless}}
   volumes:
     - name: podinfo
       downwardAPI:
