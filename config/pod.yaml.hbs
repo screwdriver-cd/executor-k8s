@@ -203,6 +203,7 @@ spec:
   {{#unless secret_file_entity.disabled}}
     {{#each secret_file_entity.secrets}}
     - name: {{this.name}}
-      secretName: {{this.secretName}}
+      secret:
+        secretName: {{this.secretName}}
     {{/each}}
   {{/unless}}
