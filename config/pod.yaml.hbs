@@ -107,6 +107,13 @@ spec:
       name: {{this.name}}
       readOnly: {{this.readOnly}}
     {{/each}}
+  {{#unless secret_file_entity.disabled}}
+    {{#each secret_file_entity.secrets}}
+    - mountPath: {{this.mountPath}}
+      name: {{this.name}}
+      readOnly: {{this.readOnly}}
+    {{/each}}
+  {{/unless}}
   {{#if docker.enabled}}
   - name: dind
     image: docker:20.10-dind
@@ -193,3 +200,9 @@ spec:
         path: {{this.path}}
         type: {{this.type}}
     {{/each}}
+  {{#unless secret_file_entity.disabled}}
+    {{#each secret_file_entity.secrets}}
+    - name: {{this.name}}
+      secretName: {{this.secretName}}
+    {{/each}}
+  {{/unless}}

@@ -230,7 +230,7 @@ class K8sExecutor extends Executor {
      * @param  {String}  [options.ecosystem.cache.max_size_mb=0]                 Value for build cache max size in mb; used only when cache.strategy is disk
      * @param  {String}  [options.ecosystem.cache.max_go_threads=10000]          Value for build cache max go threads; used only when cache.strategy is disk
      * @param  {Object}  [options.kubernetes.buildSecrets]                       Object representing secrets (e.g.: [ { "secret_env": "SSHCA", "secret_name": "sd-secret", "secret_key", "private" } ] )
-
+     * @param  {Object}  [options.kubernetes.buildSecretsFile]                   Object representing secrets (e.g.: [ { "name": "kvm", "mountPath": "/dev/kvm", "secretName": "sd-secret", "readOnly": true } ] )
      */
     constructor(options = {}) {
         super();
@@ -291,6 +291,7 @@ class K8sExecutor extends Executor {
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
         this.secrets = hoek.reach(options, 'kubernetes.buildSecrets', { default: {} });
+        this.secretsFile = hoek.reach(options, 'kubernetes.buildSecretsFile', { default: {} });
         this.scheduleStatusRetryStrategy = response => {
             const conditions = hoek.reach(response, 'body.status.conditions');
             let scheduled = false;
@@ -553,6 +554,7 @@ class K8sExecutor extends Executor {
             : this.terminationGracePeriodSeconds;
 
         const secretsDisabled = this.secrets.length === 1 && Object.keys(this.secrets[0]).length === 0;
+        const secretsFileDisabled = this.secretsFile.length === 1 && Object.keys(this.secretsFile[0]).length === 0;
 
         const podTemplate = template({
             runtimeClass: this.runtimeClass,
@@ -601,6 +603,10 @@ class K8sExecutor extends Executor {
             secret_entity: {
                 disabled: secretsDisabled,
                 secrets: this.secrets
+            },
+            secret_file_entity: {
+                disabled: secretsFileDisabled,
+                secrets: this.secretsFile
             }
         });
         const podConfig = yaml.safeLoad(podTemplate);
