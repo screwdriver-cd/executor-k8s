@@ -426,18 +426,10 @@ class K8sExecutor extends Executor {
             url: `${this.podsUrl}/${podName}/status`,
             method: 'GET',
             headers: { Authorization: `Bearer ${this.token}` },
-            https: { rejectUnauthorized: false },
-            retry: {
-                statusCodes: [200],
-                limit: this.maxAttempts,
-                calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
-            },
-            hooks: {
-                afterResponse: [this.scheduleStatusRetryStrategy]
-            }
+            https: { rejectUnauthorized: false }
         };
 
-        const resp = await this.breaker.runCommand(statusOptions);
+        const resp = await request(statusOptions);
 
         logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
         if (resp.statusCode !== 200) {
@@ -737,19 +729,11 @@ class K8sExecutor extends Executor {
             method: 'GET',
             headers: { Authorization: `Bearer ${this.token}` },
             https: { rejectUnauthorized: false },
-            retry: {
-                statusCodes: [200],
-                limit: this.maxAttempts,
-                calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
-            },
-            hooks: {
-                afterResponse: [this.pendingStatusRetryStrategy]
-            },
             searchParams: {
                 labelSelector: `sdbuild=${this.prefix}${buildId}`
             }
         };
-        const resp = await this.breaker.runCommand(statusOptions); // list of pods
+        const resp = await request(statusOptions); // list of pods
 
         logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
         if (resp.statusCode !== 200) {

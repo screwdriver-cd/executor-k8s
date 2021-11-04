@@ -408,11 +408,7 @@ describe('index', function() {
                 headers: {
                     Authorization: 'Bearer api_key'
                 },
-                https: { rejectUnauthorized: false },
-                retry: {
-                    limit: MAXATTEMPTS
-                },
-                hooks: {}
+                https: { rejectUnauthorized: false }
             };
             putConfig = {
                 url: `${testApiUri}/v4/builds/${testBuildId}`,
@@ -644,7 +640,6 @@ describe('index', function() {
 
             executor = new Executor(options);
             postConfig.json.metadata.annotations = testAnnotations.annotations;
-            getConfig.hooks = { afterResponse: [executor.scheduleStatusRetryStrategy] };
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
@@ -673,7 +668,6 @@ describe('index', function() {
 
             executor = new Executor(options);
             postConfig.json.spec = _.assign({}, postConfig.json.spec, testLifecycleHooksSpec);
-            getConfig.hooks = { afterResponse: [executor.scheduleStatusRetryStrategy] };
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
@@ -690,7 +684,6 @@ describe('index', function() {
 
             executor = new Executor(options);
             postConfig.json.metadata.labels = testLabels;
-            getConfig.hooks = { afterResponse: [executor.scheduleStatusRetryStrategy] };
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
@@ -707,7 +700,6 @@ describe('index', function() {
 
             executor = new Executor(options);
             postConfig.json.spec = _.assign({}, postConfig.json.spec, testSpec);
-            getConfig.hooks = { afterResponse: [executor.scheduleStatusRetryStrategy] };
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
@@ -724,7 +716,6 @@ describe('index', function() {
 
             executor = new Executor(options);
             postConfig.json.spec = _.assign({}, postConfig.json.spec, testPreferredSpec);
-            getConfig.hooks = { afterResponse: [executor.scheduleStatusRetryStrategy] };
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
@@ -743,7 +734,6 @@ describe('index', function() {
 
             executor = new Executor(options);
             postConfig.json.spec = _.assign({}, postConfig.json.spec, spec);
-            getConfig.hooks = { afterResponse: [executor.scheduleStatusRetryStrategy] };
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
@@ -980,23 +970,6 @@ describe('index', function() {
             );
         });
 
-        it('sets retryDelay and maxAttempts', () => {
-            const options = _.assign({}, executorOptions, {
-                requestretry: {
-                    maxAttempts: 1,
-                    retryDelay: 1000
-                }
-            });
-
-            executor = new Executor(options);
-            getConfig.retry.limit = 1;
-            getConfig.hooks = { afterResponse: [executor.scheduleStatusRetryStrategy] };
-
-            return executor.start(fakeStartConfig).then(() => {
-                assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
-            });
-        });
     });
 
     describe('periodic', () => {
@@ -1135,8 +1108,6 @@ describe('index', function() {
                     Authorization: 'Bearer api_key'
                 },
                 https: { rejectUnauthorized: false },
-                hooks: { afterResponse: [executor.pendingStatusRetryStrategy] },
-                retry: { limit: MAXATTEMPTS },
                 searchParams: {
                     labelSelector: `sdbuild=beta_${testBuildId}`
                 }
