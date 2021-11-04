@@ -969,7 +969,6 @@ describe('index', function() {
                 }
             );
         });
-
     });
 
     describe('periodic', () => {
