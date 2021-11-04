@@ -429,24 +429,30 @@ class K8sExecutor extends Executor {
             https: { rejectUnauthorized: false }
         };
 
-        const resp = await request(statusOptions);
+        try {
+            const resp = await request(statusOptions);
 
-        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
-        if (resp.statusCode !== 200) {
-            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+            logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
+            if (resp.statusCode !== 200) {
+                throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+            }
+
+            const nodeName = hoek.reach(resp, 'body.spec.nodeName');
+            const responsePodName = hoek.reach(resp, 'body.metadata.name');
+            const status = hoek.reach(resp, 'body.status.phase').toLowerCase();
+
+            logger.info(`BuildId:${buildId}, status:${status}, podName:${responsePodName}`);
+
+            if (status === 'failed' || status === 'unknown') {
+                throw new Error(`Failed to create pod. Pod status is: ${status}`);
+            }
+
+            return { isPending: status === 'pending', nodeName };
+        } catch (err) {
+            logger.error(`Failed to getPodStatus for buildId:${buildId}: ${err.message}`);
+
+            throw err;
         }
-
-        const nodeName = hoek.reach(resp, 'body.spec.nodeName');
-        const responsePodName = hoek.reach(resp, 'body.metadata.name');
-        const status = hoek.reach(resp, 'body.status.phase').toLowerCase();
-
-        logger.info(`BuildId:${buildId}, status:${status}, podName:${responsePodName}`);
-
-        if (status === 'failed' || status === 'unknown') {
-            throw new Error(`Failed to create pod. Pod status is: ${status}`);
-        }
-
-        return { isPending: status === 'pending', nodeName };
     }
 
     /**
@@ -733,14 +739,20 @@ class K8sExecutor extends Executor {
                 labelSelector: `sdbuild=${this.prefix}${buildId}`
             }
         };
-        const resp = await request(statusOptions); // list of pods
+        try {
+            const resp = await request(statusOptions); // list of pods
+            logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
 
-        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
-        if (resp.statusCode !== 200) {
-            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+            if (resp.statusCode !== 200) {
+                throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+            }
+
+            return resp.body.items;
+        } catch (err) {
+            logger.error(`Failed to getPods for buildId:${buildId}: ${err.message}`);
+
+            throw err;
         }
-
-        return resp.body.items;
     }
 
     /**
