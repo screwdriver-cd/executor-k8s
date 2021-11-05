@@ -292,31 +292,6 @@ class K8sExecutor extends Executor {
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
         this.secrets = hoek.reach(options, 'kubernetes.buildSecrets', { default: {} });
         this.secretsFile = hoek.reach(options, 'kubernetes.buildSecretsFile', { default: {} });
-        this.scheduleStatusRetryStrategy = response => {
-            const conditions = hoek.reach(response, 'body.status.conditions');
-            let scheduled = false;
-
-            if (conditions) {
-                const scheduledStatus = conditions.find(c => c.type === 'PodScheduled').status;
-
-                scheduled = String(scheduledStatus) === 'True';
-            }
-
-            if (!scheduled) {
-                throw new Error('Retry limit reached');
-            }
-
-            return response;
-        };
-        this.pendingStatusRetryStrategy = response => {
-            const status = hoek.reach(response, 'body.status.phase');
-
-            if (!status || status.toLowerCase() === 'pending') {
-                throw new Error('Retry limit reached');
-            }
-
-            return response;
-        };
     }
 
     /**
@@ -739,8 +714,10 @@ class K8sExecutor extends Executor {
                 labelSelector: `sdbuild=${this.prefix}${buildId}`
             }
         };
+
         try {
             const resp = await request(statusOptions); // list of pods
+
             logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
 
             if (resp.statusCode !== 200) {
