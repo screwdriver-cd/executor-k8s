@@ -292,31 +292,6 @@ class K8sExecutor extends Executor {
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
         this.secrets = hoek.reach(options, 'kubernetes.buildSecrets', { default: {} });
         this.secretsFile = hoek.reach(options, 'kubernetes.buildSecretsFile', { default: {} });
-        this.scheduleStatusRetryStrategy = response => {
-            const conditions = hoek.reach(response, 'body.status.conditions');
-            let scheduled = false;
-
-            if (conditions) {
-                const scheduledStatus = conditions.find(c => c.type === 'PodScheduled').status;
-
-                scheduled = String(scheduledStatus) === 'True';
-            }
-
-            if (!scheduled) {
-                throw new Error('Retry limit reached');
-            }
-
-            return response;
-        };
-        this.pendingStatusRetryStrategy = response => {
-            const status = hoek.reach(response, 'body.status.phase');
-
-            if (!status || status.toLowerCase() === 'pending') {
-                throw new Error('Retry limit reached');
-            }
-
-            return response;
-        };
     }
 
     /**
@@ -426,35 +401,33 @@ class K8sExecutor extends Executor {
             url: `${this.podsUrl}/${podName}/status`,
             method: 'GET',
             headers: { Authorization: `Bearer ${this.token}` },
-            https: { rejectUnauthorized: false },
-            retry: {
-                statusCodes: [200],
-                limit: this.maxAttempts,
-                calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
-            },
-            hooks: {
-                afterResponse: [this.scheduleStatusRetryStrategy]
-            }
+            https: { rejectUnauthorized: false }
         };
 
-        const resp = await this.breaker.runCommand(statusOptions);
+        try {
+            const resp = await request(statusOptions);
 
-        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
-        if (resp.statusCode !== 200) {
-            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+            logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
+            if (resp.statusCode !== 200) {
+                throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+            }
+
+            const nodeName = hoek.reach(resp, 'body.spec.nodeName');
+            const responsePodName = hoek.reach(resp, 'body.metadata.name');
+            const status = hoek.reach(resp, 'body.status.phase').toLowerCase();
+
+            logger.info(`BuildId:${buildId}, status:${status}, podName:${responsePodName}`);
+
+            if (status === 'failed' || status === 'unknown') {
+                throw new Error(`Failed to create pod. Pod status is: ${status}`);
+            }
+
+            return { isPending: status === 'pending', nodeName };
+        } catch (err) {
+            logger.error(`Failed to getPodStatus for buildId:${buildId}: ${err.message}`);
+
+            throw err;
         }
-
-        const nodeName = hoek.reach(resp, 'body.spec.nodeName');
-        const responsePodName = hoek.reach(resp, 'body.metadata.name');
-        const status = hoek.reach(resp, 'body.status.phase').toLowerCase();
-
-        logger.info(`BuildId:${buildId}, status:${status}, podName:${responsePodName}`);
-
-        if (status === 'failed' || status === 'unknown') {
-            throw new Error(`Failed to create pod. Pod status is: ${status}`);
-        }
-
-        return { isPending: status === 'pending', nodeName };
     }
 
     /**
@@ -737,26 +710,26 @@ class K8sExecutor extends Executor {
             method: 'GET',
             headers: { Authorization: `Bearer ${this.token}` },
             https: { rejectUnauthorized: false },
-            retry: {
-                statusCodes: [200],
-                limit: this.maxAttempts,
-                calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
-            },
-            hooks: {
-                afterResponse: [this.pendingStatusRetryStrategy]
-            },
             searchParams: {
                 labelSelector: `sdbuild=${this.prefix}${buildId}`
             }
         };
-        const resp = await this.breaker.runCommand(statusOptions); // list of pods
 
-        logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
-        if (resp.statusCode !== 200) {
-            throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+        try {
+            const resp = await request(statusOptions); // list of pods
+
+            logger.debug(`Build ${buildId} pod response: ${JSON.stringify(resp.body)}`);
+
+            if (resp.statusCode !== 200) {
+                throw new Error(`Failed to get pod status:${JSON.stringify(resp.body)}`);
+            }
+
+            return resp.body.items;
+        } catch (err) {
+            logger.error(`Failed to getPods for buildId:${buildId}: ${err.message}`);
+
+            throw err;
         }
-
-        return resp.body.items;
     }
 
     /**
