@@ -292,6 +292,7 @@ class K8sExecutor extends Executor {
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
         this.secrets = hoek.reach(options, 'kubernetes.buildSecrets', { default: {} });
         this.secretsFile = hoek.reach(options, 'kubernetes.buildSecretsFile', { default: {} });
+        this.sdHabEnabled = options.sdHabEnabled || "yes";
     }
 
     /**
@@ -580,7 +581,8 @@ class K8sExecutor extends Executor {
             secret_file_entity: {
                 disabled: secretsFileDisabled,
                 secrets: this.secretsFile
-            }
+            },
+            sd_hab_enabled: this.sdHabEnabled
         });
         const podConfig = yaml.safeLoad(podTemplate);
         const nodeSelectors = {};
