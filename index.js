@@ -292,7 +292,7 @@ class K8sExecutor extends Executor {
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
         this.secrets = hoek.reach(options, 'kubernetes.buildSecrets', { default: {} });
         this.secretsFile = hoek.reach(options, 'kubernetes.buildSecretsFile', { default: {} });
-        this.sdHabEnabled = options.sdHabEnabled || "yes";
+        this.sdHabEnabled = options.sdHabEnabled || 'yes';
     }
 
     /**
