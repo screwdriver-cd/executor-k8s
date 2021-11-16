@@ -312,7 +312,9 @@ describe('index', function() {
         it('calls breaker with correct config', () =>
             executor
                 .stop({
-                    buildId: testBuildId
+                    buildId: testBuildId,
+                    apiUri: testApiUri,
+                    jobName: 'main'
                 })
                 .then(() => {
                     assert.calledWith(requestRetryMock, deleteConfig);
@@ -326,7 +328,9 @@ describe('index', function() {
 
             return executor
                 .stop({
-                    buildId: testBuildId
+                    buildId: testBuildId,
+                    apiUri: testApiUri,
+                    jobName: 'main'
                 })
                 .then(
                     () => {
@@ -353,7 +357,9 @@ describe('index', function() {
 
             return executor
                 .stop({
-                    buildId: testBuildId
+                    buildId: testBuildId,
+                    apiUri: testApiUri,
+                    jobName: 'main'
                 })
                 .then(
                     () => {

@@ -26,6 +26,8 @@ spec:
         cpu: {{cpu}}m
         memory: {{memory}}Gi
     env:
+      - name: SD_HAB_ENABLED
+        value: "{{sd_hab_enabled}}"
       - name: SD_RUNTIME_CLASS
         value: {{runtimeClass}}
       - name: SD_PUSHGATEWAY_URL
