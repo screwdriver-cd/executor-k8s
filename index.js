@@ -231,6 +231,7 @@ class K8sExecutor extends Executor {
      * @param  {String}  [options.ecosystem.cache.max_go_threads=10000]          Value for build cache max go threads; used only when cache.strategy is disk
      * @param  {Object}  [options.kubernetes.buildSecrets]                       Object representing secrets (e.g.: [ { "secret_env": "SSHCA", "secret_name": "sd-secret", "secret_key", "private" } ] )
      * @param  {Object}  [options.kubernetes.buildSecretsFile]                   Object representing secrets (e.g.: [ { "name": "kvm", "mountPath": "/dev/kvm", "secretName": "sd-secret", "readOnly": true } ] )
+     * @param  {Object}  [options.sdHabEnabled]                                  Value for enabling habitat binary installation in launcher - 'true' / 'false'; Default value is 'true' if not specified;
      */
     constructor(options = {}) {
         super();
@@ -292,7 +293,7 @@ class K8sExecutor extends Executor {
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
         this.secrets = hoek.reach(options, 'kubernetes.buildSecrets', { default: {} });
         this.secretsFile = hoek.reach(options, 'kubernetes.buildSecretsFile', { default: {} });
-        this.sdHabEnabled = options.sdHabEnabled || 'yes';
+        this.sdHabEnabled = options.sdHabEnabled || 'true';
     }
 
     /**
