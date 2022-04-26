@@ -51,12 +51,12 @@ spec:
       - name: CONTAINER_CPU_LIMIT
         valueFrom:
           resourceFieldRef:
-            containerName: {{build_id_with_prefix}}
+            containerName: "{{build_id_with_prefix}}"
             resource: limits.cpu
       - name: CONTAINER_MEMORY_LIMIT
         valueFrom:
           resourceFieldRef:
-            containerName: {{build_id_with_prefix}}
+            containerName: "{{build_id_with_prefix}}"
             resource: limits.memory
     {{#if docker.enabled}}
       - name: SD_DIND_SHARE_PATH
