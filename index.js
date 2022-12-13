@@ -585,7 +585,7 @@ class K8sExecutor extends Executor {
             },
             sd_hab_enabled: this.sdHabEnabled
         });
-        const podConfig = yaml.safeLoad(podTemplate);
+        const podConfig = yaml.load(podTemplate);
         const nodeSelectors = {};
 
         if (this.diskSpeedLabel) {

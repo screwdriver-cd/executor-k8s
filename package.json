@@ -1,6 +1,6 @@
 {
   "name": "screwdriver-executor-k8s",
-  "version": "14.0.0",
+  "version": "15.0.0",
   "description": "Kubernetes Executor plugin for Screwdriver",
   "main": "index.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "test": "nyc --report-dir ./artifacts/coverage --reporter=lcov mocha --reporter mocha-multi-reporters --reporter-options configFile=./mocha.config.json --recursive --timeout 4000 --retries 1 --exit --allow-uncaught true --color true"
   },
   "engines": {
-    "node": ">=12.0.0"
+    "node": ">=18.0.0"
   },
   "repository": {
     "type": "git",
@@ -35,29 +35,29 @@
     "debug": false
   },
   "devDependencies": {
-    "chai": "^3.5.0",
-    "eslint": "^7.32.0",
-    "eslint-config-screwdriver": "^5.0.7",
-    "mocha": "^8.4.0",
+    "chai": "^4.3.7",
+    "eslint": "^8.28.0",
+    "eslint-config-screwdriver": "^7.0.0",
+    "mocha": "^10.1.0",
     "mocha-multi-reporters": "^1.5.1",
     "mocha-sonarqube-reporter": "^1.0.2",
-    "mockery": "^2.0.0",
+    "mockery": "^2.1.0",
     "nyc": "^15.1.0",
-    "rewire": "^3.0.2",
-    "sinon": "^5.0.10"
+    "rewire": "^6.0.0",
+    "sinon": "^15.0.0"
   },
   "dependencies": {
-    "@hapi/hoek": "^9.2.0",
-    "circuit-fuses": "^4.1.0",
+    "@hapi/hoek": "^10.0.1",
+    "circuit-fuses": "^5.0.0",
     "handlebars": "^4.7.7",
-    "js-yaml": "^3.14.1",
+    "js-yaml": "^4.1.0",
     "jsonwebtoken": "^8.5.1",
     "lodash": "^4.17.21",
-    "node-gyp": "^8.4.1",
-    "randomstring": "^1.2.1",
-    "screwdriver-executor-base": "^8.4.0",
-    "screwdriver-logger": "^1.1.0",
-    "screwdriver-request": "^1.0.2",
+    "node-gyp": "^9.3.0",
+    "randomstring": "^1.2.3",
+    "screwdriver-executor-base": "^9.0.0",
+    "screwdriver-logger": "^2.0.0",
+    "screwdriver-request": "^2.0.1",
     "tinytim": "^0.1.1"
   }
 }
