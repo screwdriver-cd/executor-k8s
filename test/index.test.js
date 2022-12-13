@@ -33,7 +33,7 @@ command:
 const SMALLEST_FLOAT64 = 2.2250738585072014e-308;
 const MAXATTEMPTS = 5;
 
-describe('index', function() {
+describe('index', function () {
     // Time not important. Only life important.
     this.timeout(5000);
 
@@ -762,7 +762,7 @@ describe('index', function() {
         it('returns error when request responds with error', () => {
             const error = new Error('lol');
 
-            requestRetryMock.withArgs(postConfig).yieldsAsync(error);
+            requestRetryMock.withArgs(postConfig).throws(error);
 
             return executor.start(fakeStartConfig).then(
                 () => {
@@ -1000,7 +1000,7 @@ describe('index', function() {
 
         beforeEach(() => {
             nodeSelectors = null;
-            fakeConfig = yaml.safeLoad(TEST_TIM_YAML);
+            fakeConfig = yaml.load(TEST_TIM_YAML);
         });
 
         it('does nothing if nodeSelector is not set', () => {
@@ -1030,7 +1030,7 @@ describe('index', function() {
 
         beforeEach(() => {
             nodeSelectors = null;
-            fakeConfig = yaml.safeLoad(TEST_TIM_YAML);
+            fakeConfig = yaml.load(TEST_TIM_YAML);
         });
 
         it('does nothing if preferredNodeSelector is not set', () => {
@@ -1072,7 +1072,7 @@ describe('index', function() {
                     }
                 }
             };
-            fakeConfig = yaml.safeLoad(TEST_TIM_YAML);
+            fakeConfig = yaml.load(TEST_TIM_YAML);
         });
 
         it('does nothing if no build container is found', () => {
