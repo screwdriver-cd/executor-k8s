@@ -51,7 +51,7 @@
     "circuit-fuses": "^5.0.0",
     "handlebars": "^4.7.7",
     "js-yaml": "^4.1.0",
-    "jsonwebtoken": "^8.5.1",
+    "jsonwebtoken": "^9.0.0",
     "lodash": "^4.17.21",
     "node-gyp": "^9.3.0",
     "randomstring": "^1.2.3",
