@@ -314,6 +314,8 @@ class K8sExecutor extends Executor {
             url: `${apiUri}/v4/builds/${buildId}`,
             headers: { Authorization: `Bearer ${token}` },
             https: { rejectUnauthorized: false },
+            // Do not retry when there is a 4XX error
+            shouldRetry: err => err && err.statusCode && !(err.statusCode >= 400 && err.statusCode < 500),
             retry: {
                 limit: this.maxAttempts,
                 calculateDelay: ({ computedValue }) => (computedValue ? this.retryDelay : 0)
