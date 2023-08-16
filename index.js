@@ -1,10 +1,10 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
 const Executor = require('screwdriver-executor-base');
 const Fusebox = require('circuit-fuses').breaker;
-const fs = require('fs');
 const hoek = require('@hapi/hoek');
-const path = require('path');
 const randomstring = require('randomstring');
 const request = require('screwdriver-request');
 const handlebars = require('handlebars');
@@ -372,15 +372,13 @@ class K8sExecutor extends Executor {
             const updateConfig = {
                 apiUri: this.ecosystem.api,
                 buildId,
-                token
+                token,
+                stats: {
+                    imagePullStartTime: new Date().toISOString()
+                }
             };
 
-            if (nodeName) {
-                updateConfig.stats = {
-                    hostname: nodeName,
-                    imagePullStartTime: new Date().toISOString()
-                };
-            } else {
+            if (!nodeName) {
                 updateConfig.statusMessage = 'Waiting for resources to be available.';
             }
             await this.updateBuild(updateConfig);
