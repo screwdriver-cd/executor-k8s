@@ -147,7 +147,7 @@ spec:
   - name: "launcher-{{build_id_with_prefix}}"
     image: {{launcher_image}}
     {{#if cache.diskEnabled}}
-    command: ['/bin/sh', '-c', 'echo launcher_start_ts:`date "+%s"` > /workspace/metrics && chmod -R 777 /opt/sdpipelinecache && chmod -R 777 /opt/sdjobcache && chmod -R 777 /opt/sdeventcache && if ! [ -f /opt/launcher/launch ]; then TEMP_DIR=`mktemp -d -p /opt/launcher` && cp -a /opt/sd/* $TEMP_DIR && mkdir -p $TEMP_DIR/hab && cp -a /hab/* $TEMP_DIR/hab && mv $TEMP_DIR/* /opt/launcher && rm -rf $TEMP_DIR || true; else ls /opt/launcher; fi; echo launcher_end_ts:`date "+%s"` >> /workspace/metrics']
+    command: ['/bin/sh', '-c', 'echo launcher_start_ts:`date "+%s"` > /workspace/metrics && chmod -R 777 /opt/sdpipelinecache && chmod -R 777 /opt/sdjobcache && chmod -R 777 /opt/sdeventcache && if ! [ -f /opt/launcher/launch ]; then TEMP_DIR=`mktemp -d -p /opt/launcher` && cp -a /opt/sd/* $TEMP_DIR && mkdir -p $TEMP_DIR/hab && cp -a /hab/. $TEMP_DIR/hab && mv $TEMP_DIR/* /opt/launcher && rm -rf $TEMP_DIR || true; else ls /opt/launcher; fi; echo launcher_end_ts:`date "+%s"` >> /workspace/metrics']
     {{else}}
     command: ['/bin/sh', '-c', 'echo launcher_start_ts:`date "+%s"` > /workspace/metrics && if ! [ -f /opt/launcher/launch ]; then TEMP_DIR=`mktemp -d -p /opt/launcher` && cp -a /opt/sd/* $TEMP_DIR && mkdir -p $TEMP_DIR/hab && cp -a /hab/. $TEMP_DIR/hab && mv $TEMP_DIR/* /opt/launcher && rm -rf $TEMP_DIR || true; else ls /opt/launcher; fi; echo launcher_end_ts:`date "+%s"` >> /workspace/metrics']
     {{/if}}
