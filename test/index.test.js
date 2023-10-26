@@ -134,7 +134,9 @@ describe('index', function () {
         testEnv: true,
         app: 'screwdriver',
         sdbuild: 'beta_15',
-        tier: 'builds'
+        tier: 'builds',
+        'screwdriver.cd/job': 'main',
+        'screwdriver.cd/pipeline': 'd2lam/test'
     };
     let executorOptions;
 
@@ -395,7 +397,13 @@ describe('index', function () {
                         dnsPolicy: 'ClusterFirst',
                         imagePullPolicy: 'Always',
                         memory: 2,
-                        labels: { app: 'screwdriver', sdbuild: 'beta_15', tier: 'builds' }
+                        labels: {
+                            app: 'screwdriver',
+                            sdbuild: 'beta_15',
+                            tier: 'builds',
+                            'screwdriver.cd/job': 'main',
+                            'screwdriver.cd/pipeline': 'd2lam/test'
+                        }
                     },
                     spec: {
                         containers: [{ name: 'beta_15' }],
@@ -433,7 +441,14 @@ describe('index', function () {
                 buildId: testBuildId,
                 container: testContainer,
                 token: testToken,
-                apiUri: testApiUri
+                apiUri: testApiUri,
+                jobName: 'main',
+                pipeline: {
+                    id: 12345,
+                    name: 'd2lam/test',
+                    scmContext: 'github:github.com',
+                    configPipelineId: null
+                }
             };
             fakePutResponse = {
                 id: testBuildId

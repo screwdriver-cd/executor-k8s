@@ -53,12 +53,40 @@ function setAnnotations(podConfig, annotations) {
 
 /**
  * Sets default and custom pod labels
- * @param {Object} podConfig          k8s pod config
- * @param {Object} podLabels          key-value pairs of labels
- * @param {String} buildContainerName build container name
+ * @param {Object} podConfig                  k8s pod config
+ * @param {Object} podLabels                  key-value pairs of labels
+ * @param {Object} config
+ * @param {String} config.buildContainerName  build container name
+ * @param {String} config.jobName             job name
+ * @param {String} config.templateFullName    template full name
+ * @param {String} config.templateVersion     template version
+ * @param {String} config.pipelineName        pipeline name
+ * @param {String} config.prNum               PR number
  */
-function setLabels(podConfig, podLabels, buildContainerName) {
-    const defaultLabels = { app: 'screwdriver', tier: 'builds', sdbuild: buildContainerName };
+function setLabels(podConfig, podLabels, config) {
+    const { buildContainerName, jobName, templateFullName, templateVersion, pipelineName, prNum } = config;
+    const defaultLabels = {
+        app: 'screwdriver',
+        tier: 'builds',
+        sdbuild: buildContainerName
+    };
+
+    if (pipelineName) {
+        defaultLabels['screwdriver.cd/pipeline'] = pipelineName;
+    }
+    if (jobName) {
+        defaultLabels['screwdriver.cd/job'] = jobName;
+    }
+    if (templateFullName) {
+        defaultLabels['screwdriver.cd/template_name'] = templateFullName;
+    }
+    if (templateVersion) {
+        defaultLabels['screwdriver.cd/template_version'] = templateVersion;
+    }
+    if (prNum) {
+        defaultLabels['screwdriver.cd/pr_number'] = prNum;
+    }
+
     let labels = defaultLabels;
 
     if (podLabels && typeof podLabels === 'object' && Object.keys(podLabels).length > 0) {
@@ -445,10 +473,13 @@ class K8sExecutor extends Executor {
      * @return {Object}   podConfig the pod config object
      */
     createPodConfig(config) {
-        const { buildId, eventId, container, token } = config;
+        const { buildId, eventId, container, token, prNum } = config;
         let jobId = hoek.reach(config, 'jobId', { default: '' });
         const pipelineId = hoek.reach(config, 'pipeline.id', { default: '' });
+        const pipelineName = hoek.reach(config, 'pipeline.name', { default: '' });
         const jobName = hoek.reach(config, 'jobName', { default: '' });
+        const templateFullName = hoek.reach(config, 'template.fullName', { default: '' });
+        const templateVersion = hoek.reach(config, 'template.version', { default: '' });
         const annotations = this.parseAnnotations(hoek.reach(config, 'annotations', { default: {} }));
 
         const cpuValues = {
@@ -511,7 +542,6 @@ class K8sExecutor extends Executor {
             : this.buildTimeout;
 
         const templateSourcePath = path.resolve(__dirname, './config/pod.yaml.hbs');
-
         const source = fs.readFileSync(templateSourcePath, 'utf8');
         const template = handlebars.compile(source);
         let diskCacheEnabled = false;
@@ -542,6 +572,7 @@ class K8sExecutor extends Executor {
             prefix: this.prefix,
             build_id: buildId,
             job_id: jobId,
+            job_name: jobName,
             pipeline_id: pipelineId,
             event_id: eventId,
             build_timeout: buildTimeout,
@@ -599,7 +630,14 @@ class K8sExecutor extends Executor {
         setNodeSelector(podConfig, nodeSelectors);
         setPreferredNodeSelector(podConfig, this.preferredNodeSelectors);
         setAnnotations(podConfig, this.annotations);
-        setLabels(podConfig, this.podLabels, buildContainerName);
+        setLabels(podConfig, this.podLabels, {
+            buildContainerName,
+            jobName,
+            templateFullName,
+            templateVersion,
+            pipelineName,
+            prNum
+        });
         setLifecycleHooks(podConfig, this.lifecycleHooks, buildContainerName);
 
         return podConfig;
