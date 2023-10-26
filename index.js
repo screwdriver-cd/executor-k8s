@@ -445,10 +445,13 @@ class K8sExecutor extends Executor {
      * @return {Object}   podConfig the pod config object
      */
     createPodConfig(config) {
-        const { buildId, eventId, container, token } = config;
+        const { buildId, eventId, container, token, prNum } = config;
         let jobId = hoek.reach(config, 'jobId', { default: '' });
         const pipelineId = hoek.reach(config, 'pipeline.id', { default: '' });
+        const pipelineName = hoek.reach(config, 'pipeline.name', { default: '' });
         const jobName = hoek.reach(config, 'jobName', { default: '' });
+        const templateFullName = hoek.reach(config, 'template.fullName', { default: '' });
+        const templateVersion = hoek.reach(config, 'template.version', { default: '' });
         const annotations = this.parseAnnotations(hoek.reach(config, 'annotations', { default: {} }));
 
         const cpuValues = {
@@ -542,8 +545,13 @@ class K8sExecutor extends Executor {
             prefix: this.prefix,
             build_id: buildId,
             job_id: jobId,
+            job_name: jobName,
+            pr_number: prNum,
             pipeline_id: pipelineId,
+            pipeline_name: pipelineName,
             event_id: eventId,
+            template_full_name: templateFullName,
+            template_version: templateVersion,
             build_timeout: buildTimeout,
             container,
             api_uri: this.ecosystem.api,
