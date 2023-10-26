@@ -1,22 +1,6 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  labels:
-    {{#if pipeline_name}}
-    screwdriver.cd/pipeline: "{{pipeline_name}}"
-    {{/if}}
-    {{#if job_name}}
-    screwdriver.cd/job: "{{job_name}}"
-    {{/if}}
-    {{#if template_full_name}}
-    screwdriver.cd/template_name: "{{template_full_name}}"
-    {{/if}}
-    {{#if template_version}}
-    screwdriver.cd/template_version: "{{template_version}}"
-    {{/if}}
-    {{#if pr_number}}
-    screwdriver.cd/pr_number: "{{pr_number}}"
-    {{/if}}
   name: "{{pod_name}}"
 spec:
   {{#if runtimeClass}}
