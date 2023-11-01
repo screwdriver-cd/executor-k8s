@@ -131,12 +131,15 @@ describe('index', function () {
     };
     const testLabels = {
         'network-egress': 'restricted',
-        testEnv: true,
+        testEnv: 'true',
         app: 'screwdriver',
         sdbuild: 'beta_15',
         tier: 'builds',
+        'screwdriver.cd/pipeline': 'd2_l.a.m._test',
         'screwdriver.cd/job': 'main',
-        'screwdriver.cd/pipeline': 'd2lam/test'
+        'screwdriver.cd/template_name': 'd2lam.-t_e-m_p-l_a-t_e',
+        'screwdriver.cd/template_version': '1.2.3',
+        'screwdriver.cd/pr_number': '999'
     };
     let executorOptions;
 
@@ -402,7 +405,10 @@ describe('index', function () {
                             sdbuild: 'beta_15',
                             tier: 'builds',
                             'screwdriver.cd/job': 'main',
-                            'screwdriver.cd/pipeline': 'd2lam/test'
+                            'screwdriver.cd/pipeline': 'd2_l.a.m._test',
+                            'screwdriver.cd/template_name': 'd2lam.-t_e-m_p-l_a-t_e',
+                            'screwdriver.cd/template_version': '1.2.3',
+                            'screwdriver.cd/pr_number': '999'
                         }
                     },
                     spec: {
@@ -442,12 +448,17 @@ describe('index', function () {
                 container: testContainer,
                 token: testToken,
                 apiUri: testApiUri,
+                prNum: 999,
                 jobName: 'main',
                 pipeline: {
                     id: 12345,
-                    name: 'd2lam/test',
+                    name: '-d2_l∆a˜m/_test_',
                     scmContext: 'github:github.com',
                     configPipelineId: null
+                },
+                template: {
+                    fullName: '_d2lam/-t_e-m_p-l_a-t_e-',
+                    version: '1.2.3'
                 }
             };
             fakePutResponse = {

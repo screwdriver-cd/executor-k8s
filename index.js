@@ -35,6 +35,8 @@ const ANNOTATIONS_PATH = 'metadata.annotations';
 const LABELS_PATH = 'metadata.labels';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
+const MATCH_LABEL_REGEX_PATTERN = /(?:^[-_.]*)([\w-.]*?)(?:[-_.]*$)/g;
+const DISALLOWED_LABEL_CHAR_REGEX_PATTERN = /[^\w-.]+/g;
 const TERMINATION_GRACE_PERIOD_SECONDS = 'terminationGracePeriodSeconds';
 const POD_STATUSQUERY_RETRYDELAY_MS = 500;
 
@@ -64,6 +66,14 @@ function setAnnotations(podConfig, annotations) {
  * @param {String} config.prNum               PR number
  */
 function setLabels(podConfig, podLabels, config) {
+    const sanitizeLabel = label => {
+        return [
+            ..._.toString(label)
+                .replaceAll(DISALLOWED_LABEL_CHAR_REGEX_PATTERN, '.')
+                .matchAll(MATCH_LABEL_REGEX_PATTERN)
+        ][0][1];
+    };
+
     const { buildContainerName, jobName, templateFullName, templateVersion, pipelineName, prNum } = config;
     const defaultLabels = {
         app: 'screwdriver',
@@ -93,7 +103,7 @@ function setLabels(podConfig, podLabels, config) {
         labels = Object.assign(defaultLabels, podLabels);
     }
 
-    _.set(podConfig, LABELS_PATH, labels);
+    _.set(podConfig, LABELS_PATH, _.mapValues(labels, sanitizeLabel));
 }
 
 /**
