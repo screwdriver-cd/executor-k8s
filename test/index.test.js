@@ -139,7 +139,10 @@ describe('index', function () {
         'screwdriver.cd/job': 'main',
         'screwdriver.cd/template_name': 'd2lam.-t_e-m_p-l_a-t_e',
         'screwdriver.cd/template_version': '1.2.3',
-        'screwdriver.cd/pr_number': '999'
+        'screwdriver.cd/pr_number': '999',
+        'screwdriver.cd/cpu': '2',
+        'screwdriver.cd/memory': '2',
+        'screwdriver.cd/disk': 'LOW'
     };
     let executorOptions;
 
@@ -408,7 +411,10 @@ describe('index', function () {
                             'screwdriver.cd/pipeline': 'd2_l.a.m._test',
                             'screwdriver.cd/template_name': 'd2lam.-t_e-m_p-l_a-t_e',
                             'screwdriver.cd/template_version': '1.2.3',
-                            'screwdriver.cd/pr_number': '999'
+                            'screwdriver.cd/pr_number': '999',
+                            'screwdriver.cd/cpu': '2',
+                            'screwdriver.cd/memory': '2',
+                            'screwdriver.cd/disk': 'LOW'
                         }
                     },
                     spec: {
@@ -539,6 +545,7 @@ describe('index', function () {
         it('sets the memory appropriately when ram is set to HIGH', () => {
             postConfig.json.metadata.cpu = 2000;
             postConfig.json.metadata.memory = 12;
+            postConfig.json.metadata.labels['screwdriver.cd/memory'] = '12';
             fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'HIGH';
 
             return executor.start(fakeStartConfig).then(() => {
@@ -576,6 +583,7 @@ describe('index', function () {
         it('sets the memory appropriately when ram is set to MICRO', () => {
             postConfig.json.metadata.cpu = 2000;
             postConfig.json.metadata.memory = 1;
+            postConfig.json.metadata.labels['screwdriver.cd/memory'] = '1';
             fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 'MICRO';
 
             return executor.start(fakeStartConfig).then(() => {
@@ -587,6 +595,7 @@ describe('index', function () {
         it('sets the memory appropriately when ram is set to Integer', () => {
             postConfig.json.metadata.cpu = 2000;
             postConfig.json.metadata.memory = 16;
+            postConfig.json.metadata.labels['screwdriver.cd/memory'] = '16';
             fakeStartConfig.annotations['beta.screwdriver.cd/ram'] = 64;
 
             return executor.start(fakeStartConfig).then(() => {
@@ -598,6 +607,7 @@ describe('index', function () {
         it('sets the cpu appropriately when cpu is set to HIGH', () => {
             postConfig.json.metadata.cpu = 6000;
             postConfig.json.metadata.memory = 2;
+            postConfig.json.metadata.labels['screwdriver.cd/cpu'] = '6';
             fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'HIGH';
 
             return executor.start(fakeStartConfig).then(() => {
@@ -609,7 +619,28 @@ describe('index', function () {
         it('sets the cpu appropriately when cpu is set to MICRO', () => {
             postConfig.json.metadata.cpu = 500;
             postConfig.json.metadata.memory = 2;
+            postConfig.json.metadata.labels['screwdriver.cd/cpu'] = '0.5';
             fakeStartConfig.annotations['beta.screwdriver.cd/cpu'] = 'MICRO';
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+            });
+        });
+
+        it('sets the disk label appropriately when disk annotation is set to TURBO', () => {
+            postConfig.json.metadata.labels['screwdriver.cd/disk'] = 'TURBO';
+            fakeStartConfig.annotations['beta.screwdriver.cd/disk'] = 'TURBO';
+
+            return executor.start(fakeStartConfig).then(() => {
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+            });
+        });
+
+        it('sets the disk label appropriately when disk annotation is set to MICRO', () => {
+            postConfig.json.metadata.labels['screwdriver.cd/disk'] = 'MICRO';
+            fakeStartConfig.annotations['beta.screwdriver.cd/disk'] = 'MICRO';
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
