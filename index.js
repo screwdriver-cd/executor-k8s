@@ -19,6 +19,7 @@ const DEFAULT_MAXATTEMPTS = 5;
 const DEFAULT_RETRYDELAY = 3000;
 const CPU_RESOURCE = 'cpu';
 const RAM_RESOURCE = 'ram';
+const DISK_RESOURCE = 'disk';
 const DISK_SPEED_RESOURCE = 'diskSpeed';
 const ANNOTATE_BUILD_TIMEOUT = 'timeout';
 const TOLERATIONS_PATH = 'spec.tolerations';
@@ -74,7 +75,8 @@ function setLabels(podConfig, podLabels, config) {
         ][0][1];
     };
 
-    const { buildContainerName, jobName, templateFullName, templateVersion, pipelineName, prNum } = config;
+    const { buildContainerName, jobName, templateFullName, templateVersion, pipelineName, prNum, cpu, memory, disk } =
+        config;
     const defaultLabels = {
         app: 'screwdriver',
         tier: 'builds',
@@ -95,6 +97,18 @@ function setLabels(podConfig, podLabels, config) {
     }
     if (prNum) {
         defaultLabels['screwdriver.cd/pr_number'] = prNum;
+    }
+
+    if (cpu) {
+        defaultLabels['screwdriver.cd/cpu'] = cpu / 1000;
+    }
+
+    if (memory) {
+        defaultLabels['screwdriver.cd/memory'] = memory;
+    }
+
+    if (disk) {
+        defaultLabels['screwdriver.cd/disk'] = disk;
     }
 
     let labels = defaultLabels;
@@ -528,6 +542,9 @@ class K8sExecutor extends Executor {
         const memConfig = annotations[RAM_RESOURCE];
         let memory = memConfig in memValues ? memValues[memConfig] : memValues.LOW;
 
+        const diskConfig = annotations[DISK_RESOURCE];
+        const disk = ['TURBO', 'HIGH', 'LOW', 'MICRO'].includes(diskConfig) ? diskConfig : 'LOW';
+
         // allow custom memory value
         if (Number.isInteger(memConfig)) {
             memory = Math.min(memConfig, this.maxMemory);
@@ -646,7 +663,10 @@ class K8sExecutor extends Executor {
             templateFullName,
             templateVersion,
             pipelineName,
-            prNum
+            prNum,
+            cpu,
+            memory,
+            disk
         });
         setLifecycleHooks(podConfig, this.lifecycleHooks, buildContainerName);
 
