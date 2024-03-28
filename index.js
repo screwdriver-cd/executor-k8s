@@ -38,6 +38,7 @@ const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
 const MATCH_LABEL_REGEX_PATTERN = /(?:^[-_.]*)([\w-.]*?)(?:[-_.]*$)/g;
 const DISALLOWED_LABEL_CHAR_REGEX_PATTERN = /[^\w-.]+/g;
+const ALPHANUMERIC_START_END_REGEX_PATTERN = /^[^\w]*|[^\w]*$/g;
 const TERMINATION_GRACE_PERIOD_SECONDS = 'terminationGracePeriodSeconds';
 const POD_STATUSQUERY_RETRYDELAY_MS = 500;
 
@@ -72,7 +73,7 @@ function setLabels(podConfig, podLabels, config) {
             ..._.toString(label)
                 .replaceAll(DISALLOWED_LABEL_CHAR_REGEX_PATTERN, '.')
                 .matchAll(MATCH_LABEL_REGEX_PATTERN)
-        ][0][1].slice(0, 63);
+        ][0][1].slice(0, 63).replace(ALPHANUMERIC_START_END_REGEX_PATTERN, '');
     };
 
     const { buildContainerName, jobName, templateFullName, templateVersion, pipelineName, prNum, cpu, memory, disk } =
