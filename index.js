@@ -73,7 +73,9 @@ function setLabels(podConfig, podLabels, config) {
             ..._.toString(label)
                 .replaceAll(DISALLOWED_LABEL_CHAR_REGEX_PATTERN, '.')
                 .matchAll(MATCH_LABEL_REGEX_PATTERN)
-        ][0][1].slice(0, 63).replace(ALPHANUMERIC_START_END_REGEX_PATTERN, '');
+        ][0][1]
+            .slice(0, 63)
+            .replace(ALPHANUMERIC_START_END_REGEX_PATTERN, '');
     };
 
     const { buildContainerName, jobName, templateFullName, templateVersion, pipelineName, prNum, cpu, memory, disk } =
