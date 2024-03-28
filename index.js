@@ -38,7 +38,7 @@ const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.
 const PR_JOBNAME_REGEX_PATTERN = /^PR-([0-9]+)(?::[\w-]+)?$/gi;
 const MATCH_LABEL_REGEX_PATTERN = /(?:^[-_.]*)([\w-.]*?)(?:[-_.]*$)/g;
 const DISALLOWED_LABEL_CHAR_REGEX_PATTERN = /[^\w-.]+/g;
-const ALPHANUMERIC_START_END_REGEX_PATTERN = /^[^\w]*|[^\w]*$/g;
+const ALPHANUMERIC_START_END_REGEX_PATTERN = /^[^A-Za-z0-9]*|[^A-Za-z0-9]*$/g;
 const TERMINATION_GRACE_PERIOD_SECONDS = 'terminationGracePeriodSeconds';
 const POD_STATUSQUERY_RETRYDELAY_MS = 500;
 
