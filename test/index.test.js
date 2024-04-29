@@ -506,7 +506,7 @@ describe('index', function () {
             });
         });
 
-        it('successfully calls start and update imagePullStartTime', () => {
+        it('successfully calls start and update hostname and imagePullStartTime', () => {
             const dateNow = Date.now();
             const isoTime = new Date(dateNow).toISOString();
             const clock = sinon.useFakeTimers({
@@ -515,6 +515,7 @@ describe('index', function () {
             });
 
             putConfig.json.stats = {
+                hostname: 'node1.my.k8s.cluster.com',
                 imagePullStartTime: isoTime
             };
 
