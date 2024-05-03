@@ -12,6 +12,7 @@ const yaml = require('js-yaml');
 const _ = require('lodash');
 const jwt = require('jsonwebtoken');
 const logger = require('screwdriver-logger');
+const { hostname } = require('os');
 
 const DEFAULT_BUILD_TIMEOUT = 90; // 90 minutes
 const MAX_BUILD_TIMEOUT = 120; // 120 minutes
@@ -721,7 +722,7 @@ class K8sExecutor extends Executor {
      * @returns {Object} the failure message
      */
     async _verify(config) {
-        const { buildId } = config;
+        const { buildId, token } = config;
         const pods = await this.getPods(buildId);
 
         logger.info(`Fetched pod list for:${buildId}, count:${pods.length}`);
@@ -729,9 +730,26 @@ class K8sExecutor extends Executor {
         let message;
         let waitingReason;
 
-        pods.find(p => {
+        pods.find(async (p) =>{
             const status = hoek.reach(p, 'status.phase').toLowerCase();
+            const nodeName = hoek.reach(p, 'spec.nodeName');
+            const podStartTime = hoek.reach(p, 'status.startTime');
 
+            // update the hostname in the build stats if nodeName is available
+            // nodeName is not available for pending pods 
+            if (nodeName) {
+                const updateConfig = {
+                    apiUri: this.ecosystem.api,
+                    buildId,
+                    token,
+                    stats: {
+                        hostname: nodeName,
+                        imagePullStartTime: new Date(podStartTime).toISOString()
+                    }
+                };
+                await this.updateBuild(updateConfig);
+            }
+            
             waitingReason = hoek.reach(p, CONTAINER_WAITING_REASON_PATH);
 
             if (status === 'failed' || status === 'unknown') {
