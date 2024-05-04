@@ -728,27 +728,14 @@ class K8sExecutor extends Executor {
 
         let message;
         let waitingReason;
+        let nodeName;
+        let podStartTime;
 
-        pods.find(async p => {
+        pods.find(p => {
             const status = hoek.reach(p, 'status.phase').toLowerCase();
-            const nodeName = hoek.reach(p, 'spec.nodeName');
-            const podStartTime = hoek.reach(p, 'status.startTime');
 
-            // update the hostname in the build stats if nodeName is available
-            // nodeName is not available for pending pods
-            if (nodeName) {
-                const updateConfig = {
-                    apiUri: this.ecosystem.api,
-                    buildId,
-                    token,
-                    stats: {
-                        hostname: nodeName,
-                        imagePullStartTime: new Date(podStartTime).toISOString()
-                    }
-                };
-
-                await this.updateBuild(updateConfig);
-            }
+            nodeName = hoek.reach(p, 'spec.nodeName');
+            // podStartTime = hoek.reach(p, 'status.startTime');
 
             waitingReason = hoek.reach(p, CONTAINER_WAITING_REASON_PATH);
 
@@ -785,6 +772,22 @@ class K8sExecutor extends Executor {
 
         if (waitingReason === 'PodInitializing') {
             throw new Error('Build failed to start. Pod is still intializing.');
+        }
+
+        // update the hostname in the build stats if nodeName is available
+        // nodeName is not available for pending pods
+        if (nodeName) {
+            const updateConfig = {
+                apiUri: this.ecosystem.api,
+                buildId,
+                token,
+                stats: {
+                    hostname: nodeName,
+                    imagePullStartTime: new Date(podStartTime).toISOString()
+                }
+            };
+
+            await this.updateBuild(updateConfig);
         }
 
         return message;
