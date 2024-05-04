@@ -1180,7 +1180,8 @@ describe('index', function () {
                     items: [
                         {
                             status: {
-                                phase: 'pending'
+                                phase: 'pending',
+                                startTime: '2024-05-02T18:51:54Z'
                             },
                             spec: {
                                 nodeName: 'node1.my.k8s.cluster.com'
@@ -1204,6 +1205,7 @@ describe('index', function () {
             const pod = {
                 status: {
                     phase: 'pending',
+                    startTime: '2024-05-02T18:51:54Z',
                     containerStatuses: [
                         {
                             state: {

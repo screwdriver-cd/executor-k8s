@@ -735,7 +735,7 @@ class K8sExecutor extends Executor {
             const status = hoek.reach(p, 'status.phase').toLowerCase();
 
             nodeName = hoek.reach(p, 'spec.nodeName');
-            // podStartTime = hoek.reach(p, 'status.startTime');
+            podStartTime = hoek.reach(p, 'status.startTime');
 
             waitingReason = hoek.reach(p, CONTAINER_WAITING_REASON_PATH);
 
