@@ -1197,7 +1197,7 @@ describe('index', function () {
         });
         it('gets all pods for given buildid', async () => {
             await executor.verify(fakeVerifyConfig);
-            assert.calledOnce(requestRetryMock);
+            assert.equal(requestRetryMock.callCount, 2);
             assert.calledWith(requestRetryMock, sinon.match(getPodsConfig));
         });
 
