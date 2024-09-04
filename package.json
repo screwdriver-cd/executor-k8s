@@ -1,6 +1,6 @@
 {
   "name": "screwdriver-executor-k8s",
-  "version": "15.0.0",
+  "version": "16.0.0",
   "description": "Kubernetes Executor plugin for Screwdriver",
   "main": "index.js",
   "scripts": {
@@ -55,7 +55,7 @@
     "lodash": "^4.17.21",
     "node-gyp": "^10.0.0",
     "randomstring": "^1.2.3",
-    "screwdriver-executor-base": "^9.0.0",
+    "screwdriver-executor-base": "^10.0.0",
     "screwdriver-logger": "^2.0.0",
     "screwdriver-request": "^2.0.1",
     "tinytim": "^0.1.1"
