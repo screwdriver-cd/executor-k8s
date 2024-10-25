@@ -729,10 +729,16 @@ class K8sExecutor extends Executor {
         let message;
         let waitingReason;
 
-        pods.find(p => {
+        let data = pods.find(p => {
             const status = hoek.reach(p, 'status.phase').toLowerCase();
 
             waitingReason = hoek.reach(p, CONTAINER_WAITING_REASON_PATH);
+
+            if (status === 'running' || status === 'succeeded') {
+                message = `Successfully created pod. Pod status is: ${status}`;
+
+                return true;
+            }
 
             if (status === 'failed' || status === 'unknown') {
                 message = `Failed to create pod. Pod status is: ${status}`;
@@ -763,13 +769,17 @@ class K8sExecutor extends Executor {
             return message !== undefined;
         });
 
-        logger.info(`BuildId:${buildId}, status:${message}`);
+        logger.info(`BuildId:${buildId}, status:${message}, waitingReason:${waitingReason}`);
+
+        if (data === true) {
+            return message;
+        }
 
         if (waitingReason === 'PodInitializing') {
             throw new Error('Build failed to start. Pod is still intializing.');
         }
 
-        return message;
+        throw new Error(`Build failed to start. Reason: ${waitingReason}.`);
     }
 
     /**
