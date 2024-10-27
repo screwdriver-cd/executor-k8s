@@ -1180,7 +1180,7 @@ describe('index', function () {
                     items: [
                         {
                             status: {
-                                phase: 'pending'
+                                phase: 'Running'
                             },
                             spec: {
                                 nodeName: 'node1.my.k8s.cluster.com'
@@ -1217,7 +1217,7 @@ describe('index', function () {
                 }
             };
 
-            fakeGetPodsResponse.body.items.push(pod);
+            fakeGetPodsResponse.body.items.unshift(pod);
 
             const expectedMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
@@ -1245,7 +1245,7 @@ describe('index', function () {
                 }
             };
 
-            fakeGetPodsResponse.body.items.push(pod);
+            fakeGetPodsResponse.body.items.unshift(pod);
 
             const expectedMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
@@ -1273,7 +1273,7 @@ describe('index', function () {
                 }
             };
 
-            fakeGetPodsResponse.body.items.push(pod);
+            fakeGetPodsResponse.body.items.unshift(pod);
 
             const expectedMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
@@ -1301,7 +1301,7 @@ describe('index', function () {
                 }
             };
 
-            fakeGetPodsResponse.body.items.push(pod);
+            fakeGetPodsResponse.body.items.unshift(pod);
 
             const expectedMessage = 'Build failed to start. Please check if your image is valid.';
 
@@ -1329,7 +1329,7 @@ describe('index', function () {
                 }
             };
 
-            fakeGetPodsResponse.body.items.push(pod);
+            fakeGetPodsResponse.body.items.unshift(pod);
 
             const expectedMessage = 'Build failed to start. Please check if your image is valid.';
 
@@ -1357,7 +1357,7 @@ describe('index', function () {
                 }
             };
 
-            fakeGetPodsResponse.body.items.push(pod);
+            fakeGetPodsResponse.body.items.unshift(pod);
 
             const expectedMessage = 'Build failed to start. Please check if your image is valid.';
 
@@ -1385,7 +1385,7 @@ describe('index', function () {
                 }
             };
 
-            fakeGetPodsResponse.body.items.push(pod);
+            fakeGetPodsResponse.body.items.unshift(pod);
 
             const expectedMessage = 'Build failed to start. Please reach out to your cluster admin for help.';
 
@@ -1412,7 +1412,7 @@ describe('index', function () {
                 }
             };
 
-            fakeGetPodsResponse.body.items.push(pod);
+            fakeGetPodsResponse.body.items.unshift(pod);
 
             const expectedMessage = 'Failed to create pod. Pod status is: failed';
 
@@ -1430,7 +1430,7 @@ describe('index', function () {
                 }
             };
 
-            fakeGetPodsResponse.body.items.push(pod);
+            fakeGetPodsResponse.body.items.unshift(pod);
             const expectedMessage = 'Failed to create pod. Pod status is: failed';
 
             requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
@@ -1448,7 +1448,7 @@ describe('index', function () {
                         {
                             state: {
                                 waiting: {
-                                    reason: 'PodIntializing',
+                                    reason: 'PodInitializing',
                                     message: 'pod is initializing'
                                 }
                             }
@@ -1458,13 +1458,13 @@ describe('index', function () {
             };
             const expectedMessage = 'Build failed to start. Pod is still intializing.';
 
-            fakeGetPodsResponse.body.items.push(pod);
+            fakeGetPodsResponse.body.items.unshift(pod);
             requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
             try {
                 await executor.verify(fakeVerifyConfig);
             } catch (error) {
-                assert.equal(expectedMessage, error);
+                assert.equal(expectedMessage, error.message);
             }
         });
 
@@ -1488,7 +1488,7 @@ describe('index', function () {
                 }
             };
 
-            fakeGetPodsResponse.body.items.push(pod1);
+            fakeGetPodsResponse.body.items.unshift(pod1);
             const pod2 = {
                 status: {
                     phase: 'pending',
@@ -1508,9 +1508,35 @@ describe('index', function () {
                 }
             };
 
-            fakeGetPodsResponse.body.items.push(pod2);
+            fakeGetPodsResponse.body.items.unshift(pod2);
 
             const expectedMessage = 'Build failed to start. Please check if your image is valid.';
+
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            try {
+                const actualMessage = await executor.verify(fakeVerifyConfig);
+
+                assert.equal(expectedMessage, actualMessage);
+            } catch (error) {
+                throw new Error('should not fail');
+            }
+        });
+
+        it('no error when waitingReason is undefined', async () => {
+            const pod = {
+                status: {
+                    phase: 'terminated',
+                    containerStatuses: [],
+                    metadata: {
+                        name: 'beta_15-dsvds'
+                    }
+                }
+            };
+
+            fakeGetPodsResponse.body.items.unshift(pod);
+
+            const expectedMessage = 'Build is no longer waiting.';
 
             requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
