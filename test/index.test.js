@@ -1526,7 +1526,7 @@ describe('index', function () {
         it('no error when waitingReason is undefined', async () => {
             const pod = {
                 status: {
-                    phase: 'terminated',
+                    phase: 'pending',
                     containerStatuses: [],
                     metadata: {
                         name: 'beta_15-dsvds'
@@ -1546,6 +1546,38 @@ describe('index', function () {
                 assert.equal(expectedMessage, actualMessage);
             } catch (error) {
                 throw new Error('should not fail');
+            }
+        });
+
+        it('error whenever unknown waitingReason is present', async () => {
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'RandomReason',
+                                    message: 'some random message'
+                                }
+                            }
+                        }
+                    ],
+                    metadata: {
+                        name: 'beta_15-dsvds'
+                    }
+                }
+            };
+
+            fakeGetPodsResponse.body.items[0] = pod;
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+            const expectedMessage = 'Build failed to start. Status: pending. Reason: RandomReason.';
+
+            try {
+                await executor.verify(fakeVerifyConfig);
+                throw new Error('did not fail');
+            } catch (error) {
+                assert.equal(expectedMessage, error.message);
             }
         });
     });
