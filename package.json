@@ -48,7 +48,7 @@
   },
   "dependencies": {
     "@hapi/hoek": "^11.0.7",
-    "circuit-fuses": "^5.0.0",
+    "circuit-fuses": "^6.0.0",
     "handlebars": "^4.7.8",
     "js-yaml": "^4.1.0",
     "jsonwebtoken": "^9.0.0",
