@@ -128,7 +128,11 @@ spec:
   {{/unless}}
   {{#if docker.enabled}}
   - name: dind
+    {{#if rootlessbuildkit.enabled}}
+    image: docker:20.10-dind-rootless
+    {{#else}}
     image: docker:20.10-dind
+    {{/if}}
     resources:
       limits:
         cpu: {{docker.cpu }}m
@@ -142,6 +146,27 @@ spec:
         mountPath: /opt/sd_dind_share
       - name: dind-client-certs
         mountPath: /certs/client
+  {{/if}}
+  {{#if rootlessbuildkit.enabled}}
+  - name: buildkitd
+    # TODO: need to push image
+    image: screwdrivercd/buildkit-rootless:xxx
+    resources:
+      limits:
+        cpu: {{buildkit.cpu}}m
+        memory: {{buildkit.memory}}Gi
+    args:
+      - --addr
+      - tcp://localhost:1234
+      - --config
+      - /etc/buildkit/buildkitd.toml
+    securityContext:
+      privileged: true
+    volumeMounts:
+    - name: buildkit-client-certs
+      mountPath: /certs/buildkit/client
+    - name: buildkit-server-certs
+      mountPath: /certs/buildkit/server
   {{/if}}
   initContainers:
   - name: "launcher-{{build_id_with_prefix}}"
@@ -190,6 +215,12 @@ spec:
     - name: dind-share
       emptyDir: {}
     - name: dind-client-certs
+      emptyDir: {}
+    {{/if}}
+    {{#if rootlessbuildkit.enabled}}
+    - name: buildkit-client-certs
+      emptyDir: {}
+    - name: buildkit-server-certs
       emptyDir: {}
     {{/if}}
     {{#if cache.diskEnabled}}

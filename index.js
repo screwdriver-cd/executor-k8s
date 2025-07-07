@@ -32,6 +32,9 @@ const DISK_CACHE_STRATEGY = 'disk';
 const DOCKER_ENABLED_KEY = 'dockerEnabled';
 const DOCKER_MEMORY_RESOURCE = 'dockerRam';
 const DOCKER_CPU_RESOURCE = 'dockerCpu';
+const ROOTLESS_BUILDKIT_ENABLED_KEY = 'rootlessBuildkitEnabled';
+const BUILDKIT_MEMORY_RESOURCE = 'buildkitRam';
+const BUILDKIT_CPU_RESOURCE = 'buildkitCpu';
 const ANNOTATIONS_PATH = 'metadata.annotations';
 const LABELS_PATH = 'metadata.labels';
 const CONTAINER_WAITING_REASON_PATH = 'status.containerStatuses.0.state.waiting.reason';
@@ -555,6 +558,7 @@ class K8sExecutor extends Executor {
             memory = Math.min(memConfig, this.maxMemory);
         }
 
+        // for dind container
         const dockerEnabledConfig = annotations[DOCKER_ENABLED_KEY];
         const DOCKER_ENABLED = this.dockerFeatureEnabled && dockerEnabledConfig === true;
 
@@ -563,6 +567,16 @@ class K8sExecutor extends Executor {
 
         const dockerMemoryConfig = annotations[DOCKER_MEMORY_RESOURCE];
         const DOCKER_RAM = dockerMemoryConfig in memValues ? memValues[dockerMemoryConfig] : memValues.LOW;
+
+        // for buildkit container
+        const rootlessBuildkitEnabledConfig = annotations[ROOTLESS_BUILDKIT_ENABLED_KEY];
+        const ROOTLESS_BUILDKIT_ENABLED = this.rootlessBuildkitFeatureEnabled && rootlessBuildkitEnabledConfig === true;
+
+        const buildkitCpuConfig = annotations[BUILDKIT_CPU_RESOURCE];
+        const BUILDKIT_CPU = buildkitCpuConfig in cpuValues ? cpuValues[buildkitCpuConfig] * 1000 : cpuValues.LOW * 1000;
+
+        const buildkitMemoryConfig = annotations[BUILDKIT_MEMORY_RESOURCE];
+        const BUILDKIT_RAM = buildkitMemoryConfig in memValues ? memValues[buildkitMemoryConfig] : memValues.LOW;
 
         const random = randomstring.generate({
             length: 5,
@@ -634,6 +648,11 @@ class K8sExecutor extends Executor {
                 enabled: DOCKER_ENABLED,
                 cpu: DOCKER_CPU,
                 memory: DOCKER_RAM
+            },
+            rootlessbuildkit: {
+                enabled: ROOTLESS_BUILDKIT_ENABLED,
+                cpu: BUILDKIT_CPU,
+                memory: BUILDKIT_RAM
             },
             dns_policy: this.dnsPolicy,
             image_pull_policy: this.imagePullPolicy,
