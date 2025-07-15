@@ -347,7 +347,9 @@ class K8sExecutor extends Executor {
         this.cacheMaxSizeInMB = hoek.reach(options, 'ecosystem.cache.max_size_mb', { default: 0 });
         this.cacheMaxGoThreads = hoek.reach(options, 'ecosystem.cache.max_go_threads', { default: 10000 });
         this.dockerFeatureEnabled = hoek.reach(options, 'kubernetes.dockerFeatureEnabled', { default: false });
-        this.rootlessBuildkitFeatureEnabled = hoek.reach(options, 'kubernetes.rootlessBuildkitFeatureEnabled', { default: false });
+        this.rootlessBuildkitFeatureEnabled = hoek.reach(options, 'kubernetes.rootlessBuildkitFeatureEnabled', {
+            default: false
+        });
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
         this.secrets = hoek.reach(options, 'kubernetes.buildSecrets', { default: {} });
@@ -574,7 +576,8 @@ class K8sExecutor extends Executor {
         const ROOTLESS_BUILDKIT_ENABLED = this.rootlessBuildkitFeatureEnabled && rootlessBuildkitEnabledConfig === true;
 
         const buildkitCpuConfig = annotations[BUILDKIT_CPU_RESOURCE];
-        const BUILDKIT_CPU = buildkitCpuConfig in cpuValues ? cpuValues[buildkitCpuConfig] * 1000 : cpuValues.LOW * 1000;
+        const BUILDKIT_CPU =
+            buildkitCpuConfig in cpuValues ? cpuValues[buildkitCpuConfig] * 1000 : cpuValues.LOW * 1000;
 
         const buildkitMemoryConfig = annotations[BUILDKIT_MEMORY_RESOURCE];
         const BUILDKIT_RAM = buildkitMemoryConfig in memValues ? memValues[buildkitMemoryConfig] : memValues.LOW;
