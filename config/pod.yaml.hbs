@@ -104,6 +104,12 @@ spec:
     - name: dind-client-certs
       mountPath: /certs/client
     {{/if}}
+    {{#if rootlessbuildkit.enabled}}
+    - name: buildkit-client-certs
+      mountPath: /certs/buildkit/client
+    - name: buildkit-server-certs
+      mountPath: /certs/buildkit/server
+    {{/if}}
     {{#if cache.diskEnabled}}
     - mountPath: /sdpipelinecache
       name: sd-pipeline-cache
@@ -153,8 +159,8 @@ spec:
     image: screwdrivercd/buildkit-rootless:xxx
     resources:
       limits:
-        cpu: {{buildkit.cpu}}m
-        memory: {{buildkit.memory}}Gi
+        cpu: {{rootlessbuildkit.cpu}}m
+        memory: {{rootlessbuildkit.memory}}Gi
     args:
       - --addr
       - tcp://localhost:1234
