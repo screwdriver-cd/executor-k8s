@@ -107,8 +107,6 @@ spec:
     {{#if rootlessbuildkit.enabled}}
     - name: buildkit-client-certs
       mountPath: /certs/buildkit/client
-    - name: buildkit-server-certs
-      mountPath: /certs/buildkit/server
     {{/if}}
     {{#if cache.diskEnabled}}
     - mountPath: /sdpipelinecache
