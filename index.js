@@ -348,7 +348,7 @@ class K8sExecutor extends Executor {
         this.cacheMaxGoThreads = hoek.reach(options, 'ecosystem.cache.max_go_threads', { default: 10000 });
         this.dockerFeatureEnabled = hoek.reach(options, 'kubernetes.dockerFeatureEnabled', { default: false });
         this.rootlessBuildkitFeatureEnabled = hoek.reach(options, 'kubernetes.rootlessBuildkitFeatureEnabled', {
-            default: false
+            default: true
         });
         this.annotations = hoek.reach(options, 'kubernetes.annotations');
         this.privileged = hoek.reach(options, 'kubernetes.privileged', { default: false });
