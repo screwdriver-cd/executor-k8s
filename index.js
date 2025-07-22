@@ -751,14 +751,28 @@ class K8sExecutor extends Executor {
 
         let message;
         let waitingReason;
+        let status;
 
-        pods.find(p => {
-            const status = hoek.reach(p, 'status.phase').toLowerCase();
+        const data = pods.find(p => {
+            status = hoek.reach(p, 'status.phase').toLowerCase();
 
-            waitingReason = hoek.reach(p, CONTAINER_WAITING_REASON_PATH);
+            if (status === 'running' || status === 'succeeded') {
+                message = `Successfully created pod. Pod status is: ${status}`;
+
+                return true;
+            }
 
             if (status === 'failed' || status === 'unknown') {
                 message = `Failed to create pod. Pod status is: ${status}`;
+
+                return true;
+            }
+
+            // waitingReason is undefined when pod is running or succeeded
+            waitingReason = hoek.reach(p, CONTAINER_WAITING_REASON_PATH);
+
+            if (waitingReason === undefined) {
+                message = 'Build is no longer waiting.';
 
                 return true;
             }
@@ -786,13 +800,19 @@ class K8sExecutor extends Executor {
             return message !== undefined;
         });
 
-        logger.info(`BuildId:${buildId}, status:${message}`);
+        logger.info(`BuildId:${buildId}, status:${status}, waitingReason:${waitingReason}, message:${message}`);
 
+        // data is not undefined when desired status or waitingReason met
+        // hence no error needs to be thrown
+        if (data !== undefined) {
+            return message;
+        }
+
+        // when condition above not met, throw error
         if (waitingReason === 'PodInitializing') {
             throw new Error('Build failed to start. Pod is still intializing.');
         }
-
-        return message;
+        throw new Error(`Build failed to start. Status: ${status}. Reason: ${waitingReason}.`);
     }
 
     /**
