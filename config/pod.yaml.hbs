@@ -134,7 +134,7 @@ spec:
   - name: dind
     {{#if rootlessbuildkit.enabled}}
     image: docker:20.10-dind-rootless
-    {{#else}}
+    {{else}}
     image: docker:20.10-dind
     {{/if}}
     resources:
@@ -153,8 +153,7 @@ spec:
   {{/if}}
   {{#if rootlessbuildkit.enabled}}
   - name: buildkitd
-    # TODO: need to push image
-    image: screwdrivercd/buildkit-rootless:xxx
+    image: screwdrivercd/buildkit-rootless:latest
     resources:
       limits:
         cpu: {{rootlessbuildkit.cpu}}m
