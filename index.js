@@ -744,16 +744,21 @@ class K8sExecutor extends Executor {
      * @returns {Object} the failure message
      */
     async _verify(config) {
-        const { buildId } = config;
+        const { buildId, token } = config;
         const pods = await this.getPods(buildId);
 
         logger.info(`Fetched pod list for:${buildId}, count:${pods.length}`);
 
         let message;
         let waitingReason;
+        let nodeName;
+        let podStartTime;
 
         pods.find(p => {
             const status = hoek.reach(p, 'status.phase').toLowerCase();
+
+            nodeName = hoek.reach(p, 'spec.nodeName');
+            podStartTime = hoek.reach(p, 'status.startTime');
 
             waitingReason = hoek.reach(p, CONTAINER_WAITING_REASON_PATH);
 
@@ -790,6 +795,22 @@ class K8sExecutor extends Executor {
 
         if (waitingReason === 'PodInitializing') {
             throw new Error('Build failed to start. Pod is still intializing.');
+        }
+
+        // update the hostname in the build stats if nodeName is available
+        // nodeName is not available for pending pods
+        if (nodeName) {
+            const updateConfig = {
+                apiUri: this.ecosystem.api,
+                buildId,
+                token,
+                stats: {
+                    hostname: nodeName,
+                    imagePullStartTime: new Date(podStartTime).toISOString()
+                }
+            };
+
+            await this.updateBuild(updateConfig);
         }
 
         return message;
