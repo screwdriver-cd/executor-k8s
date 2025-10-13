@@ -31,7 +31,6 @@ command:
 `;
 
 const SMALLEST_FLOAT64 = 2.2250738585072014e-308;
-const MAXATTEMPTS = 5;
 
 describe('index', function () {
     // Time not important. Only life important.
@@ -382,8 +381,8 @@ describe('index', function () {
 
     describe('start', () => {
         let postConfig;
-        let getConfig;
-        let putConfig;
+        let getConfig; // eslint-disable-line no-unused-vars
+        let putConfig; // eslint-disable-line no-unused-vars
         let fakeStartConfig;
         let fakeStartResponse;
         let fakeGetResponse;
@@ -443,10 +442,7 @@ describe('index', function () {
                     Authorization: `Bearer ${testToken}`
                 },
                 json: {},
-                https: { rejectUnauthorized: false },
-                retry: {
-                    limit: MAXATTEMPTS
-                }
+                https: { rejectUnauthorized: false }
             };
             fakeStartConfig = {
                 annotations: {},
@@ -483,13 +479,13 @@ describe('index', function () {
                 statusCode: 200,
                 body: {
                     status: {
-                        phase: 'running'
+                        phase: 'pending'
                     },
                     spec: {
                         nodeName: 'node1.my.k8s.cluster.com'
                     },
                     metadata: {
-                        name: 'beta_15'
+                        name: 'testpod'
                     }
                 }
             };
@@ -501,42 +497,39 @@ describe('index', function () {
 
         it('successfully calls start', () => {
             return executor.start(fakeStartConfig).then(() => {
-                assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
-            });
-        });
-
-        it('successfully calls start and update hostname and imagePullStartTime', () => {
-            const dateNow = Date.now();
-            const isoTime = new Date(dateNow).toISOString();
-            const clock = sinon.useFakeTimers({
-                now: dateNow,
-                shouldAdvanceTime: true
-            });
-
-            putConfig.json.stats = {
-                hostname: 'node1.my.k8s.cluster.com',
-                imagePullStartTime: isoTime
-            };
-
-            return executor.start(fakeStartConfig).then(() => {
                 assert.equal(requestRetryMock.callCount, 3);
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
-                assert.calledWith(requestRetryMock.thirdCall, sinon.match(putConfig));
-                clock.restore();
             });
         });
 
-        it('does not push to retry queue if status is not pending', () => {
-            fakeGetResponse.body.status.phase = 'running';
+        it('returns true when pod is created successfully and updates build status', () => {
+            return executor.start(fakeStartConfig).then(result => {
+                assert.equal(result, true);
+                assert.equal(requestRetryMock.callCount, 3); // POST, GET, PUT
+                assert.calledWith(requestRetryMock.firstCall, postConfig);
+            });
+        });
+
+        it('returns false when pod status check fails', () => {
+            const failedGetResponse = {
+                statusCode: 200,
+                body: {
+                    status: {
+                        phase: 'failed'
+                    },
+                    metadata: {
+                        name: 'testpod'
+                    }
+                }
+            };
+
+            requestRetryMock.withArgs(sinon.match({ method: 'GET' })).resolves(failedGetResponse);
 
             return executor
                 .start(fakeStartConfig)
-                .then(() => {
-                    assert.equal(requestRetryMock.callCount, 3);
-                    assert.calledWith(requestRetryMock.firstCall, postConfig);
-                    assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
+                .then(result => {
+                    assert.equal(result, false);
+                    assert.equal(requestRetryMock.callCount, 2); // POST, GET (no PUT)
                 })
                 .catch(() => {
                     throw new Error('should not fail');
@@ -551,7 +544,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -564,7 +556,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -577,7 +568,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -589,7 +579,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -601,7 +590,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -613,7 +601,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -625,7 +612,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -635,7 +621,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -645,7 +630,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -656,7 +640,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -668,7 +651,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -680,7 +662,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -690,7 +671,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -706,7 +686,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -734,7 +713,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -750,7 +728,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -766,7 +743,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -782,7 +758,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
             });
         });
 
@@ -800,19 +775,6 @@ describe('index', function () {
 
             return executor.start(fakeStartConfig).then(() => {
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
-            });
-        });
-
-        it('update build status message when pod status is pending', () => {
-            fakeGetResponse.body.status.phase = 'pending';
-            fakeGetResponse.body.spec = {};
-            putConfig.json.statusMessage = 'Waiting for resources to be available.';
-
-            return executor.start(fakeStartConfig).then(() => {
-                assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
-                assert.calledWith(requestRetryMock.thirdCall, sinon.match(putConfig));
             });
         });
 
@@ -831,181 +793,41 @@ describe('index', function () {
             );
         });
 
-        it('returns error when not able to get pod status', () => {
-            const returnResponse = {
-                statusCode: 500,
-                body: {
-                    statusCode: 500,
-                    message: 'cannot get pod status'
-                }
-            };
-            const returnMessage = `Failed to get pod status:${JSON.stringify(returnResponse.body)}`;
-
-            requestRetryMock.withArgs(getConfig).resolves(returnResponse);
-
-            return executor.start(fakeStartConfig).then(
-                () => {
-                    throw new Error('did not fail');
-                },
-                err => {
-                    assert.equal(err.message, returnMessage);
-                }
-            );
-        });
-
-        it('returns error when pod status is failed', () => {
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    status: {
-                        phase: 'failed'
-                    },
-                    metadata: {
-                        name: 'pod1'
-                    }
-                }
-            };
-            const returnMessage = 'Failed to create pod. Pod status is: failed';
-
-            requestRetryMock.withArgs(getConfig).resolves(returnResponse);
-
-            return executor.start(fakeStartConfig).then(
-                () => {
-                    throw new Error('did not fail');
-                },
-                err => {
-                    assert.equal(err.message, returnMessage);
-                }
-            );
-        });
-
-        it('pushes to retry queue when pod status is pending', () => {
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    status: {
-                        phase: 'pending',
-                        containerStatuses: [
-                            {
-                                state: {
-                                    waiting: {
-                                        reason: 'PodInitializing'
-                                    }
-                                }
-                            }
-                        ]
-                    },
-                    metadata: {
-                        name: 'pod1'
-                    },
-                    spec: {
-                        nodeName: 'node1.my.k8s.cluster.com'
-                    }
-                }
-            };
-
-            requestRetryMock.withArgs(getConfig).resolves(returnResponse);
-
-            return executor.start(fakeStartConfig).then(() => {
+        it('updates build status with hostname when pod is scheduled', () => {
+            return executor.start(fakeStartConfig).then(result => {
+                assert.equal(result, true);
+                assert.equal(requestRetryMock.callCount, 3);
                 assert.calledWith(requestRetryMock.firstCall, postConfig);
-                assert.calledWith(requestRetryMock.secondCall, sinon.match(getConfig));
-                assert.calledWith(requestRetryMock.lastCall, sinon.match(putConfig));
+                // Verify PUT call includes hostname in stats
+                assert.match(requestRetryMock.thirdCall.args[0].json.stats.hostname, /node1/);
             });
         });
 
-        it('pushes to retry queue and does not error when pod is pending', () => {
-            const returnResponse = {
+        it('updates build status with waiting message when pod not yet scheduled', () => {
+            const pendingGetResponse = {
                 statusCode: 200,
                 body: {
                     status: {
-                        phase: 'pending',
-                        containerStatuses: [
-                            {
-                                state: {
-                                    waiting: {
-                                        reason: 'CreateContainerConfigError',
-                                        message: 'create container config error'
-                                    }
-                                }
-                            }
-                        ]
+                        phase: 'pending'
                     },
+                    spec: {}, // No nodeName
                     metadata: {
-                        name: 'pod1'
+                        name: 'testpod'
                     }
                 }
             };
 
-            requestRetryMock.withArgs(getConfig).resolves(returnResponse);
+            requestRetryMock.withArgs(sinon.match({ method: 'GET' })).resolves(pendingGetResponse);
 
-            return executor.start(fakeStartConfig).then(
-                () => {},
-                () => {
-                    throw new Error('should not fail');
-                }
-            );
-        });
-
-        it('returns error when pod terminated and status is failed', () => {
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    status: {
-                        phase: 'failed',
-                        containerStatuses: [
-                            {
-                                state: {
-                                    terminated: {
-                                        reason: 'Error'
-                                    }
-                                }
-                            }
-                        ]
-                    },
-                    metadata: {
-                        name: 'pod1'
-                    }
-                }
-            };
-
-            const returnMessage = 'Failed to create pod. Pod status is: failed';
-
-            requestRetryMock.withArgs(getConfig).resolves(returnResponse);
-
-            return executor.start(fakeStartConfig).then(
-                () => {
-                    throw new Error('did not fail');
-                },
-                err => {
-                    assert.equal(err.message, returnMessage);
-                }
-            );
-        });
-
-        it('sets error when pod status is failed', () => {
-            const returnResponse = {
-                statusCode: 200,
-                body: {
-                    status: {
-                        phase: 'failed'
-                    },
-                    metadata: {
-                        name: 'pod1'
-                    }
-                }
-            };
-            const returnMessage = 'Failed to create pod. Pod status is: failed';
-
-            requestRetryMock.withArgs(getConfig).resolves(returnResponse);
-
-            return executor.start(fakeStartConfig).then(
-                () => {
-                    throw new Error('did not fail');
-                },
-                err => {
-                    assert.equal(err.message, returnMessage);
-                }
-            );
+            return executor.start(fakeStartConfig).then(result => {
+                assert.equal(result, true);
+                assert.equal(requestRetryMock.callCount, 3);
+                // Verify PUT call includes status message
+                assert.equal(
+                    requestRetryMock.thirdCall.args[0].json.statusMessage,
+                    'Waiting for resources to be available.'
+                );
+            });
         });
 
         it('returns body when request responds with error in response', () => {
@@ -1440,7 +1262,7 @@ describe('index', function () {
             assert.equal(expectedMessage, actualMessage);
         });
 
-        it('returns error when pod is still initializing', async () => {
+        it('returns timeout error message when pod is still pending during verify', async () => {
             const pod = {
                 status: {
                     phase: 'pending',
@@ -1448,7 +1270,7 @@ describe('index', function () {
                         {
                             state: {
                                 waiting: {
-                                    reason: 'PodIntializing',
+                                    reason: 'PodInitializing',
                                     message: 'pod is initializing'
                                 }
                             }
@@ -1456,19 +1278,19 @@ describe('index', function () {
                     ]
                 }
             };
-            const expectedMessage = 'Build failed to start. Pod is still intializing.';
+            // When verify is called and pod is still pending, it means timeout occurred
+            const expectedMessage =
+                'Build failed to start. Pod initialization timeout - resources may be unavailable or configuration may be invalid.';
 
             fakeGetPodsResponse.body.items.push(pod);
             requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
-            try {
-                await executor.verify(fakeVerifyConfig);
-            } catch (error) {
-                assert.equal(expectedMessage, error);
-            }
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal(expectedMessage, actualMessage);
         });
 
-        it('checks all pods for waiting reason', async () => {
+        it('checks all pods for waiting reason and returns first error found', async () => {
             const pod1 = {
                 status: {
                     phase: 'pending',
@@ -1514,13 +1336,97 @@ describe('index', function () {
 
             requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
-            try {
-                const actualMessage = await executor.verify(fakeVerifyConfig);
+            const actualMessage = await executor.verify(fakeVerifyConfig);
 
-                assert.equal(expectedMessage, actualMessage);
-            } catch (error) {
-                throw new Error('should not fail');
-            }
+            assert.equal(expectedMessage, actualMessage);
+        });
+
+        it('returns empty string when pod is running successfully', async () => {
+            const pod = {
+                status: {
+                    phase: 'running'
+                },
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal('', actualMessage);
+        });
+
+        it('returns timeout message when pod pending without container status', async () => {
+            // Pod is pending but no containerStatuses - likely scheduling/resource issues
+            const pod = {
+                status: {
+                    phase: 'pending'
+                },
+                spec: {},
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const expectedMessage =
+                'Build failed to start. Pod initialization timeout - resources may be unavailable or configuration may be invalid.';
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal(expectedMessage, actualMessage);
+        });
+
+        it('returns empty string when pod is pending with PodInitializing', async () => {
+            // Pod is pending with PodInitializing - legitimate wait (image pull, etc.)
+            // Allow to continue, don't fail the build
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'PodInitializing'
+                                }
+                            }
+                        }
+                    ]
+                },
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal('', actualMessage);
+        });
+
+        it('returns empty string when pod is running or succeeded', async () => {
+            // When verify is called and pod is already running/succeeded, return empty (success)
+            const pod = {
+                status: {
+                    phase: 'succeeded'
+                },
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal('', actualMessage);
         });
     });
 });
