@@ -427,26 +427,44 @@ class K8sExecutor extends Executor {
             if (resp.statusCode !== 201) {
                 throw new Error(`Failed to create pod:${JSON.stringify(resp.body)}`);
             }
+
             const podName = resp.body.metadata.name;
-            const { isPending, nodeName } = await this.getPodStatus(podName, buildId);
 
-            const updateConfig = {
-                apiUri: this.ecosystem.api,
-                buildId,
-                token
-            };
+            logger.info(`Pod created successfully for build ${buildId}, podName: ${podName}`);
 
-            if (nodeName) {
-                updateConfig.stats = {
-                    hostname: nodeName,
-                    imagePullStartTime: new Date().toISOString()
+            try {
+                const { nodeName } = await this.getPodStatus(podName, buildId);
+                const updateConfig = {
+                    apiUri: this.ecosystem.api,
+                    buildId,
+                    token
                 };
-            } else {
-                updateConfig.statusMessage = 'Waiting for resources to be available.';
-            }
-            await this.updateBuild(updateConfig);
 
-            return !isPending;
+                if (nodeName) {
+                    updateConfig.stats = {
+                        hostname: nodeName,
+                        imagePullStartTime: new Date().toISOString()
+                    };
+                    logger.info(`Build pod ${podName} scheduled to node ${nodeName}`);
+                } else {
+                    updateConfig.statusMessage = 'Waiting for resources to be available.';
+                    logger.info(`Build pod ${podName} waiting for resources`);
+                }
+
+                await this.updateBuild(updateConfig);
+            } catch (statusErr) {
+                // getPodStatus throws when pod status is 'failed' or 'unknown'
+                logger.error(
+                    `Pod status check failed for build ${buildId}: ${statusErr.message}. ` +
+                        `Pod will be verified via retry queue.`
+                );
+
+                return false;
+            }
+
+            // Pod was created and is in valid state (pending/running)
+            // Return true to indicate success
+            return true;
         } catch (err) {
             logger.error(`Failed to run pod for build id:${buildId}: ${err.message}`);
             throw err;
@@ -747,51 +765,65 @@ class K8sExecutor extends Executor {
         const { buildId } = config;
         const pods = await this.getPods(buildId);
 
-        logger.info(`Fetched pod list for:${buildId}, count:${pods.length}`);
+        logger.info(`Fetched pod list for: ${buildId}, count: ${pods.length}`);
 
-        let message;
+        let message = '';
         let waitingReason;
 
-        pods.find(p => {
-            const status = hoek.reach(p, 'status.phase').toLowerCase();
+        pods.forEach(p => {
+            const status = (hoek.reach(p, 'status.phase') || '').toLowerCase();
 
             waitingReason = hoek.reach(p, CONTAINER_WAITING_REASON_PATH);
 
+            // Check for immediate failure statuses
             if (status === 'failed' || status === 'unknown') {
                 message = `Failed to create pod. Pod status is: ${status}`;
-
-                return true;
             }
 
+            // Check for container-level failures
             if (
                 ['CrashLoopBackOff', 'CreateContainerConfigError', 'CreateContainerError', 'StartError'].includes(
                     waitingReason
                 )
             ) {
                 message = 'Build failed to start. Please reach out to your cluster admin for help.';
-
-                return true;
             }
 
             if (['ErrImagePull', 'ImagePullBackOff', 'InvalidImageName'].includes(waitingReason)) {
                 message = 'Build failed to start. Please check if your image is valid.';
-
-                return true;
             }
 
-            if (waitingReason === 'PodInitializing') {
-                return false;
+            // If pod is still pending when verify is called after timeout:
+            // - PodInitializing = legitimate wait (large image pull, slow start) - allow to continue
+            // - No waitingReason = likely resource/scheduling issue - fail immediately
+            // - Other reasons already handled above
+            //
+            // Rationale for PodInitializing:
+            // Image pulls can take 15+ minutes for large images. We can't set a fixed timeout
+            // that works for all cases. Instead, trust K8s to handle actual failures:
+            // - If image doesn't exist, K8s will change status to ImagePullBackOff
+            // - If image pull succeeds, pod will start and launcher will report
+            // - K8s has its own backoff mechanisms for real failures
+            if (status === 'pending' && !message) {
+                if (waitingReason === 'PodInitializing') {
+                    logger.info(
+                        `Pod is still initializing for buildId: ${buildId}. ` +
+                            `Allowing more time for image pull and container start.`
+                    );
+                    // Return empty - don't fail the build, let K8s handle the pod lifecycle
+                } else {
+                    // Pod is pending without PodInitializing status - likely scheduling or resource issues
+                    // These typically don't resolve themselves, so fail after timeout
+                    message =
+                        'Build failed to start. Pod initialization timeout - resources may be unavailable or configuration may be invalid.';
+                    logger.error(`Build ${buildId} timed out in pending state without PodInitializing status`);
+                }
             }
-
-            return message !== undefined;
         });
 
-        logger.info(`BuildId:${buildId}, status:${message}`);
+        logger.info(`BuildId: ${buildId}, verification result: ${message || 'Pod is running successfully'}`);
 
-        if (waitingReason === 'PodInitializing') {
-            throw new Error('Build failed to start. Pod is still intializing.');
-        }
-
+        // Return empty string only if pod is running/succeeded (no issues detected)
         return message;
     }
 
