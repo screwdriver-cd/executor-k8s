@@ -433,7 +433,8 @@ class K8sExecutor extends Executor {
             logger.info(`Pod created successfully for build ${buildId}, podName: ${podName}`);
 
             try {
-                const { nodeName } = await this.getPodStatus(podName, buildId);
+                const { isPending, nodeName } = await this.getPodStatus(podName, buildId);
+
                 const updateConfig = {
                     apiUri: this.ecosystem.api,
                     buildId,
@@ -445,13 +446,23 @@ class K8sExecutor extends Executor {
                         hostname: nodeName,
                         imagePullStartTime: new Date().toISOString()
                     };
-                    logger.info(`Build pod ${podName} scheduled to node ${nodeName}`);
+                    logger.info(`Build ${buildId} pod ${podName} scheduled to node ${nodeName}`);
                 } else {
                     updateConfig.statusMessage = 'Waiting for resources to be available.';
-                    logger.info(`Build pod ${podName} waiting for resources`);
+                    logger.info(`Build ${buildId} pod ${podName} waiting for resources`);
                 }
 
                 await this.updateBuild(updateConfig);
+
+                if (isPending && !nodeName) {
+                    logger.info(
+                        `Build ${buildId} pod ${podName} pending without node - will retry to wait for scheduler`
+                    );
+
+                    return false;
+                }
+
+                return true;
             } catch (statusErr) {
                 // getPodStatus throws when pod status is 'failed' or 'unknown'
                 logger.error(
@@ -461,10 +472,6 @@ class K8sExecutor extends Executor {
 
                 return false;
             }
-
-            // Pod was created and is in valid state (pending/running)
-            // Return true to indicate success
-            return true;
         } catch (err) {
             logger.error(`Failed to run pod for build id:${buildId}: ${err.message}`);
             throw err;

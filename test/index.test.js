@@ -820,7 +820,8 @@ describe('index', function () {
             requestRetryMock.withArgs(sinon.match({ method: 'GET' })).resolves(pendingGetResponse);
 
             return executor.start(fakeStartConfig).then(result => {
-                assert.equal(result, true);
+                // Returns false to trigger retry polling for node assignment
+                assert.equal(result, false);
                 assert.equal(requestRetryMock.callCount, 3);
                 // Verify PUT call includes status message
                 assert.equal(
