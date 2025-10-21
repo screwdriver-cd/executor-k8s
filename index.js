@@ -505,11 +505,30 @@ class K8sExecutor extends Executor {
             const nodeName = hoek.reach(resp, 'body.spec.nodeName');
             const responsePodName = hoek.reach(resp, 'body.metadata.name');
             const status = hoek.reach(resp, 'body.status.phase').toLowerCase();
+            const waitingReason = hoek.reach(resp, 'body.status.containerStatuses.0.state.waiting.reason');
 
             logger.info(`BuildId:${buildId}, status:${status}, podName:${responsePodName}`);
 
             if (status === 'failed' || status === 'unknown') {
                 throw new Error(`Failed to create pod. Pod status is: ${status}`);
+            }
+
+            if (['ErrImagePull', 'ImagePullBackOff', 'InvalidImageName'].includes(waitingReason)) {
+                logger.error(
+                    `Build ${buildId} pod ${responsePodName} has image pull error: ${waitingReason}. Failing immediately.`
+                );
+                throw new Error('Build failed to start. Please check if your image is valid.');
+            }
+
+            if (
+                ['CrashLoopBackOff', 'CreateContainerConfigError', 'CreateContainerError', 'StartError'].includes(
+                    waitingReason
+                )
+            ) {
+                logger.error(
+                    `Build ${buildId} pod ${responsePodName} has container error: ${waitingReason}. Failing immediately.`
+                );
+                throw new Error('Build failed to start. Please reach out to your cluster admin for help.');
             }
 
             return { isPending: status === 'pending', nodeName };
@@ -769,17 +788,19 @@ class K8sExecutor extends Executor {
      * @returns {Object} the failure message
      */
     async _verify(config) {
-        const { buildId } = config;
+        const { buildId, token } = config;
         const pods = await this.getPods(buildId);
 
         logger.info(`Fetched pod list for: ${buildId}, count: ${pods.length}`);
 
         let message = '';
         let waitingReason;
+        let nodeName;
 
         pods.forEach(p => {
             const status = (hoek.reach(p, 'status.phase') || '').toLowerCase();
 
+            nodeName = hoek.reach(p, 'spec.nodeName');
             waitingReason = hoek.reach(p, CONTAINER_WAITING_REASON_PATH);
 
             // Check for immediate failure statuses
@@ -800,33 +821,41 @@ class K8sExecutor extends Executor {
                 message = 'Build failed to start. Please check if your image is valid.';
             }
 
-            // If pod is still pending when verify is called after timeout:
-            // - PodInitializing = legitimate wait (large image pull, slow start) - allow to continue
-            // - No waitingReason = likely resource/scheduling issue - fail immediately
-            // - Other reasons already handled above
-            //
-            // Rationale for PodInitializing:
-            // Image pulls can take 15+ minutes for large images. We can't set a fixed timeout
-            // that works for all cases. Instead, trust K8s to handle actual failures:
-            // - If image doesn't exist, K8s will change status to ImagePullBackOff
-            // - If image pull succeeds, pod will start and launcher will report
-            // - K8s has its own backoff mechanisms for real failures
+            // check if pod is still not ready
             if (status === 'pending' && !message) {
-                if (waitingReason === 'PodInitializing') {
+                if (!nodeName) {
+                    // Pod not scheduled yet - K8s hasn't assigned a node
                     logger.info(
-                        `Pod is still initializing for buildId: ${buildId}. ` +
+                        `Pod waiting to be scheduled for buildId: ${buildId}. node not assigned yet. Will retry.`
+                    );
+                    message = 'waiting';
+                } else {
+                    // Pod is still initializing and started image pull
+                    logger.info(
+                        `Pod is still initializing for buildId: ${buildId} on node ${nodeName}. ` +
                             `Allowing more time for image pull and container start.`
                     );
-                    // Return empty - don't fail the build, let K8s handle the pod lifecycle
-                } else {
-                    // Pod is pending without PodInitializing status - likely scheduling or resource issues
-                    // These typically don't resolve themselves, so fail after timeout
-                    message =
-                        'Build failed to start. Pod initialization timeout - resources may be unavailable or configuration may be invalid.';
-                    logger.error(`Build ${buildId} timed out in pending state without PodInitializing status`);
+                    message = 'initializing';
                 }
             }
         });
+
+        if (nodeName && !message) {
+            try {
+                await this.updateBuild({
+                    apiUri: this.ecosystem.api,
+                    buildId,
+                    token,
+                    stats: {
+                        hostname: nodeName,
+                        imagePullStartTime: new Date().toISOString()
+                    }
+                });
+                logger.info(`Build ${buildId} updated with hostname ${nodeName} during verify`);
+            } catch (err) {
+                logger.warn(`Failed to update build ${buildId} with hostname during verify: ${err.message}`);
+            }
+        }
 
         logger.info(`BuildId: ${buildId}, verification result: ${message || 'Pod is running successfully'}`);
 

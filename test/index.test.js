@@ -1263,7 +1263,7 @@ describe('index', function () {
             assert.equal(expectedMessage, actualMessage);
         });
 
-        it('returns timeout error message when pod is still pending during verify', async () => {
+        it('returns "initializing" when pod is pending with PodInitializing and has nodeName', async () => {
             const pod = {
                 status: {
                     phase: 'pending',
@@ -1277,11 +1277,13 @@ describe('index', function () {
                             }
                         }
                     ]
+                },
+                spec: {
+                    nodeName: 'node1.my.k8s.cluster.com'
                 }
             };
-            // When verify is called and pod is still pending, it means timeout occurred
-            const expectedMessage =
-                'Build failed to start. Pod initialization timeout - resources may be unavailable or configuration may be invalid.';
+            // Pod has nodeName and is initializing
+            const expectedMessage = 'initializing';
 
             fakeGetPodsResponse.body.items.push(pod);
             requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
@@ -1360,8 +1362,8 @@ describe('index', function () {
             assert.equal('', actualMessage);
         });
 
-        it('returns timeout message when pod pending without container status', async () => {
-            // Pod is pending but no containerStatuses - likely scheduling/resource issues
+        it('returns "waiting" when pod pending without container status and no nodeName', async () => {
+            // Pod is pending but no containerStatuses and no nodeName - scheduling issue
             const pod = {
                 status: {
                     phase: 'pending'
@@ -1375,16 +1377,14 @@ describe('index', function () {
             fakeGetPodsResponse.body.items = [pod];
             requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
 
-            const expectedMessage =
-                'Build failed to start. Pod initialization timeout - resources may be unavailable or configuration may be invalid.';
+            const expectedMessage = 'waiting';
             const actualMessage = await executor.verify(fakeVerifyConfig);
 
             assert.equal(expectedMessage, actualMessage);
         });
 
-        it('returns empty string when pod is pending with PodInitializing', async () => {
-            // Pod is pending with PodInitializing - legitimate wait (image pull, etc.)
-            // Allow to continue, don't fail the build
+        it('returns "waiting" when pod is pending with PodInitializing but no nodeName', async () => {
+            // Pod is pending with PodInitializing but no nodeName - not scheduled yet
             const pod = {
                 status: {
                     phase: 'pending',
@@ -1398,6 +1398,9 @@ describe('index', function () {
                         }
                     ]
                 },
+                spec: {
+                    // No nodeName
+                },
                 metadata: {
                     name: 'beta_15-achb'
                 }
@@ -1408,7 +1411,7 @@ describe('index', function () {
 
             const actualMessage = await executor.verify(fakeVerifyConfig);
 
-            assert.equal('', actualMessage);
+            assert.equal('waiting', actualMessage);
         });
 
         it('returns empty string when pod is running or succeeded', async () => {
@@ -1428,6 +1431,250 @@ describe('index', function () {
             const actualMessage = await executor.verify(fakeVerifyConfig);
 
             assert.equal('', actualMessage);
+        });
+
+        it('returns "waiting" when pod is pending without nodeName (not scheduled)', async () => {
+            // Pod not scheduled yet - no nodeName assigned
+            const pod = {
+                status: {
+                    phase: 'pending'
+                },
+                spec: {
+                    // No nodeName - pod not scheduled
+                },
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal('waiting', actualMessage);
+        });
+
+        it('returns "initializing" when pod is pending with nodeName assigned', async () => {
+            // Pod scheduled to node (has nodeName) but still pending
+            // This is initializing phase (pulling image, starting containers)
+            const pod = {
+                status: {
+                    phase: 'pending'
+                },
+                spec: {
+                    nodeName: 'node1.my.k8s.cluster.com'
+                },
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal('initializing', actualMessage);
+        });
+
+        it('returns "initializing" when pod is pending with nodeName even without containerStatuses', async () => {
+            // Pod has nodeName but no containerStatuses yet
+            // Still in initializing phase
+            const pod = {
+                status: {
+                    phase: 'pending'
+                    // No containerStatuses
+                },
+                spec: {
+                    nodeName: 'node1.my.k8s.cluster.com'
+                },
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal('initializing', actualMessage);
+        });
+
+        it('returns "waiting" when multiple pods exist and first one has no nodeName', async () => {
+            // Multiple pods, first one not scheduled
+            const pod1 = {
+                status: {
+                    phase: 'pending'
+                },
+                spec: {
+                    // No nodeName
+                },
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            const pod2 = {
+                status: {
+                    phase: 'running'
+                },
+                spec: {
+                    nodeName: 'node1.my.k8s.cluster.com'
+                },
+                metadata: {
+                    name: 'beta_15-def'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod1, pod2];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            // Should return 'waiting' from first pod (not scheduled)
+            assert.equal('waiting', actualMessage);
+        });
+
+        it('prioritizes error messages over "waiting" or "initializing" status', async () => {
+            // Pod with nodeName but ImagePullBackOff - should return error, not "initializing"
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'ImagePullBackOff',
+                                    message: 'Back-off pulling image'
+                                }
+                            }
+                        }
+                    ]
+                },
+                spec: {
+                    nodeName: 'node1.my.k8s.cluster.com'
+                },
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            // Should return error message, not "initializing"
+            assert.equal('Build failed to start. Please check if your image is valid.', actualMessage);
+        });
+
+        it('returns "waiting" when pod has no nodeName and no containerStatuses', async () => {
+            // Pod pending without nodeName or containerStatuses
+            // This is a scheduling issue
+            const pod = {
+                status: {
+                    phase: 'pending'
+                },
+                spec: {},
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal('waiting', actualMessage);
+        });
+
+        it('returns empty string when pod phase is running', async () => {
+            // Pod successfully running - return empty string (success)
+            const pod = {
+                status: {
+                    phase: 'running'
+                },
+                spec: {
+                    nodeName: 'node1.my.k8s.cluster.com'
+                },
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal('', actualMessage);
+        });
+
+        it('returns "initializing" for pod with nodeName and PodInitializing waiting reason', async () => {
+            // Pod scheduled with PodInitializing reason
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'PodInitializing',
+                                    message: 'pod is initializing'
+                                }
+                            }
+                        }
+                    ]
+                },
+                spec: {
+                    nodeName: 'node1.my.k8s.cluster.com'
+                },
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal('initializing', actualMessage);
+        });
+
+        it('returns "initializing" for pod with nodeName and ContainerCreating waiting reason', async () => {
+            // Pod scheduled with ContainerCreating reason
+            const pod = {
+                status: {
+                    phase: 'pending',
+                    containerStatuses: [
+                        {
+                            state: {
+                                waiting: {
+                                    reason: 'ContainerCreating',
+                                    message: 'container is being created'
+                                }
+                            }
+                        }
+                    ]
+                },
+                spec: {
+                    nodeName: 'node1.my.k8s.cluster.com'
+                },
+                metadata: {
+                    name: 'beta_15-achb'
+                }
+            };
+
+            fakeGetPodsResponse.body.items = [pod];
+            requestRetryMock.withArgs(getPodsConfig).resolves(fakeGetPodsResponse);
+
+            const actualMessage = await executor.verify(fakeVerifyConfig);
+
+            assert.equal('initializing', actualMessage);
         });
     });
 });
