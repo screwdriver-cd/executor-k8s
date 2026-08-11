@@ -4,6 +4,7 @@ const { assert } = require('chai');
 const sinon = require('sinon');
 const mockery = require('mockery');
 const yaml = require('js-yaml');
+const handlebars = require('handlebars');
 const rewire = require('rewire');
 const index = rewire('../index.js');
 const _ = require('lodash');
@@ -29,6 +30,8 @@ spec:
 command:
 - "/opt/sd/launch {{api_uri}} {{store_uri}} {{token}} {{build_timeout}} {{build_id}}"
 `;
+
+const loadTestTimYaml = () => yaml.load(handlebars.compile(TEST_TIM_YAML)({}));
 
 const SMALLEST_FLOAT64 = 2.2250738585072014e-308;
 
@@ -880,7 +883,7 @@ describe('index', function () {
 
         beforeEach(() => {
             nodeSelectors = null;
-            fakeConfig = yaml.load(TEST_TIM_YAML);
+            fakeConfig = loadTestTimYaml();
         });
 
         it('does nothing if nodeSelector is not set', () => {
@@ -910,7 +913,7 @@ describe('index', function () {
 
         beforeEach(() => {
             nodeSelectors = null;
-            fakeConfig = yaml.load(TEST_TIM_YAML);
+            fakeConfig = loadTestTimYaml();
         });
 
         it('does nothing if preferredNodeSelector is not set', () => {
@@ -952,7 +955,7 @@ describe('index', function () {
                     }
                 }
             };
-            fakeConfig = yaml.load(TEST_TIM_YAML);
+            fakeConfig = loadTestTimYaml();
         });
 
         it('does nothing if no build container is found', () => {
